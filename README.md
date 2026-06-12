@@ -16,6 +16,9 @@ Current milestone: visual MVP baseline with mock data.
 - Centralized mock data models and repository.
 - Translation JSON placeholders for IT, EN, DE, FR, ES, PT.
 - Android, iOS, and Web platform folders.
+- Live Open-Meteo weather card with safe timeout/fallback.
+- OpenStreetMap tile map through `flutter_map`.
+- Runtime localization wiring with `easy_localization`.
 - Passing `flutter analyze` and `flutter test`.
 - No real Firebase, RevenueCat, Drift, map, or weather integration yet.
 
@@ -31,7 +34,13 @@ flutter test
 flutter run
 ```
 
+## Open services connected
+
+- Weather: Open-Meteo Forecast API.
+- Maps: OpenStreetMap tiles via `flutter_map`.
+- Translations: local JSON assets loaded at runtime via `easy_localization`.
+
 ## Next milestone
 
-Run the mock UI on Android/iOS/Web, polish the visual experience, then wire
-runtime localization and connect real services one at a time.
+Run the UI on Android/iOS/Web, polish the live map/weather experience, then add
+local persistence with Drift/SQLite.

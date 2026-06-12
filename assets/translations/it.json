@@ -6,5 +6,11 @@
   "checklist_title": "Checklist",
   "journal_title": "Diario di viaggio",
   "profile_title": "Profilo",
-  "subscription_title": "CamperBoss Pro"
+  "subscription_title": "CamperBoss Pro",
+  "nav_home": "Home",
+  "nav_map": "Mappa",
+  "nav_trips": "Viaggi",
+  "nav_lists": "Liste",
+  "nav_journal": "Diario",
+  "nav_profile": "Profilo"
 }

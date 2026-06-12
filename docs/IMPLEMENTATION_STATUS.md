@@ -36,6 +36,10 @@ Visual MVP baseline with mock data.
   - `LoadingOverlay`
 - Mock data models and `MockCamperRepository` added.
 - Translation JSON placeholders added for IT, EN, DE, FR, ES, PT.
+- Runtime localization wired through `easy_localization`.
+- Open-Meteo live weather service added with timeout/fallback behavior.
+- OpenStreetMap live tile map added through `flutter_map`.
+- Android internet permission added for live services.
 - `flutter analyze` passes.
 - `flutter test` passes.
 
@@ -45,8 +49,8 @@ Visual MVP baseline with mock data.
 - Firestore
 - Drift/SQLite
 - RevenueCat
-- OpenStreetMap/flutter_map
-- Open-Meteo
+- Offline map cache implementation
+- Location permission/current GPS
 - Push notifications
 - Runtime localization wiring
 
@@ -64,7 +68,8 @@ flutter test
 
 ## Recommended next steps
 
-1. Polish the mock UI after seeing it on device or web.
-2. Wire runtime localization to the existing JSON files.
-3. Add mock repository interfaces before connecting real services.
-4. Connect real services one at a time: Drift, map, weather, auth, then payments.
+1. Polish the live UI after seeing it on device or web.
+2. Add Drift/SQLite for checklist and cached places.
+3. Add current GPS/location permission and route-aware weather.
+4. Connect auth/cloud sync.
+5. Add RevenueCat paywall entitlements.

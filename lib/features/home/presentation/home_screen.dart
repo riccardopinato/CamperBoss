@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/weather_service.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -12,7 +13,12 @@ import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/weather_summary_card.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    this.weatherService = const WeatherService(),
+    super.key,
+  });
+
+  final WeatherService weatherService;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +99,7 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const WeatherSummaryCard(),
+        WeatherSummaryCard(service: weatherService),
         const SizedBox(height: 24),
         const SectionHeader(title: 'Today'),
         const SizedBox(height: 12),
