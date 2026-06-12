@@ -1,33 +1,37 @@
 # CamperBoss
 
-CamperBoss e un sistema operativo mobile per camperisti: cockpit di partenza, diagnostica rapida, planner autonomia, diario service, budget, pet companion e diario di bordo.
+CamperBoss is a Flutter mobile app concept for camper, vanlife, and motorhome
+travelers.
 
-## Moduli MVP
+Current milestone: visual MVP baseline with mock data.
 
-- Cockpit: Boss Score, risorse critiche, checklist T-Minus e hack tecnici.
-- SOS Diagnostica: flussi guidati per gas, acqua, energia e cellula.
-- Planner: autonomia acqua, batteria, gas, carico utile, budget e pet.
-- Garage: diario service digitale per manutenzione e valore di rivendita.
-- Diario: tappe, costi, chilometri e memoria operativa del viaggio.
-- Profilo camper: dati mezzo persistenti per personalizzare calcoli e checklist.
-- Redesign Explorer: dark slate UI, accenti neon, icone Lucide, mini mappa visuale, SOS wizard a domande e card tecniche.
-- Bento UI: cockpit e planner organizzati in blocchi arrotondati, con colori pastello decisi e micro-interazioni elastiche via Reanimated.
-- Temi: modalita chiara, scura e automatica sincronizzata con il sistema, selezionabile dal Profilo.
+## What is included
 
-## Avvio
+- Material 3 dark premium theme.
+- Bottom navigation shell.
+- Mock screens for Home, Map, Trips, Checklist, Journal, Profile, and Pro.
+- Reusable UI widgets for cards, buttons, action tiles, section headers, weather
+  summary, place cards, trip cards, checklist items, empty states, loading
+  overlay, and badges.
+- Centralized mock data models and repository.
+- Translation JSON placeholders for IT, EN, DE, FR, ES, PT.
+- Android, iOS, and Web platform folders.
+- Passing `flutter analyze` and `flutter test`.
+- No real Firebase, RevenueCat, Drift, map, or weather integration yet.
+
+## Local commands
+
+Flutter is required on the machine PATH. In this Codex environment it was
+verified through `C:\Users\Riccardo\Documents\Codex\tools\flutter`.
 
 ```bash
-npm install
-npm run web
+flutter pub get
+flutter analyze
+flutter test
+flutter run
 ```
 
-Poi apri `http://localhost:19006`.
+## Next milestone
 
-## Verifica eseguita
-
-- `npm run typecheck`
-- Bundle Expo web completato su `http://localhost:19006`
-- `Invoke-WebRequest` su `http://localhost:19006` con risposta HTTP 200
-- Redesign verificato con bundle Metro pulito dopo installazione di `lucide-react-native`, `expo-linear-gradient`, `expo-blur` e `react-native-svg`.
-
-Nota: `npm audit` segnala vulnerabilita moderate nella catena Expo/xcode/uuid. Il fix automatico suggerito usa `--force` e installerebbe una versione Expo incompatibile, quindi va evitato finche Expo non rilascia un aggiornamento coerente con SDK 55.
+Run the mock UI on Android/iOS/Web, polish the visual experience, then wire
+runtime localization and connect real services one at a time.
