@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/place_card.dart';
 import '../../../shared/widgets/premium_card.dart';
+import '../../../shared/widgets/resource_bar.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
 
@@ -15,7 +16,7 @@ class MapScreen extends StatelessWidget {
 
     return ScreenScaffold(
       title: 'Smart map',
-      subtitle: 'Mocked camper places before real map integration.',
+      subtitle: 'Camper-friendly stops, service points, and route risks.',
       children: [
         PremiumCard(
           child: AspectRatio(
@@ -49,6 +50,31 @@ class MapScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
+        PremiumCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Search lake, city, service point...',
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const ResourceBar(
+                label: 'Offline cache: North Italy',
+                value: 0.64,
+                detail: '1,284 places ready without connection',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
         const SectionHeader(title: 'Filters'),
         const SizedBox(height: 12),
         Wrap(
@@ -59,6 +85,8 @@ class MapScreen extends StatelessWidget {
             FilterChip(label: Text('Dump'), selected: false, onSelected: null),
             FilterChip(label: Text('24h'), selected: true, onSelected: null),
             FilterChip(label: Text('Wi-Fi'), selected: false, onSelected: null),
+            FilterChip(label: Text('No height limit'), selected: true, onSelected: null),
+            FilterChip(label: Text('Pets'), selected: true, onSelected: null),
           ],
         ),
         const SizedBox(height: 24),

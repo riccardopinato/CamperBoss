@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../subscription/presentation/subscription_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
+import '../../../shared/widgets/metric_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/pro_badge.dart';
@@ -14,7 +15,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ScreenScaffold(
       title: 'Profile',
-      subtitle: 'Vehicle, subscription, achievements, and settings.',
+      subtitle: 'Vehicle profile, limits, subscription, and achievements.',
       children: [
         PremiumCard(
           child: Row(
@@ -33,6 +34,41 @@ class ProfileScreen extends StatelessWidget {
               const ProBadge(label: 'FREE'),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: 2,
+          childAspectRatio: 1.25,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: const [
+            MetricTile(
+              icon: Icons.height_outlined,
+              label: 'Height',
+              value: '3.05 m',
+              detail: 'Used for bridge filters',
+            ),
+            MetricTile(
+              icon: Icons.monitor_weight_outlined,
+              label: 'Weight',
+              value: '3.5 t',
+              detail: 'Payload alerts enabled',
+            ),
+            MetricTile(
+              icon: Icons.water_drop_outlined,
+              label: 'Water tank',
+              value: '120 L',
+              detail: 'Autonomy model ready',
+            ),
+            MetricTile(
+              icon: Icons.bolt_outlined,
+              label: 'Power',
+              value: '220 Ah',
+              detail: 'Solar + battery setup',
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         const ActionTile(

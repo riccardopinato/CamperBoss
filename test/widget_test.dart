@@ -6,8 +6,8 @@ void main() {
   testWidgets('CamperBoss opens the home dashboard', (tester) async {
     await tester.pumpWidget(const CamperBossApp());
 
-    expect(find.text('Ready for the next stop?'), findsOneWidget);
-    expect(find.text('Quiet lakeside camper area'), findsOneWidget);
-    expect(find.text('Plan a weekend route'), findsOneWidget);
+    expect(find.text('Camper cockpit'), findsOneWidget);
+    expect(find.text('Boss Score'), findsOneWidget);
+    expect(find.text('Fresh water'), findsOneWidget);
   });
 }
