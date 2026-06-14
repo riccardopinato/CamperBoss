@@ -2,196 +2,99 @@
 
 ## Regole
 
-- Puo esistere un solo step `CURRENT`.
+- Deve esistere un solo step `CURRENT`.
 - Codex deve operare esclusivamente sullo step `CURRENT`.
 - Gli step futuri devono rimanere sintetici.
-- Quando uno step diventa `CURRENT`, completa soltanto per quello:
-  - obiettivo;
-  - scope consentito;
-  - dipendenze dirette consentite;
-  - criteri di completamento;
-  - test mirati.
-- Il comando `Prossimo step.` esegue esclusivamente lo step `CURRENT`.
-- Se non esiste uno step `CURRENT` ma esistono step `TODO`, promuovi a `CURRENT` quello con priorita piu alta ed eseguilo.
-- Se non esistono step `CURRENT` o `TODO`, comunica che la roadmap corrente e completata e non modificare codice.
 - Al termine corretto, aggiorna lo stato da `CURRENT` a `DONE`.
-- Inserisci commit e risultato in massimo tre righe.
+- Registra risultato, test e commit in massimo tre righe.
 - Promuovi automaticamente il primo step successivo `TODO` a `CURRENT`, ma non implementarlo nello stesso task.
-- Se lo step non puo essere completato, impostalo `BLOCKED`, annota il motivo, non promuovere altri step e chiedi come procedere.
-- Aggiorna le sezioni esistenti in-place: non aggiungere copie o cronologie estese.
+- Se lo step non puo essere completato, impostalo `BLOCKED`, annota il motivo e non promuovere altri step.
 
 Stati: `CURRENT`, `TODO`, `DONE`, `BLOCKED`.
 
-## STEP 1 — Località, GPS, meteo e mappa realmente usabili
+## Storico completato
 
-Stato: `DONE`
+- Localita, GPS, meteo e mappa realmente usabili: `DONE`.
+- Fondazione della persistenza locale condivisa: `DONE`.
+- Checklist persistente e modificabile: `DONE`.
+- Planner viaggio editabile: `DONE`.
+- Journal usabile: `DONE`.
 
-Obiettivo sintetico:
-
-- ricerca manuale di una località;
-- selezione del risultato;
-- coordinate condivise;
-- ricentramento della mappa;
-- aggiornamento del meteo sulla località selezionata;
-- pulsante "usa la mia posizione";
-- gestione dei permessi GPS;
-- fallback manuale quando il GPS non è disponibile.
-
-Scope consentito:
-
-- `lib/core/services/`: solo località, geocoding, GPS e meteo;
-- `lib/core/state/`: solo stato di località, posizione e meteo;
-- `lib/features/map/`;
-- `lib/features/home/`: soltanto file direttamente coinvolti con località e meteo;
-- `lib/shared/widgets/`: soltanto widget direttamente necessari.
-
-Dipendenze dirette consentite:
-
-- servizi esistenti di geocoding/meteo;
-- stato condiviso della località;
-- widget meteo e mappa direttamente coinvolti;
-- configurazioni strettamente necessarie per permessi GPS e rete.
-
-Criteri di completamento:
-
-- l'utente può cercare una località manualmente;
-- l'utente può selezionare un risultato;
-- la mappa si ricentra sulle coordinate selezionate;
-- il meteo usa la località selezionata;
-- è disponibile un comando "usa la mia posizione";
-- se il GPS non è disponibile, resta possibile usare la ricerca manuale;
-- nessun file fuori scope viene modificato senza autorizzazione.
-
-Test mirati:
-
-- `flutter analyze` sui file dello step;
-- test widget o unit pertinenti alla selezione località/meteo;
-- eventuale build mirata solo se necessaria per permessi o piattaforma.
-
-File già noti:
-
-- `lib/core/services/geocoding_service.dart`;
-- `lib/core/services/weather_service.dart`;
-- `lib/core/state/selected_location.dart`;
-- `lib/features/map/presentation/map_screen.dart`;
-- `lib/features/home/presentation/home_screen.dart`;
-- `lib/shared/widgets/weather_summary_card.dart`;
-- `test/widget_test.dart`.
-
-Esito:
-
-- Risultato: ricerca località, GPS con fallback manuale, mappa e meteo collegati.
-- Test: `flutter analyze` mirato; `flutter test test/widget_test.dart --timeout=30s`.
-- Commit: `Complete location map and weather step`.
-
-## STEP 2 — Fondazione della persistenza locale condivisa
-
-Stato: `DONE`
-
-Obiettivo sintetico:
-
-- consolidare la persistenza locale esistente;
-- predisporre modelli, tabelle e repository per checklist, trip e journal;
-- gestire eventuali migrazioni;
-- evitare modifiche alle UI delle tre feature in questo step.
-
-Scope iniziale:
-
-- `lib/data/database/`;
-- modelli relativi a checklist, trip e journal;
-- repository relativi a checklist, trip e journal;
-- provider o servizi database direttamente necessari.
-
-Esito:
-
-- Risultato: creati database locale, schema v1, modelli serializzabili e repository CRUD per checklist, trip e journal.
-- Test: `flutter analyze` mirato; `flutter test test/data_models_test.dart --timeout=30s`.
-- Commit: `Add local persistence foundation`.
-
-## STEP 3 — Checklist persistente e modificabile
-
-Stato: `DONE`
-
-Obiettivo sintetico:
-
-- checkbox reali;
-- aggiunta degli elementi;
-- modifica ed eliminazione;
-- categorie;
-- salvataggio locale;
-- ripristino dei dati alla riapertura.
-
-Scope iniziale:
-
-- `lib/features/checklist/`;
-- soltanto file checklist necessari dentro `lib/data/`;
-- soltanto stato/provider checklist necessario;
-- widget condivisi indispensabili.
-
-Esito:
-
-- Risultato: checklist caricata/salvata localmente con toggle, aggiunta, modifica, eliminazione e categorie.
-- Test: `flutter analyze` mirato; `flutter test test/checklist_screen_test.dart --timeout=30s`.
-- Commit: `Make checklist persistent and editable`.
-
-## STEP 4 — Planner viaggio editabile
-
-Stato: `DONE`
-
-Obiettivo sintetico:
-
-- creazione e modifica dei viaggi;
-- tappe;
-- date;
-- soste;
-- costi;
-- note;
-- salvataggio locale;
-- ripristino dei viaggi salvati.
-
-Scope iniziale:
-
-- `lib/features/trip/`;
-- soltanto file trip necessari dentro `lib/data/`;
-- soltanto stato/provider trip necessario;
-- widget condivisi indispensabili.
-
-Esito:
-
-- Risultato: planner viaggio salvato localmente con creazione, modifica, eliminazione, tappe, date, soste, costi e note.
-- Test: `flutter analyze` mirato; `flutter test test/trip_planner_screen_test.dart test/data_models_test.dart --timeout=30s`.
-- Commit: `Make trip planner persistent and editable`.
-
-## STEP 5 — Journal usabile
+## STEP 1 — Persistenza reale: Viaggi, Liste e Diario
 
 Stato: `CURRENT`
 
-Obiettivo sintetico:
+Correggere CRUD e persistenza locale di:
 
-- creazione e modifica delle note di viaggio;
-- data;
-- luogo associato;
-- chilometri;
-- costi;
-- cronologia;
-- salvataggio locale;
-- ripristino delle note.
+- Viaggi: titolo, destinazione, date, tappe, costi e note.
+- Liste: liste, categorie, elementi e checkbox.
+- Diario: titolo, testo, data, luogo, km e costi.
 
-Scope iniziale:
+Requisiti:
 
-- `lib/features/journal/`;
-- soltanto file journal necessari dentro `lib/data/`;
-- soltanto stato/provider journal necessario;
-- widget condivisi indispensabili.
+- creare, leggere, modificare ed eliminare;
+- aggiornare subito la UI;
+- mantenere i dati dopo cambio schermata, refresh web e riavvio mobile;
+- funzionare offline e senza autenticazione;
+- correggere `Trip planner unavailable` e gli stati vuoti errati;
+- non usare dati dei viaggi per mostrare il diario;
+- usare database/repository/provider condivisi e compatibili web/mobile;
+- aggiungere test CRUD e persistenza mirati.
 
-## Aggiornamento futuro della roadmap
+## STEP 2 — Mappa, filtri, POI e cache
 
-Dopo ogni implementazione Codex deve:
+Stato: `TODO`
 
-1. aggiornare lo stato dello step completato;
-2. registrare in massimo tre righe risultato, test e commit;
-3. non inserire diff, spiegazioni lunghe o liste complete di file;
-4. non modificare il contenuto degli step futuri salvo necessità concreta;
-5. promuovere automaticamente il primo step successivo `TODO` a `CURRENT`;
-6. non implementare lo step appena promosso nello stesso task;
-7. attendere il comando dell'utente.
+- Rendere selezionabili e funzionanti i filtri: sosta, camping, parcheggio, acqua, scarico, GPL e assistenza.
+- Aggiornare realmente marker e stato dei filtri.
+- Mostrare per ogni POI, quando disponibili: nome, categoria, indirizzo, comune, coordinate, distanza, servizi, fonte e indicazioni stradali.
+- Verificare `Offline cache: North Italy`.
+- Se non funziona, rimuoverla.
+- Se salva solo POI, rinominarla `Cache POI offline` e mostrare regione, elementi, dimensione, aggiornamento, elimina e refresh.
+- Non scaricare massivamente tile dai server standard OpenStreetMap.
+
+## STEP 3 — Il mio mezzo
+
+Stato: `TODO`
+
+Creare un profilo mezzo persistente con:
+
+- tipologia, marca, modello, anno e targa facoltativa;
+- lunghezza, larghezza, altezza, peso e massa massima;
+- posti, alimentazione e chilometraggio;
+- capacita carburante, acque e gas;
+- autonomia elettrica e note.
+
+Supportare creazione, modifica, validazione, salvataggio locale e ripristino.
+
+## STEP 4 — Documenti del mio mezzo
+
+Stato: `TODO`
+
+Creare archivio locale e privato per libretto, assicurazione, revisione, tagliando, bollo, impianto gas, manuali, fatture e altro.
+
+Supportare:
+
+- foto, selezione immagini/PDF e scansione quando disponibile;
+- documenti multipagina;
+- anteprima, categoria, nome, date, scadenza e note;
+- modifica, eliminazione, ordinamento e ricerca;
+- file nell'area privata dell'app e soli metadati nel database;
+- comportamento compatibile con mobile e web;
+- nessun upload cloud automatico.
+
+## STEP 5 — Manutenzione del mezzo
+
+Stato: `TODO`
+
+Creare storico persistente per olio, filtri, revisione, tagliando, gas, estintore, pneumatici, batterie, distribuzione, AdBlue, infiltrazioni e voci personalizzate.
+
+Ogni intervento deve gestire:
+
+- data, km, costo, esecutore, note e allegati;
+- intervallo temporale o chilometrico;
+- prossima scadenza;
+- stato regolare, in scadenza o scaduto;
+- modifica, eliminazione e cronologia.
+
+Predisporre soltanto l'architettura per future notifiche.
