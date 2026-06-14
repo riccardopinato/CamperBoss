@@ -3,7 +3,13 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../models/trip_plan.dart';
 
-class LocalTripRepository {
+abstract interface class TripRepository {
+  Future<List<TripPlan>> listTrips();
+  Future<TripPlan> saveTrip(TripPlan trip);
+  Future<void> deleteTrip(int id);
+}
+
+class LocalTripRepository implements TripRepository {
   LocalTripRepository({AppDatabase? database})
       : _database = database ?? AppDatabase.instance;
 

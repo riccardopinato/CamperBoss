@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 1;
+  static const databaseVersion = 2;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -52,6 +52,9 @@ CREATE TABLE $tripsTable (
   start_date TEXT,
   end_date TEXT,
   notes TEXT,
+  stages TEXT NOT NULL DEFAULT '[]',
+  overnight_stop TEXT,
+  estimated_cost REAL,
   updated_at TEXT NOT NULL
 )
 ''');
@@ -74,8 +77,16 @@ CREATE TABLE $journalTable (
     int oldVersion,
     int newVersion,
   ) async {
-    if (oldVersion < 1) {
-      await _createSchema(db, newVersion);
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE $tripsTable ADD COLUMN stages TEXT NOT NULL DEFAULT '[]'",
+      );
+      await db.execute(
+        'ALTER TABLE $tripsTable ADD COLUMN overnight_stop TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE $tripsTable ADD COLUMN estimated_cost REAL',
+      );
     }
   }
 }

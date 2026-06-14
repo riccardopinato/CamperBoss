@@ -136,7 +136,7 @@ Esito:
 
 ## STEP 4 — Planner viaggio editabile
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Obiettivo sintetico:
 
@@ -156,9 +156,15 @@ Scope iniziale:
 - soltanto stato/provider trip necessario;
 - widget condivisi indispensabili.
 
+Esito:
+
+- Risultato: planner viaggio salvato localmente con creazione, modifica, eliminazione, tappe, date, soste, costi e note.
+- Test: `flutter analyze` mirato; `flutter test test/trip_planner_screen_test.dart test/data_models_test.dart --timeout=30s`.
+- Commit: `Make trip planner persistent and editable`.
+
 ## STEP 5 — Journal usabile
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Obiettivo sintetico:
 
