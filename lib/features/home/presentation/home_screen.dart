@@ -99,7 +99,7 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        WeatherSummaryCard(service: weatherService),
+        SelectedLocationWeatherCard(service: weatherService),
         const SizedBox(height: 24),
         const SectionHeader(title: 'Today'),
         const SizedBox(height: 12),

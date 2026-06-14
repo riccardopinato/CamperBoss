@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_spacing.dart';
+import '../../core/services/geocoding_service.dart';
 import '../../core/services/weather_service.dart';
+import '../../core/state/selected_location.dart';
 import '../../core/theme/app_colors.dart';
 import 'premium_card.dart';
 
@@ -75,6 +77,48 @@ class WeatherSummaryCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class SelectedLocationWeatherCard extends StatelessWidget {
+  const SelectedLocationWeatherCard({
+    this.service = const WeatherService(),
+    super.key,
+  });
+
+  final WeatherService service;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GeoLocationResult>(
+      valueListenable: selectedLocationController,
+      builder: (context, location, _) {
+        return WeatherSummaryCard(
+          key: ValueKey('${location.latitude},${location.longitude}'),
+          service: _LocationWeatherService(service, location),
+        );
+      },
+    );
+  }
+}
+
+class _LocationWeatherService extends WeatherService {
+  const _LocationWeatherService(this._delegate, this._location);
+
+  final WeatherService _delegate;
+  final GeoLocationResult _location;
+
+  @override
+  Future<WeatherSnapshot> fetchCurrent({
+    double latitude = 45.6049,
+    double longitude = 10.6351,
+    String location = 'Lake Garda basecamp',
+  }) {
+    return _delegate.fetchCurrent(
+      latitude: _location.latitude,
+      longitude: _location.longitude,
+      location: _location.label,
     );
   }
 }
