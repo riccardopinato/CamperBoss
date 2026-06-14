@@ -11,9 +11,13 @@
   - dipendenze dirette consentite;
   - criteri di completamento;
   - test mirati.
-- Al termine, aggiorna lo stato da `CURRENT` a `DONE`.
+- Il comando `Prossimo step.` esegue esclusivamente lo step `CURRENT`.
+- Se non esiste uno step `CURRENT` ma esistono step `TODO`, promuovi a `CURRENT` quello con priorita piu alta ed eseguilo.
+- Se non esistono step `CURRENT` o `TODO`, comunica che la roadmap corrente e completata e non modificare codice.
+- Al termine corretto, aggiorna lo stato da `CURRENT` a `DONE`.
 - Inserisci commit e risultato in massimo tre righe.
-- Promuovi lo step successivo a `CURRENT` solo su richiesta dell'utente.
+- Promuovi automaticamente il primo step successivo `TODO` a `CURRENT`, ma non implementarlo nello stesso task.
+- Se lo step non puo essere completato, impostalo `BLOCKED`, annota il motivo, non promuovere altri step e chiedi come procedere.
 - Aggiorna le sezioni esistenti in-place: non aggiungere copie o cronologie estese.
 
 Stati: `CURRENT`, `TODO`, `DONE`, `BLOCKED`.
@@ -164,5 +168,6 @@ Dopo ogni implementazione Codex deve:
 2. registrare in massimo tre righe risultato, test e commit;
 3. non inserire diff, spiegazioni lunghe o liste complete di file;
 4. non modificare il contenuto degli step futuri salvo necessità concreta;
-5. non promuovere automaticamente lo step successivo a `CURRENT`;
-6. attendere il comando dell'utente.
+5. promuovere automaticamente il primo step successivo `TODO` a `CURRENT`;
+6. non implementare lo step appena promosso nello stesso task;
+7. attendere il comando dell'utente.
