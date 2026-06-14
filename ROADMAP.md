@@ -86,7 +86,7 @@ Esito:
 
 ## STEP 2 — Fondazione della persistenza locale condivisa
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Obiettivo sintetico:
 
@@ -102,9 +102,15 @@ Scope iniziale:
 - repository relativi a checklist, trip e journal;
 - provider o servizi database direttamente necessari.
 
+Esito:
+
+- Risultato: creati database locale, schema v1, modelli serializzabili e repository CRUD per checklist, trip e journal.
+- Test: `flutter analyze` mirato; `flutter test test/data_models_test.dart --timeout=30s`.
+- Commit: `Add local persistence foundation`.
+
 ## STEP 3 — Checklist persistente e modificabile
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Obiettivo sintetico:
 
