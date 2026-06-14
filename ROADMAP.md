@@ -24,7 +24,7 @@ Stati: `CURRENT`, `TODO`, `DONE`, `BLOCKED`.
 
 ## STEP 1 — Località, GPS, meteo e mappa realmente usabili
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Obiettivo sintetico:
 
@@ -78,9 +78,15 @@ File già noti:
 - `lib/shared/widgets/weather_summary_card.dart`;
 - `test/widget_test.dart`.
 
+Esito:
+
+- Risultato: ricerca località, GPS con fallback manuale, mappa e meteo collegati.
+- Test: `flutter analyze` mirato; `flutter test test/widget_test.dart --timeout=30s`.
+- Commit: `Complete location map and weather step`.
+
 ## STEP 2 — Fondazione della persistenza locale condivisa
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Obiettivo sintetico:
 

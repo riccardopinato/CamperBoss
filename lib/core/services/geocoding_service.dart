@@ -19,8 +19,11 @@ class GeoLocationResult {
   final String? admin1;
 
   String get label {
-    final area =
-        admin1 == null || admin1!.isEmpty ? country : '$admin1, $country';
+    final area = [
+      if (admin1 != null && admin1!.isNotEmpty) admin1,
+      if (country.isNotEmpty) country,
+    ].join(', ');
+    if (area.isEmpty) return name;
     return '$name - $area';
   }
 }

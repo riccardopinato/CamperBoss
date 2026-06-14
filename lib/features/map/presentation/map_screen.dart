@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/services/geocoding_service.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/state/selected_location.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
@@ -25,9 +26,11 @@ class _MapScreenState extends State<MapScreen> {
   final _mapController = MapController();
   final _searchController = TextEditingController();
   final _geocodingService = const GeocodingService();
+  final _locationService = const LocationService();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
   bool _isSearching = false;
+  bool _isLocating = false;
   String? _error;
 
   @override
@@ -83,6 +86,26 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _results = const []);
   }
 
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _isLocating = true;
+      _error = null;
+    });
+
+    try {
+      final location = await _locationService.currentLocation();
+      if (!mounted) return;
+      _selectLocation(location);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final places = MockCamperRepository.places.skip(1);
@@ -136,6 +159,20 @@ class _MapScreenState extends State<MapScreen> {
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _isLocating ? null : _useCurrentLocation,
+                    icon: _isLocating
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location),
+                    label: Text(
+                      _isLocating ? 'Locating...' : 'Use my location',
                     ),
                   ),
                   if (_error != null) ...[
