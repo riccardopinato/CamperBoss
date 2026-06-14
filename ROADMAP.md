@@ -67,7 +67,7 @@ Esito:
 
 ## STEP 3 — Il mio mezzo
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Creare un profilo mezzo persistente con:
 
@@ -79,9 +79,15 @@ Creare un profilo mezzo persistente con:
 
 Supportare creazione, modifica, validazione, salvataggio locale e ripristino.
 
+Esito:
+
+- Risultato: profilo mezzo persistente locale con CRUD, validazione e schermata profilo usabile.
+- Test: `flutter analyze`; `flutter test test/local_vehicle_profile_repository_test.dart test/profile_screen_test.dart test/data_models_test.dart --timeout=30s`.
+- Commit: `feat: add persistent vehicle profile`.
+
 ## STEP 4 — Documenti del mio mezzo
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Creare archivio locale e privato per libretto, assicurazione, revisione, tagliando, bollo, impianto gas, manuali, fatture e altro.
 

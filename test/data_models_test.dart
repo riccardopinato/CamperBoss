@@ -1,6 +1,7 @@
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
+import 'package:camperboss/data/models/vehicle_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -75,5 +76,45 @@ void main() {
     expect(restored.cost, 45);
     expect(restored.latitude, 45.6);
     expect(restored.longitude, 10.7);
+  });
+
+  test('vehicle profiles serialize size, tanks, and mileage fields', () {
+    final updatedAt = DateTime.utc(2026, 9, 1, 9);
+    final profile = VehicleProfile(
+      id: 8,
+      vehicleType: 'Motorhome',
+      brand: 'Fiat',
+      model: 'Ducato',
+      year: 2022,
+      plate: 'AB123CD',
+      length: 7.2,
+      width: 2.35,
+      height: 3.05,
+      weight: 3100,
+      maxMass: 3500,
+      seats: 4,
+      fuelType: 'Diesel',
+      mileage: 18400,
+      fuelCapacity: 90,
+      waterCapacity: 120,
+      gasCapacity: 11,
+      electricRange: 65,
+      notes: 'Keep payload margin for bikes.',
+      updatedAt: updatedAt,
+    );
+
+    final restored = VehicleProfile.fromMap(profile.toMap());
+
+    expect(restored.id, 8);
+    expect(restored.vehicleType, 'Motorhome');
+    expect(restored.brand, 'Fiat');
+    expect(restored.model, 'Ducato');
+    expect(restored.plate, 'AB123CD');
+    expect(restored.length, 7.2);
+    expect(restored.maxMass, 3500);
+    expect(restored.fuelType, 'Diesel');
+    expect(restored.fuelCapacity, 90);
+    expect(restored.notes, 'Keep payload margin for bikes.');
+    expect(restored.updatedAt, updatedAt);
   });
 }

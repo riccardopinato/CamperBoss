@@ -7,11 +7,12 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 4;
+  static const databaseVersion = 5;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
   static const journalTable = 'journal_entries';
+  static const vehicleProfilesTable = 'vehicle_profiles';
 
   Database? _database;
 
@@ -75,6 +76,31 @@ CREATE TABLE $journalTable (
   updated_at TEXT NOT NULL
 )
 ''');
+
+    await db.execute('''
+CREATE TABLE $vehicleProfilesTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vehicle_type TEXT NOT NULL,
+  brand TEXT NOT NULL,
+  model TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  plate TEXT,
+  length REAL NOT NULL,
+  width REAL NOT NULL,
+  height REAL NOT NULL,
+  weight REAL NOT NULL,
+  max_mass REAL NOT NULL,
+  seats INTEGER NOT NULL,
+  fuel_type TEXT NOT NULL,
+  mileage REAL NOT NULL,
+  fuel_capacity REAL,
+  water_capacity REAL,
+  gas_capacity REAL,
+  electric_range REAL,
+  notes TEXT,
+  updated_at TEXT NOT NULL
+)
+''');
   }
 
   Future<void> _migrateSchema(
@@ -103,6 +129,32 @@ CREATE TABLE $journalTable (
         "ALTER TABLE $checklistTable ADD COLUMN list_name TEXT NOT NULL DEFAULT 'Camper'",
       );
       await db.execute('ALTER TABLE $tripsTable ADD COLUMN destination TEXT');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS $vehicleProfilesTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vehicle_type TEXT NOT NULL,
+  brand TEXT NOT NULL,
+  model TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  plate TEXT,
+  length REAL NOT NULL,
+  width REAL NOT NULL,
+  height REAL NOT NULL,
+  weight REAL NOT NULL,
+  max_mass REAL NOT NULL,
+  seats INTEGER NOT NULL,
+  fuel_type TEXT NOT NULL,
+  mileage REAL NOT NULL,
+  fuel_capacity REAL,
+  water_capacity REAL,
+  gas_capacity REAL,
+  electric_range REAL,
+  notes TEXT,
+  updated_at TEXT NOT NULL
+)
+''');
     }
   }
 }
