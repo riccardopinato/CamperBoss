@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/local_json_collection.dart';
 import '../models/trip_plan.dart';
 
 abstract interface class TripRepository {
@@ -10,18 +12,36 @@ abstract interface class TripRepository {
 }
 
 class LocalTripRepository implements TripRepository {
-  LocalTripRepository({AppDatabase? database})
-      : _database = database ?? AppDatabase.instance;
+  LocalTripRepository({
+    AppDatabase? database,
+    LocalJsonCollection? webCollection,
+  })  : _database = database ?? AppDatabase.instance,
+        _webCollection =
+            webCollection ?? LocalJsonCollection('camperboss.trips');
 
   final AppDatabase _database;
+  final LocalJsonCollection _webCollection;
 
+  @override
   Future<List<TripPlan>> listTrips() async {
+    if (kIsWeb) {
+      final rows = await _webCollection.listRows();
+      return rows.map(TripPlan.fromMap).toList()..sort(_sortTrips);
+    }
+
     final db = await _database.database;
     final rows = await db.query(AppDatabase.tripsTable, orderBy: 'id DESC');
     return rows.map(TripPlan.fromMap).toList();
   }
 
+  @override
   Future<TripPlan> saveTrip(TripPlan trip) async {
+    if (kIsWeb) {
+      final values = trip.toMap();
+      final saved = await _webCollection.saveRow(values);
+      return TripPlan.fromMap(saved);
+    }
+
     final db = await _database.database;
     final values = trip.toMap()..remove('id');
 
@@ -46,8 +66,18 @@ class LocalTripRepository implements TripRepository {
     return id;
   }
 
+  @override
   Future<void> deleteTrip(int id) async {
+    if (kIsWeb) {
+      await _webCollection.deleteRow(id);
+      return;
+    }
+
     final db = await _database.database;
     await db.delete(AppDatabase.tripsTable, where: 'id = ?', whereArgs: [id]);
+  }
+
+  int _sortTrips(TripPlan a, TripPlan b) {
+    return (b.id ?? 0).compareTo(a.id ?? 0);
   }
 }

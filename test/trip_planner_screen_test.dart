@@ -39,6 +39,7 @@ void main() {
       const TripPlan(
         id: 1,
         title: 'Alps loop',
+        destination: 'Dolomites',
         summary: 'Three days',
         progress: 0.2,
         stages: ['Stage 1'],
@@ -54,24 +55,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Alps loop'), findsOneWidget);
+    expect(find.textContaining('Dolomites'), findsOneWidget);
     expect(find.text('EUR 120'), findsOneWidget);
 
     await tester.tap(find.text('Edit trip'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Updated Alps loop');
-    await tester.enterText(find.byType(TextField).at(2), 'Stage 1\nStage 2');
+    await tester.enterText(find.byType(TextField).at(1), 'Swiss Alps');
+    await tester.enterText(find.byType(TextField).at(3), 'Stage 1\nStage 2');
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
     expect(repository.trips.single.title, 'Updated Alps loop');
+    expect(repository.trips.single.destination, 'Swiss Alps');
     expect(repository.trips.single.stages, ['Stage 1', 'Stage 2']);
 
     await tester.tap(find.byTooltip('Add trip'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Coast weekend');
-    await tester.enterText(find.byType(TextField).at(1), 'Two nights');
-    await tester.enterText(find.byType(TextField).at(2), 'Beach stop');
+    await tester.enterText(find.byType(TextField).at(1), 'Liguria');
+    await tester.enterText(find.byType(TextField).at(2), 'Two nights');
+    await tester.enterText(find.byType(TextField).at(3), 'Beach stop');
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -79,6 +84,9 @@ void main() {
     expect(repository.trips.length, 2);
     expect(find.text('Coast weekend'), findsWidgets);
 
+    await tester.drag(find.byType(ListView), const Offset(0, -240));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Delete trip'));
     await tester.tap(find.byTooltip('Delete trip'));
     await tester.pumpAndSettle();
 

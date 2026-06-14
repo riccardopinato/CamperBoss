@@ -6,6 +6,7 @@ class TripPlan {
     required this.summary,
     required this.progress,
     this.id,
+    this.destination,
     this.startDate,
     this.endDate,
     this.stages = const [],
@@ -19,6 +20,7 @@ class TripPlan {
   final String title;
   final String summary;
   final double progress;
+  final String? destination;
   final DateTime? startDate;
   final DateTime? endDate;
   final List<String> stages;
@@ -32,6 +34,7 @@ class TripPlan {
     String? title,
     String? summary,
     double? progress,
+    String? destination,
     DateTime? startDate,
     DateTime? endDate,
     List<String>? stages,
@@ -45,6 +48,7 @@ class TripPlan {
       title: title ?? this.title,
       summary: summary ?? this.summary,
       progress: progress ?? this.progress,
+      destination: destination ?? this.destination,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       stages: stages ?? this.stages,
@@ -61,6 +65,7 @@ class TripPlan {
       'title': title,
       'summary': summary,
       'progress': progress,
+      'destination': destination,
       'start_date': startDate?.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
       'stages': jsonEncode(stages),
@@ -77,6 +82,7 @@ class TripPlan {
       title: map['title'] as String,
       summary: map['summary'] as String,
       progress: (map['progress'] as num).toDouble(),
+      destination: map['destination'] as String?,
       startDate: DateTime.tryParse(map['start_date'] as String? ?? ''),
       endDate: DateTime.tryParse(map['end_date'] as String? ?? ''),
       stages: _decodeStages(map['stages'] as String?),

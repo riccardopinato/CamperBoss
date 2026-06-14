@@ -1,15 +1,34 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/local_json_collection.dart';
 import '../models/journal_entry.dart';
 
-class LocalJournalRepository {
-  LocalJournalRepository({AppDatabase? database})
-      : _database = database ?? AppDatabase.instance;
+abstract interface class JournalRepository {
+  Future<List<JournalEntry>> listEntries();
+  Future<JournalEntry> saveEntry(JournalEntry entry);
+  Future<void> deleteEntry(int id);
+}
+
+class LocalJournalRepository implements JournalRepository {
+  LocalJournalRepository({
+    AppDatabase? database,
+    LocalJsonCollection? webCollection,
+  })  : _database = database ?? AppDatabase.instance,
+        _webCollection =
+            webCollection ?? LocalJsonCollection('camperboss.journal');
 
   final AppDatabase _database;
+  final LocalJsonCollection _webCollection;
 
+  @override
   Future<List<JournalEntry>> listEntries() async {
+    if (kIsWeb) {
+      final rows = await _webCollection.listRows();
+      return rows.map(JournalEntry.fromMap).toList()..sort(_sortEntries);
+    }
+
     final db = await _database.database;
     final rows = await db.query(
       AppDatabase.journalTable,
@@ -18,7 +37,14 @@ class LocalJournalRepository {
     return rows.map(JournalEntry.fromMap).toList();
   }
 
+  @override
   Future<JournalEntry> saveEntry(JournalEntry entry) async {
+    if (kIsWeb) {
+      final values = entry.toMap();
+      final saved = await _webCollection.saveRow(values);
+      return JournalEntry.fromMap(saved);
+    }
+
     final db = await _database.database;
     final values = entry.toMap()..remove('id');
 
@@ -43,8 +69,22 @@ class LocalJournalRepository {
     return id;
   }
 
+  @override
   Future<void> deleteEntry(int id) async {
+    if (kIsWeb) {
+      await _webCollection.deleteRow(id);
+      return;
+    }
+
     final db = await _database.database;
     await db.delete(AppDatabase.journalTable, where: 'id = ?', whereArgs: [id]);
+  }
+
+  int _sortEntries(JournalEntry a, JournalEntry b) {
+    final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final date = bDate.compareTo(aDate);
+    if (date != 0) return date;
+    return (b.id ?? 0).compareTo(a.id ?? 0);
   }
 }

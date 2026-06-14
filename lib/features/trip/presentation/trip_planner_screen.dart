@@ -71,6 +71,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   Future<List<TripPlan>> _seedTrips() async {
     final seeds = [
       MockCamperRepository.trips[0].copyWith(
+        destination: 'Dolomites',
         stages: const [
           'Stage 1: Verona to Molveno',
           'Overnight: lake area',
@@ -81,6 +82,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         notes: 'Check mountain roads and LPG before arrival.',
       ),
       MockCamperRepository.trips[1].copyWith(
+        destination: 'Lake Garda',
         stages: const ['Sirmione', 'Bardolino', 'Malcesine'],
         overnightStop: 'North shore aire',
         estimatedCost: 96,
@@ -198,7 +200,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           if (_trips.length > 1) const SizedBox(height: 16),
           TripCard(
             title: trip.title,
-            summary: trip.summary,
+            summary: [
+              if (trip.destination != null && trip.destination!.isNotEmpty)
+                trip.destination!,
+              trip.summary,
+            ].join(' - '),
             progress: progress,
           ),
           const SizedBox(height: 16),
@@ -340,6 +346,7 @@ class _TripEditor extends StatefulWidget {
 
 class _TripEditorState extends State<_TripEditor> {
   late final TextEditingController _titleController;
+  late final TextEditingController _destinationController;
   late final TextEditingController _summaryController;
   late final TextEditingController _stagesController;
   late final TextEditingController _overnightController;
@@ -353,6 +360,7 @@ class _TripEditorState extends State<_TripEditor> {
     super.initState();
     final trip = widget.trip;
     _titleController = TextEditingController(text: trip?.title ?? '');
+    _destinationController = TextEditingController(text: trip?.destination);
     _summaryController = TextEditingController(text: trip?.summary ?? '');
     _stagesController = TextEditingController(
       text: trip?.stages.join('\n') ?? '',
@@ -369,6 +377,7 @@ class _TripEditorState extends State<_TripEditor> {
   @override
   void dispose() {
     _titleController.dispose();
+    _destinationController.dispose();
     _summaryController.dispose();
     _stagesController.dispose();
     _overnightController.dispose();
@@ -397,6 +406,7 @@ class _TripEditorState extends State<_TripEditor> {
 
   void _save() {
     final title = _titleController.text.trim();
+    final destination = _destinationController.text.trim();
     final summary = _summaryController.text.trim();
     if (title.isEmpty || summary.isEmpty) return;
 
@@ -414,6 +424,7 @@ class _TripEditorState extends State<_TripEditor> {
       TripPlan(
         id: widget.trip?.id,
         title: title,
+        destination: destination.isEmpty ? null : destination,
         summary: summary,
         progress: progress,
         startDate: _startDate,
@@ -450,6 +461,11 @@ class _TripEditorState extends State<_TripEditor> {
               controller: _titleController,
               autofocus: true,
               decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _destinationController,
+              decoration: const InputDecoration(labelText: 'Destination'),
             ),
             const SizedBox(height: 12),
             TextField(

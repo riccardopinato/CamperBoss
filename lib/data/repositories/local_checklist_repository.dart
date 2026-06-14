@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/local_json_collection.dart';
 import '../models/checklist_item.dart';
 
 abstract interface class ChecklistRepository {
@@ -10,12 +12,24 @@ abstract interface class ChecklistRepository {
 }
 
 class LocalChecklistRepository implements ChecklistRepository {
-  LocalChecklistRepository({AppDatabase? database})
-      : _database = database ?? AppDatabase.instance;
+  LocalChecklistRepository({
+    AppDatabase? database,
+    LocalJsonCollection? webCollection,
+  })  : _database = database ?? AppDatabase.instance,
+        _webCollection =
+            webCollection ?? LocalJsonCollection('camperboss.checklist');
 
   final AppDatabase _database;
+  final LocalJsonCollection _webCollection;
 
+  @override
   Future<List<CamperChecklistItem>> listItems() async {
+    if (kIsWeb) {
+      final rows = await _webCollection.listRows();
+      return rows.map(CamperChecklistItem.fromMap).toList()
+        ..sort(_sortChecklistItems);
+    }
+
     final db = await _database.database;
     final rows = await db.query(
       AppDatabase.checklistTable,
@@ -24,7 +38,14 @@ class LocalChecklistRepository implements ChecklistRepository {
     return rows.map(CamperChecklistItem.fromMap).toList();
   }
 
+  @override
   Future<CamperChecklistItem> saveItem(CamperChecklistItem item) async {
+    if (kIsWeb) {
+      final values = item.toMap();
+      final saved = await _webCollection.saveRow(values);
+      return CamperChecklistItem.fromMap(saved);
+    }
+
     final db = await _database.database;
     final values = item.toMap()..remove('id');
 
@@ -49,12 +70,24 @@ class LocalChecklistRepository implements ChecklistRepository {
     return id;
   }
 
+  @override
   Future<void> deleteItem(int id) async {
+    if (kIsWeb) {
+      await _webCollection.deleteRow(id);
+      return;
+    }
+
     final db = await _database.database;
     await db.delete(
       AppDatabase.checklistTable,
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  int _sortChecklistItems(CamperChecklistItem a, CamperChecklistItem b) {
+    final position = a.position.compareTo(b.position);
+    if (position != 0) return position;
+    return (a.id ?? 0).compareTo(b.id ?? 0);
   }
 }

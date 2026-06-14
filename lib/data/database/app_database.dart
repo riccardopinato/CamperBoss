@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 2;
+  static const databaseVersion = 4;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -36,6 +36,7 @@ CREATE TABLE $checklistTable (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   subtitle TEXT,
+  list_name TEXT NOT NULL DEFAULT 'Camper',
   category TEXT NOT NULL DEFAULT 'General',
   checked INTEGER NOT NULL DEFAULT 0,
   position INTEGER NOT NULL DEFAULT 0,
@@ -49,6 +50,7 @@ CREATE TABLE $tripsTable (
   title TEXT NOT NULL,
   summary TEXT NOT NULL,
   progress REAL NOT NULL DEFAULT 0,
+  destination TEXT,
   start_date TEXT,
   end_date TEXT,
   notes TEXT,
@@ -65,6 +67,9 @@ CREATE TABLE $journalTable (
   title TEXT NOT NULL,
   summary TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  place TEXT,
+  kilometers REAL,
+  cost REAL,
   latitude REAL,
   longitude REAL,
   updated_at TEXT NOT NULL
@@ -87,6 +92,17 @@ CREATE TABLE $journalTable (
       await db.execute(
         'ALTER TABLE $tripsTable ADD COLUMN estimated_cost REAL',
       );
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE $journalTable ADD COLUMN place TEXT');
+      await db.execute('ALTER TABLE $journalTable ADD COLUMN kilometers REAL');
+      await db.execute('ALTER TABLE $journalTable ADD COLUMN cost REAL');
+    }
+    if (oldVersion < 4) {
+      await db.execute(
+        "ALTER TABLE $checklistTable ADD COLUMN list_name TEXT NOT NULL DEFAULT 'Camper'",
+      );
+      await db.execute('ALTER TABLE $tripsTable ADD COLUMN destination TEXT');
     }
   }
 }

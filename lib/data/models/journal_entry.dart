@@ -4,6 +4,9 @@ class JournalEntry {
     required this.summary,
     this.id,
     this.createdAt,
+    this.place,
+    this.kilometers,
+    this.cost,
     this.latitude,
     this.longitude,
     this.updatedAt,
@@ -13,6 +16,9 @@ class JournalEntry {
   final String title;
   final String summary;
   final DateTime? createdAt;
+  final String? place;
+  final double? kilometers;
+  final double? cost;
   final double? latitude;
   final double? longitude;
   final DateTime? updatedAt;
@@ -22,6 +28,9 @@ class JournalEntry {
     String? title,
     String? summary,
     DateTime? createdAt,
+    String? place,
+    double? kilometers,
+    double? cost,
     double? latitude,
     double? longitude,
     DateTime? updatedAt,
@@ -31,6 +40,9 @@ class JournalEntry {
       title: title ?? this.title,
       summary: summary ?? this.summary,
       createdAt: createdAt ?? this.createdAt,
+      place: place ?? this.place,
+      kilometers: kilometers ?? this.kilometers,
+      cost: cost ?? this.cost,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -43,6 +55,9 @@ class JournalEntry {
       'title': title,
       'summary': summary,
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
+      'place': place,
+      'kilometers': kilometers,
+      'cost': cost,
       'latitude': latitude,
       'longitude': longitude,
       'updated_at': (updatedAt ?? DateTime.now()).toIso8601String(),
@@ -55,6 +70,9 @@ class JournalEntry {
       title: map['title'] as String,
       summary: map['summary'] as String,
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? ''),
+      place: map['place'] as String?,
+      kilometers: (map['kilometers'] as num?)?.toDouble(),
+      cost: (map['cost'] as num?)?.toDouble(),
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
       updatedAt: DateTime.tryParse(map['updated_at'] as String? ?? ''),

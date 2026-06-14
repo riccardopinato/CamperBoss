@@ -69,17 +69,23 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   Future<List<CamperChecklistItem>> _seedInitialItems() async {
     final seeds = <CamperChecklistItem>[
       for (final (index, item) in MockCamperRepository.checklist.indexed)
-        item.copyWith(category: 'Pre-trip', position: index),
+        item.copyWith(
+          listName: 'Departure list',
+          category: 'Pre-trip',
+          position: index,
+        ),
       const CamperChecklistItem(
         title: 'Level camper and stabilize',
         subtitle: 'Check slope before opening fridge',
         checked: false,
+        listName: 'Arrival list',
         category: 'Arrival',
         position: 100,
       ),
       const CamperChecklistItem(
         title: 'Switch fridge to site mode',
         checked: false,
+        listName: 'Arrival list',
         category: 'Arrival',
         position: 101,
       ),
@@ -87,6 +93,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         title: 'Log overnight location',
         subtitle: 'Useful for journal and emergency sharing',
         checked: true,
+        listName: 'Arrival list',
         category: 'Arrival',
         position: 102,
       ),
@@ -273,7 +280,7 @@ class _ChecklistCategorySection extends StatelessWidget {
                           Expanded(
                             child: ChecklistItemTile(
                               title: item.title,
-                              subtitle: item.subtitle,
+                              subtitle: item.subtitle ?? item.listName,
                               checked: item.checked,
                               onChanged: (value) => onChanged(item, value),
                             ),
@@ -316,6 +323,7 @@ class _ChecklistItemEditor extends StatefulWidget {
 class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
   late final TextEditingController _titleController;
   late final TextEditingController _subtitleController;
+  late final TextEditingController _listController;
   late String _category;
 
   @override
@@ -324,6 +332,7 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
     final item = widget.item;
     _titleController = TextEditingController(text: item?.title ?? '');
     _subtitleController = TextEditingController(text: item?.subtitle ?? '');
+    _listController = TextEditingController(text: item?.listName ?? 'Camper');
     _category = item?.category ?? widget.categories.first;
   }
 
@@ -331,6 +340,7 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
   void dispose() {
     _titleController.dispose();
     _subtitleController.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
@@ -339,6 +349,7 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
     if (title.isEmpty) return;
 
     final subtitle = _subtitleController.text.trim();
+    final listName = _listController.text.trim();
     final item = widget.item;
 
     Navigator.of(context).pop(
@@ -347,6 +358,7 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
         title: title,
         subtitle: subtitle.isEmpty ? null : subtitle,
         checked: item?.checked ?? false,
+        listName: listName.isEmpty ? 'Camper' : listName,
         category: _category,
         position: item?.position ?? widget.position,
         updatedAt: DateTime.now(),
@@ -382,6 +394,11 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
           TextField(
             controller: _subtitleController,
             decoration: const InputDecoration(labelText: 'Details'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _listController,
+            decoration: const InputDecoration(labelText: 'List'),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(

@@ -17,6 +17,7 @@ dependencies:
   latlong2: ^0.9.1
   path: ^1.9.1
   sqflite: ^2.4.3
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,7 @@ class CamperChecklistItem {
     required this.checked,
     this.id,
     this.subtitle,
+    this.listName = 'Camper',
     this.category = 'General',
     this.position = 0,
     this.updatedAt,
@@ -13,6 +14,7 @@ class CamperChecklistItem {
   final String title;
   final bool checked;
   final String? subtitle;
+  final String listName;
   final String category;
   final int position;
   final DateTime? updatedAt;
@@ -22,6 +24,7 @@ class CamperChecklistItem {
     String? title,
     bool? checked,
     String? subtitle,
+    String? listName,
     String? category,
     int? position,
     DateTime? updatedAt,
@@ -31,6 +34,7 @@ class CamperChecklistItem {
       title: title ?? this.title,
       checked: checked ?? this.checked,
       subtitle: subtitle ?? this.subtitle,
+      listName: listName ?? this.listName,
       category: category ?? this.category,
       position: position ?? this.position,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -42,6 +46,7 @@ class CamperChecklistItem {
       'id': id,
       'title': title,
       'subtitle': subtitle,
+      'list_name': listName,
       'category': category,
       'checked': checked ? 1 : 0,
       'position': position,
@@ -54,6 +59,7 @@ class CamperChecklistItem {
       id: map['id'] as int?,
       title: map['title'] as String,
       subtitle: map['subtitle'] as String?,
+      listName: (map['list_name'] as String?) ?? 'Camper',
       category: (map['category'] as String?) ?? 'General',
       checked: (map['checked'] as int? ?? 0) == 1,
       position: map['position'] as int? ?? 0,

@@ -22,7 +22,7 @@ Stati: `CURRENT`, `TODO`, `DONE`, `BLOCKED`.
 
 ## STEP 1 — Persistenza reale: Viaggi, Liste e Diario
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Correggere CRUD e persistenza locale di:
 
@@ -41,9 +41,15 @@ Requisiti:
 - usare database/repository/provider condivisi e compatibili web/mobile;
 - aggiungere test CRUD e persistenza mirati.
 
+Esito:
+
+- Risultato: CRUD reale e persistenza locale offline per viaggi, liste e diario su mobile con SQLite e web con localStorage.
+- Test: `flutter analyze` mirato; `flutter test test/checklist_screen_test.dart test/trip_planner_screen_test.dart test/journal_screen_test.dart test/data_models_test.dart test/local_json_collection_test.dart --timeout=30s`.
+- Commit: `fix: persist trips lists and journal across platforms`.
+
 ## STEP 2 — Mappa, filtri, POI e cache
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 - Rendere selezionabili e funzionanti i filtri: sosta, camping, parcheggio, acqua, scarico, GPL e assistenza.
 - Aggiornare realmente marker e stato dei filtri.

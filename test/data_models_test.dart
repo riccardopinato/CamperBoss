@@ -10,6 +10,7 @@ void main() {
       id: 7,
       title: 'Check water',
       subtitle: 'Before departure',
+      listName: 'Departure list',
       category: 'Departure',
       checked: true,
       position: 2,
@@ -21,6 +22,7 @@ void main() {
     expect(restored.id, 7);
     expect(restored.title, 'Check water');
     expect(restored.checked, isTrue);
+    expect(restored.listName, 'Departure list');
     expect(restored.category, 'Departure');
     expect(restored.position, 2);
     expect(restored.updatedAt, updatedAt);
@@ -32,6 +34,7 @@ void main() {
     final trip = TripPlan(
       id: 3,
       title: 'Alps loop',
+      destination: 'Dolomites',
       summary: 'Five days',
       progress: 0.4,
       startDate: startDate,
@@ -42,6 +45,7 @@ void main() {
     final restored = TripPlan.fromMap(trip.toMap());
 
     expect(restored.id, 3);
+    expect(restored.destination, 'Dolomites');
     expect(restored.progress, 0.4);
     expect(restored.startDate, startDate);
     expect(restored.endDate, endDate);
@@ -55,6 +59,9 @@ void main() {
       title: 'Lake stop',
       summary: 'Quiet evening',
       createdAt: createdAt,
+      place: 'Lake Garda',
+      kilometers: 120,
+      cost: 45,
       latitude: 45.6,
       longitude: 10.7,
     );
@@ -63,6 +70,9 @@ void main() {
 
     expect(restored.id, 5);
     expect(restored.createdAt, createdAt);
+    expect(restored.place, 'Lake Garda');
+    expect(restored.kilometers, 120);
+    expect(restored.cost, 45);
     expect(restored.latitude, 45.6);
     expect(restored.longitude, 10.7);
   });
