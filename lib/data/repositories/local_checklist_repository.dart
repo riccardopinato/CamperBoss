@@ -3,7 +3,13 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../models/checklist_item.dart';
 
-class LocalChecklistRepository {
+abstract interface class ChecklistRepository {
+  Future<List<CamperChecklistItem>> listItems();
+  Future<CamperChecklistItem> saveItem(CamperChecklistItem item);
+  Future<void> deleteItem(int id);
+}
+
+class LocalChecklistRepository implements ChecklistRepository {
   LocalChecklistRepository({AppDatabase? database})
       : _database = database ?? AppDatabase.instance;
 

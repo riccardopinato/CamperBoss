@@ -11,6 +11,5 @@ Regola operativa:
 
 ## Da risolvere dopo lo step 5
 
-- `lib/features/checklist/presentation/checklist_screen.dart`: modifiche locali non committate fuori scope rispetto allo step 1; da verificare, completare o scartare consapevolmente.
 - `lib/features/trip/presentation/trip_planner_screen.dart`: modifiche locali non committate fuori scope rispetto allo step 1; da verificare, completare o scartare consapevolmente.
 - Branch locale avanti rispetto a `origin/main`: valutare push/allineamento dopo conferma.

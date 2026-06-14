@@ -16,13 +16,16 @@ class ChecklistItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      value: checked,
-      onChanged: onChanged,
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle!),
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
+    return Material(
+      type: MaterialType.transparency,
+      child: CheckboxListTile(
+        value: checked,
+        onChanged: onChanged,
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle!),
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+      ),
     );
   }
 }

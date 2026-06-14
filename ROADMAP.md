@@ -110,7 +110,7 @@ Esito:
 
 ## STEP 3 — Checklist persistente e modificabile
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Obiettivo sintetico:
 
@@ -128,9 +128,15 @@ Scope iniziale:
 - soltanto stato/provider checklist necessario;
 - widget condivisi indispensabili.
 
+Esito:
+
+- Risultato: checklist caricata/salvata localmente con toggle, aggiunta, modifica, eliminazione e categorie.
+- Test: `flutter analyze` mirato; `flutter test test/checklist_screen_test.dart --timeout=30s`.
+- Commit: `Make checklist persistent and editable`.
+
 ## STEP 4 — Planner viaggio editabile
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Obiettivo sintetico:
 
