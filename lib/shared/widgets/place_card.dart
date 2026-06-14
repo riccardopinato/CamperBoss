@@ -12,6 +12,12 @@ class PlaceCard extends StatelessWidget {
     required this.distance,
     required this.rating,
     required this.tags,
+    this.address,
+    this.city,
+    this.coordinates,
+    this.source,
+    this.services = const [],
+    this.onDirections,
     super.key,
   });
 
@@ -20,6 +26,12 @@ class PlaceCard extends StatelessWidget {
   final String distance;
   final String rating;
   final List<String> tags;
+  final String? address;
+  final String? city;
+  final String? coordinates;
+  final String? source;
+  final List<String> services;
+  final VoidCallback? onDirections;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +77,46 @@ class PlaceCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (address != null ||
+              city != null ||
+              coordinates != null ||
+              source != null ||
+              services.isNotEmpty ||
+              onDirections != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            if (address != null) Text(address!),
+            if (city != null) Text(city!),
+            if (coordinates != null) Text(coordinates!),
+            if (services.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                services.join(' - '),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                    ),
+              ),
+            ],
+            if (source != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                source!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                    ),
+              ),
+            ],
+            if (onDirections != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: onDirections,
+                  icon: const Icon(Icons.directions_outlined),
+                  label: const Text('Directions'),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

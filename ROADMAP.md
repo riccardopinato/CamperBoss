@@ -49,7 +49,7 @@ Esito:
 
 ## STEP 2 — Mappa, filtri, POI e cache
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 - Rendere selezionabili e funzionanti i filtri: sosta, camping, parcheggio, acqua, scarico, GPL e assistenza.
 - Aggiornare realmente marker e stato dei filtri.
@@ -59,9 +59,15 @@ Stato: `CURRENT`
 - Se salva solo POI, rinominarla `Cache POI offline` e mostrare regione, elementi, dimensione, aggiornamento, elimina e refresh.
 - Non scaricare massivamente tile dai server standard OpenStreetMap.
 
+Esito:
+
+- Risultato: filtri POI funzionanti, marker/lista sincronizzati, dettagli POI completi, directions reali e cache POI offline locale con refresh/elimina.
+- Test: `flutter analyze` mirato; `flutter test test/map_screen_test.dart test/local_poi_cache_repository_test.dart test/data_models_test.dart --timeout=30s`.
+- Commit: `feat: activate poi filters and offline cache`.
+
 ## STEP 3 — Il mio mezzo
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Creare un profilo mezzo persistente con:
 

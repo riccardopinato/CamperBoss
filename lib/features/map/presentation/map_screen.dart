@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/state/selected_location.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/camper_place.dart';
+import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/place_card.dart';
 import '../../../shared/widgets/premium_card.dart';
@@ -16,22 +19,56 @@ import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({
+    this.places,
+    this.cacheRepository,
+    this.onOpenDirections,
+    super.key,
+  });
+
+  final List<CamperPlace>? places;
+  final PoiCacheRepository? cacheRepository;
+  final Future<void> Function(CamperPlace place)? onOpenDirections;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
+  static const _filterLabels = {
+    'sosta': 'Sosta',
+    'camping': 'Camping',
+    'parcheggio': 'Parcheggio',
+    'acqua': 'Acqua',
+    'scarico': 'Scarico',
+    'gpl': 'GPL',
+    'assistenza': 'Assistenza',
+  };
+
   final _mapController = MapController();
   final _searchController = TextEditingController();
   final _geocodingService = const GeocodingService();
   final _locationService = const LocationService();
+  final _distance = const Distance();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
+  late final List<CamperPlace> _places =
+      widget.places ?? MockCamperRepository.places;
+  late final PoiCacheRepository _cacheRepository =
+      widget.cacheRepository ?? LocalPoiCacheRepository();
+  late final Set<String> _activeFilters = {..._filterLabels.keys};
   bool _isSearching = false;
   bool _isLocating = false;
+  bool _isRefreshingCache = false;
+  bool _isClearingCache = false;
   String? _error;
+  PoiCacheSnapshot? _cacheSnapshot;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCacheSnapshot();
+  }
 
   @override
   void dispose() {
@@ -41,18 +78,28 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
+  Future<void> _loadCacheSnapshot() async {
+    try {
+      final snapshot = await _cacheRepository.loadSnapshot();
+      if (!mounted) return;
+      setState(() => _cacheSnapshot = snapshot);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'POI cache unavailable');
+    }
+  }
+
   Future<void> _search(String query) async {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 450), () async {
       final trimmed = query.trim();
       if (trimmed.length < 3) {
-        if (mounted) {
-          setState(() {
-            _results = const [];
-            _error = null;
-            _isSearching = false;
-          });
-        }
+        if (!mounted) return;
+        setState(() {
+          _results = const [];
+          _error = null;
+          _isSearching = false;
+        });
         return;
       }
 
@@ -106,10 +153,137 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _refreshCache() async {
+    setState(() {
+      _isRefreshingCache = true;
+      _error = null;
+    });
+
+    try {
+      final snapshot = await _cacheRepository.refresh(
+        region: 'North Italy',
+        places: _places,
+      );
+      if (!mounted) return;
+      setState(() => _cacheSnapshot = snapshot);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'POI cache refresh failed');
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingCache = false);
+      }
+    }
+  }
+
+  Future<void> _clearCache() async {
+    setState(() {
+      _isClearingCache = true;
+      _error = null;
+    });
+
+    try {
+      final snapshot = await _cacheRepository.clear();
+      if (!mounted) return;
+      setState(() => _cacheSnapshot = snapshot);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'POI cache clear failed');
+    } finally {
+      if (mounted) {
+        setState(() => _isClearingCache = false);
+      }
+    }
+  }
+
+  Future<void> _openDirections(CamperPlace place) async {
+    final handler = widget.onOpenDirections;
+    if (handler != null) {
+      await handler(place);
+      return;
+    }
+
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}',
+    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      setState(() => _error = 'Directions unavailable');
+    }
+  }
+
+  void _toggleFilter(String filter) {
+    setState(() {
+      if (_activeFilters.contains(filter)) {
+        _activeFilters.remove(filter);
+      } else {
+        _activeFilters.add(filter);
+      }
+    });
+  }
+
+  List<CamperPlace> _filteredPlaces(LatLng selectedPoint) {
+    final filtered = _places
+        .where((place) => _activeFilters.contains(place.category))
+        .toList();
+    filtered.sort(
+      (a, b) => _distanceKm(a, selectedPoint).compareTo(
+        _distanceKm(b, selectedPoint),
+      ),
+    );
+    return filtered;
+  }
+
+  double _distanceKm(CamperPlace place, LatLng selectedPoint) {
+    return _distance.as(
+      LengthUnit.Kilometer,
+      selectedPoint,
+      LatLng(place.latitude, place.longitude),
+    );
+  }
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'camping':
+        return Icons.cabin_outlined;
+      case 'parcheggio':
+        return Icons.local_parking_outlined;
+      case 'acqua':
+        return Icons.water_drop_outlined;
+      case 'scarico':
+        return Icons.delete_outline;
+      case 'gpl':
+        return Icons.local_gas_station_outlined;
+      case 'assistenza':
+        return Icons.build_outlined;
+      case 'sosta':
+      default:
+        return Icons.rv_hookup;
+    }
+  }
+
+  Color _colorForCategory(String category) {
+    switch (category) {
+      case 'camping':
+        return AppColors.forest;
+      case 'parcheggio':
+        return AppColors.text;
+      case 'acqua':
+        return AppColors.gold;
+      case 'scarico':
+        return Colors.blueGrey;
+      case 'gpl':
+        return Colors.deepOrange;
+      case 'assistenza':
+        return Colors.redAccent;
+      case 'sosta':
+      default:
+        return AppColors.moss;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final places = MockCamperRepository.places.skip(1);
-
     return ValueListenableBuilder<GeoLocationResult>(
       valueListenable: selectedLocationController,
       builder: (context, selectedLocation, _) {
@@ -117,10 +291,12 @@ class _MapScreenState extends State<MapScreen> {
           selectedLocation.latitude,
           selectedLocation.longitude,
         );
+        final places = _filteredPlaces(selectedPoint);
+        final cacheSnapshot = _cacheSnapshot;
 
         return ScreenScaffold(
           title: 'Smart map',
-          subtitle: 'Search a city, select it, then weather and map react.',
+          subtitle: 'Search a city, select it, then filters and POI react.',
           children: [
             PremiumCard(
               child: Column(
@@ -241,26 +417,20 @@ class _MapScreenState extends State<MapScreen> {
                                   size: 42,
                                 ),
                               ),
-                              const Marker(
-                                point: LatLng(45.621, 10.57),
-                                width: 44,
-                                height: 44,
-                                child: Icon(
-                                  Icons.rv_hookup,
-                                  color: AppColors.moss,
-                                  size: 38,
+                              for (final place in places)
+                                Marker(
+                                  point: LatLng(
+                                    place.latitude,
+                                    place.longitude,
+                                  ),
+                                  width: 40,
+                                  height: 40,
+                                  child: Icon(
+                                    _iconForCategory(place.category),
+                                    color: _colorForCategory(place.category),
+                                    size: 32,
+                                  ),
                                 ),
-                              ),
-                              const Marker(
-                                point: LatLng(45.55, 10.72),
-                                width: 44,
-                                height: 44,
-                                child: Icon(
-                                  Icons.water_drop,
-                                  color: AppColors.gold,
-                                  size: 36,
-                                ),
-                              ),
                             ],
                           ),
                           RichAttributionWidget(
@@ -280,17 +450,65 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Live map tiles from OpenStreetMap. Location search uses Open-Meteo Geocoding.',
+              'Map uses OpenStreetMap tiles live. Offline storage applies to POI only.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: 24),
-            const PremiumCard(
-              child: ResourceBar(
-                label: 'Offline cache: North Italy',
-                value: 0.64,
-                detail: '1,284 places ready without connection',
+            PremiumCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ResourceBar(
+                    label: 'Cache POI offline',
+                    value: _places.isEmpty
+                        ? 0
+                        : (cacheSnapshot?.itemCount ?? 0) / _places.length,
+                    detail: cacheSnapshot == null
+                        ? 'No saved POI cache'
+                        : '${cacheSnapshot.region} - ${cacheSnapshot.itemCount} items - ${cacheSnapshot.sizeLabel}',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    cacheSnapshot == null
+                        ? 'POI only, no map tiles'
+                        : 'Updated ${cacheSnapshot.updatedLabel} - POI only, no map tiles',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _isRefreshingCache ? null : _refreshCache,
+                        icon: _isRefreshingCache
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: _isClearingCache ? null : _clearCache,
+                        icon: _isClearingCache
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.delete_outline),
+                        label: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -299,32 +517,37 @@ class _MapScreenState extends State<MapScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const [
-                FilterChip(
-                    label: Text('Water'), selected: true, onSelected: null),
-                FilterChip(
-                    label: Text('Dump'), selected: false, onSelected: null),
-                FilterChip(
-                    label: Text('24h'), selected: true, onSelected: null),
-                FilterChip(
-                    label: Text('Wi-Fi'), selected: false, onSelected: null),
-                FilterChip(
-                  label: Text('No height limit'),
-                  selected: true,
-                  onSelected: null,
-                ),
-                FilterChip(
-                    label: Text('Pets'), selected: true, onSelected: null),
+              children: [
+                for (final entry in _filterLabels.entries)
+                  FilterChip(
+                    label: Text(entry.value),
+                    selected: _activeFilters.contains(entry.key),
+                    onSelected: (_) => _toggleFilter(entry.key),
+                  ),
               ],
             ),
             const SizedBox(height: 24),
+            SectionHeader(title: 'POI', action: '${places.length} visible'),
+            const SizedBox(height: 12),
+            if (places.isEmpty)
+              const PremiumCard(
+                child: Text('No POI match the active filters'),
+              ),
             for (final place in places) ...[
               PlaceCard(
                 name: place.name,
-                type: place.type,
-                distance: place.distance,
+                type: '${place.type} - ${_filterLabels[place.category]}',
+                distance:
+                    '${_distanceKm(place, selectedPoint).toStringAsFixed(1)} km',
                 rating: place.rating,
                 tags: place.tags,
+                address: place.address,
+                city: place.city,
+                coordinates:
+                    '${place.latitude.toStringAsFixed(4)}, ${place.longitude.toStringAsFixed(4)}',
+                services: place.services,
+                source: place.source,
+                onDirections: () => _openDirections(place),
               ),
               const SizedBox(height: 12),
             ],
