@@ -5,6 +5,7 @@ import '../../features/checklist/presentation/checklist_screen.dart';
 import '../../features/documents/presentation/vehicle_documents_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/journal/presentation/journal_screen.dart';
+import '../../features/maintenance/presentation/maintenance_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/trip/presentation/trip_planner_screen.dart';
@@ -26,6 +27,7 @@ class _AppShellState extends State<AppShell> {
     ChecklistScreen(),
     JournalScreen(),
     VehicleDocumentsScreen(),
+    MaintenanceScreen(),
     ProfileScreen(),
   ];
 
@@ -66,6 +68,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.folder_copy_outlined),
             selectedIcon: Icon(Icons.folder_copy),
             label: 'Docs',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.build_circle_outlined),
+            selectedIcon: Icon(Icons.build_circle),
+            label: 'Service',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

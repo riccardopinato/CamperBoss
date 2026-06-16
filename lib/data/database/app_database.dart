@@ -7,13 +7,14 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 6;
+  static const databaseVersion = 7;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
   static const journalTable = 'journal_entries';
   static const vehicleProfilesTable = 'vehicle_profiles';
   static const vehicleDocumentsTable = 'vehicle_documents';
+  static const maintenanceRecordsTable = 'maintenance_records';
 
   Database? _database;
 
@@ -119,6 +120,26 @@ CREATE TABLE $vehicleDocumentsTable (
   updated_at TEXT NOT NULL
 )
 ''');
+
+    await db.execute('''
+CREATE TABLE $maintenanceRecordsTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  mileage REAL NOT NULL,
+  cost REAL,
+  provider TEXT,
+  notes TEXT,
+  interval_months INTEGER,
+  interval_kilometers REAL,
+  next_due_date TEXT,
+  next_due_mileage REAL,
+  attachment_paths TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+''');
   }
 
   Future<void> _migrateSchema(
@@ -187,6 +208,27 @@ CREATE TABLE IF NOT EXISTS $vehicleDocumentsTable (
   expiry_date TEXT,
   notes TEXT,
   ocr_text TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+''');
+    }
+    if (oldVersion < 7) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS $maintenanceRecordsTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  mileage REAL NOT NULL,
+  cost REAL,
+  provider TEXT,
+  notes TEXT,
+  interval_months INTEGER,
+  interval_kilometers REAL,
+  next_due_date TEXT,
+  next_due_mileage REAL,
+  attachment_paths TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )

@@ -109,7 +109,7 @@ Esito:
 
 ## STEP 5 — Manutenzione del mezzo
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Creare storico persistente per olio, filtri, revisione, tagliando, gas, estintore, pneumatici, batterie, distribuzione, AdBlue, infiltrazioni e voci personalizzate.
 
@@ -122,3 +122,9 @@ Ogni intervento deve gestire:
 - modifica, eliminazione e cronologia.
 
 Predisporre soltanto l'architettura per future notifiche.
+
+Esito:
+
+- Risultato: storico manutenzione persistente con CRUD, intervalli, prossime scadenze, stati e allegati locali.
+- Test: `flutter analyze`; `flutter test test/maintenance_screen_test.dart test/data_models_test.dart --timeout=30s`.
+- Commit: `feat: add vehicle maintenance history`.

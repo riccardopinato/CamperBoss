@@ -1,5 +1,6 @@
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
+import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/vehicle_profile.dart';
@@ -147,5 +148,43 @@ void main() {
     expect(restored.expiryDate, expiryDate);
     expect(restored.notes, 'Confirmed fields only.');
     expect(restored.ocrText, 'Policy number 123');
+  });
+
+  test('maintenance records serialize intervals and calculate status', () {
+    final record = MaintenanceRecord(
+      id: 12,
+      category: 'Oil',
+      title: 'Oil and filter',
+      date: DateTime.utc(2026, 1, 10),
+      mileage: 20000,
+      cost: 180,
+      provider: 'Garage Rossi',
+      notes: 'Use approved oil.',
+      intervalMonths: 12,
+      intervalKilometers: 15000,
+      nextDueDate: DateTime.utc(2026, 7, 1),
+      nextDueMileage: 35000,
+      attachmentPaths: const ['/private/invoice.pdf'],
+    );
+
+    final restored = MaintenanceRecord.fromMap(record.toMap());
+
+    expect(restored.id, 12);
+    expect(restored.category, 'Oil');
+    expect(restored.title, 'Oil and filter');
+    expect(restored.mileage, 20000);
+    expect(restored.provider, 'Garage Rossi');
+    expect(restored.intervalMonths, 12);
+    expect(restored.intervalKilometers, 15000);
+    expect(restored.nextDueMileage, 35000);
+    expect(restored.attachmentPaths, ['/private/invoice.pdf']);
+    expect(
+      restored.status(now: DateTime.utc(2026, 6, 10)),
+      MaintenanceStatus.dueSoon,
+    );
+    expect(
+      restored.status(now: DateTime.utc(2026, 7, 2)),
+      MaintenanceStatus.overdue,
+    );
   });
 }
