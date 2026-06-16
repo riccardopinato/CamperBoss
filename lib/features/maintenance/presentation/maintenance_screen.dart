@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/repositories/local_maintenance_repository.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -10,10 +11,12 @@ import '../../../shared/widgets/section_header.dart';
 class MaintenanceScreen extends StatefulWidget {
   const MaintenanceScreen({
     this.repository,
+    this.reminderService,
     super.key,
   });
 
   final MaintenanceRepository? repository;
+  final ReminderSyncService? reminderService;
 
   @override
   State<MaintenanceScreen> createState() => _MaintenanceScreenState();
@@ -22,6 +25,8 @@ class MaintenanceScreen extends StatefulWidget {
 class _MaintenanceScreenState extends State<MaintenanceScreen> {
   late final MaintenanceRepository _repository =
       widget.repository ?? LocalMaintenanceRepository();
+  late final ReminderSyncService _reminderService =
+      widget.reminderService ?? ReminderCoordinator();
 
   List<MaintenanceRecord> _records = const [];
   bool _isLoading = true;
@@ -81,6 +86,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
     try {
       final saved = await _repository.saveRecord(result);
+      await _reminderService.syncMaintenance(saved);
       if (!mounted) return;
       setState(() {
         if (record == null) {
@@ -108,6 +114,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
     try {
       await _repository.deleteRecord(id);
+      await _reminderService.deleteMaintenanceReminders(id.toString());
     } catch (_) {
       if (!mounted) return;
       setState(() {

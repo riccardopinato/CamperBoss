@@ -23,7 +23,7 @@ class LocalJsonCollection {
 
   Future<Map<String, Object?>> saveRow(Map<String, Object?> row) async {
     final rows = await listRows();
-    final id = row['id'] as int? ?? _nextId(rows);
+    final id = row['id'] ?? _nextId(rows);
     final saved = {...row, 'id': id};
     final index = rows.indexWhere((item) => item['id'] == id);
 
@@ -37,7 +37,7 @@ class LocalJsonCollection {
     return saved;
   }
 
-  Future<void> deleteRow(int id) async {
+  Future<void> deleteRow(Object? id) async {
     final rows = await listRows();
     rows.removeWhere((item) => item['id'] == id);
     await _writeRows(rows);

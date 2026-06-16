@@ -1,6 +1,8 @@
 import 'package:camperboss/core/services/document_capture_service.dart';
 import 'package:camperboss/core/services/document_ocr_service.dart';
 import 'package:camperboss/core/services/document_services_models.dart';
+import 'package:camperboss/core/services/reminder_coordinator.dart';
+import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
 import 'package:camperboss/features/documents/presentation/vehicle_documents_screen.dart';
@@ -94,10 +96,32 @@ class FakeDocumentOcrService implements DocumentOcrService {
   }
 }
 
+class FakeReminderSyncService implements ReminderSyncService {
+  final syncedDocuments = <VehicleDocument>[];
+  final deletedDocuments = <String>[];
+
+  @override
+  Future<void> deleteDocumentReminders(String sourceId) async {
+    deletedDocuments.add(sourceId);
+  }
+
+  @override
+  Future<void> deleteMaintenanceReminders(String sourceId) async {}
+
+  @override
+  Future<void> syncDocument(VehicleDocument document) async {
+    syncedDocuments.add(document);
+  }
+
+  @override
+  Future<void> syncMaintenance(MaintenanceRecord record) async {}
+}
+
 void main() {
   testWidgets('documents screen saves scan metadata and OCR text',
       (tester) async {
     final repository = FakeVehicleDocumentRepository();
+    final reminders = FakeReminderSyncService();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -106,6 +130,7 @@ void main() {
             repository: repository,
             captureService: FakeDocumentCaptureService(),
             ocrService: FakeDocumentOcrService(),
+            reminderService: reminders,
           ),
         ),
       ),
@@ -126,6 +151,7 @@ void main() {
     expect(repository.documents.single.ocrStatus, DocumentOcrStatus.ready);
     expect(repository.documents.single.pageCount, 2);
     expect(repository.documents.single.pdfPath, '/private/scan.pdf');
+    expect(reminders.syncedDocuments.single.title, 'Insurance 2026');
   });
 
   testWidgets('documents screen disables scanner when unsupported',
@@ -137,6 +163,7 @@ void main() {
             repository: FakeVehicleDocumentRepository(),
             captureService: FakeDocumentCaptureService(canScanDocuments: false),
             ocrService: FakeDocumentOcrService(),
+            reminderService: FakeReminderSyncService(),
           ),
         ),
       ),

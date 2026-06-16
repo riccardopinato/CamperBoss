@@ -1,3 +1,5 @@
+import 'package:camperboss/core/services/reminder_coordinator.dart';
+import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
 import 'package:camperboss/features/maintenance/presentation/maintenance_screen.dart';
@@ -28,15 +30,40 @@ class FakeMaintenanceRepository implements MaintenanceRepository {
   }
 }
 
+class FakeReminderSyncService implements ReminderSyncService {
+  final syncedMaintenance = <MaintenanceRecord>[];
+  final deletedMaintenance = <String>[];
+
+  @override
+  Future<void> deleteDocumentReminders(String sourceId) async {}
+
+  @override
+  Future<void> deleteMaintenanceReminders(String sourceId) async {
+    deletedMaintenance.add(sourceId);
+  }
+
+  @override
+  Future<void> syncDocument(VehicleDocument document) async {}
+
+  @override
+  Future<void> syncMaintenance(MaintenanceRecord record) async {
+    syncedMaintenance.add(record);
+  }
+}
+
 void main() {
   testWidgets('maintenance screen saves service records with due intervals',
       (tester) async {
     final repository = FakeMaintenanceRepository();
+    final reminders = FakeReminderSyncService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: MaintenanceScreen(repository: repository),
+          body: MaintenanceScreen(
+            repository: repository,
+            reminderService: reminders,
+          ),
         ),
       ),
     );
@@ -64,5 +91,6 @@ void main() {
     expect(repository.records.single.intervalKilometers, 15000);
     expect(repository.records.single.nextDueMileage, 39000);
     expect(repository.records.single.attachmentPaths, ['/private/invoice.pdf']);
+    expect(reminders.syncedMaintenance.single.title, 'Oil service');
   });
 }

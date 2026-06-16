@@ -65,5 +65,19 @@
   "document_error_save_failed": "Document save failed",
   "document_error_delete_failed": "Document delete failed",
   "document_error_ocr_failed": "OCR failed",
-  "document_error_platform_unsupported": "This platform is not supported"
+  "document_error_platform_unsupported": "This platform is not supported",
+  "nav_notifications": "Reminders",
+  "notification_settings_title": "Local reminders",
+  "notification_settings_subtitle": "Device reminders for document expiries and dated maintenance.",
+  "notification_local_reminders": "Local reminders",
+  "notification_enable": "Enable local reminders",
+  "notification_advance_days": "Advance days",
+  "notification_advance_days_help": "Separate values with commas, for example 30, 7, 1, 0.",
+  "notification_refresh_permission": "Refresh status",
+  "notification_test": "Send test notification",
+  "notification_test_sent": "Test notification sent",
+  "notification_permission_granted": "Permission granted",
+  "notification_permission_denied": "Permission denied",
+  "notification_permission_unavailable": "Permission unavailable on this platform",
+  "notification_permission_denied_help": "Notifications are disabled. Enable them in system settings to receive reminders."
 }

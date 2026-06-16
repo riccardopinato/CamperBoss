@@ -65,5 +65,19 @@
   "document_error_save_failed": "Salvataggio documento fallito",
   "document_error_delete_failed": "Eliminazione documento fallita",
   "document_error_ocr_failed": "OCR fallito",
-  "document_error_platform_unsupported": "Piattaforma non supportata"
+  "document_error_platform_unsupported": "Piattaforma non supportata",
+  "nav_notifications": "Promemoria",
+  "notification_settings_title": "Promemoria locali",
+  "notification_settings_subtitle": "Promemoria sul dispositivo per scadenze documenti e manutenzioni a data.",
+  "notification_local_reminders": "Promemoria locali",
+  "notification_enable": "Abilita promemoria locali",
+  "notification_advance_days": "Giorni di preavviso",
+  "notification_advance_days_help": "Separa i valori con virgole, ad esempio 30, 7, 1, 0.",
+  "notification_refresh_permission": "Aggiorna stato",
+  "notification_test": "Invia notifica di prova",
+  "notification_test_sent": "Notifica di prova inviata",
+  "notification_permission_granted": "Permesso concesso",
+  "notification_permission_denied": "Permesso negato",
+  "notification_permission_unavailable": "Permesso non disponibile su questa piattaforma",
+  "notification_permission_denied_help": "Le notifiche sono disattivate. Abilitale dalle impostazioni di sistema per ricevere i promemoria."
 }

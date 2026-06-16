@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 8;
+  static const databaseVersion = 9;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -15,6 +15,8 @@ class AppDatabase {
   static const vehicleProfilesTable = 'vehicle_profiles';
   static const vehicleDocumentsTable = 'vehicle_documents';
   static const maintenanceRecordsTable = 'maintenance_records';
+  static const remindersTable = 'app_reminders';
+  static const reminderSettingsTable = 'reminder_settings';
 
   Database? _database;
 
@@ -151,6 +153,8 @@ CREATE TABLE $maintenanceRecordsTable (
   updated_at TEXT NOT NULL
 )
 ''');
+
+    await _createReminderTables(db);
   }
 
   Future<void> _migrateSchema(
@@ -336,6 +340,36 @@ SET title = CASE WHEN title = '' THEN name ELSE title END,
     END
 ''');
     }
+    if (oldVersion < 9) {
+      await _createReminderTables(db);
+    }
+  }
+
+  Future<void> _createReminderTables(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $remindersTable (
+  id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  scheduled_at TEXT NOT NULL,
+  notification_id INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $reminderSettingsTable (
+  id TEXT PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  advance_days TEXT NOT NULL DEFAULT '[30,7,1,0]',
+  updated_at TEXT NOT NULL
+)
+''');
   }
 
   Future<void> _addColumnIfMissing(

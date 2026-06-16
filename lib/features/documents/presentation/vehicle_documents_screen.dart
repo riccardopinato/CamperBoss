@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/document_capture_service.dart';
 import '../../../core/services/document_ocr_service.dart';
 import '../../../core/services/document_services_models.dart';
+import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/vehicle_document.dart';
 import '../../../data/repositories/local_vehicle_document_repository.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -16,12 +17,14 @@ class VehicleDocumentsScreen extends StatefulWidget {
     this.repository,
     this.captureService,
     this.ocrService,
+    this.reminderService,
     super.key,
   });
 
   final VehicleDocumentRepository? repository;
   final DocumentCaptureService? captureService;
   final DocumentOcrService? ocrService;
+  final ReminderSyncService? reminderService;
 
   @override
   State<VehicleDocumentsScreen> createState() => _VehicleDocumentsScreenState();
@@ -34,6 +37,8 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       widget.captureService ?? createDocumentCaptureService();
   late final DocumentOcrService _ocrService =
       widget.ocrService ?? createDocumentOcrService();
+  late final ReminderSyncService _reminderService =
+      widget.reminderService ?? ReminderCoordinator();
 
   List<VehicleDocument> _documents = const [];
   bool _isLoading = true;
@@ -235,6 +240,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
     try {
       final saved = await _repository.saveDocument(result);
+      await _reminderService.syncDocument(saved);
       if (!mounted) return;
       setState(() {
         if (document == null) {
@@ -260,6 +266,9 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
     try {
       await _repository.deleteDocument(document);
+      if (document.id != null) {
+        await _reminderService.deleteDocumentReminders(document.id.toString());
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {

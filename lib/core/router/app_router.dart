@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/models/app_reminder.dart';
+import '../services/reminder_coordinator.dart';
 import '../../features/checklist/presentation/checklist_screen.dart';
 import '../../features/documents/presentation/vehicle_documents_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
@@ -8,6 +10,7 @@ import '../../features/journal/presentation/journal_screen.dart';
 import '../../features/maintenance/presentation/maintenance_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/settings/presentation/notification_settings_screen.dart';
 import '../../features/trip/presentation/trip_planner_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -19,17 +22,38 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  final ReminderCoordinator _reminderCoordinator = ReminderCoordinator();
 
-  static const _screens = <Widget>[
-    HomeScreen(),
-    MapScreen(),
-    TripPlannerScreen(),
-    ChecklistScreen(),
-    JournalScreen(),
-    VehicleDocumentsScreen(),
-    MaintenanceScreen(),
-    ProfileScreen(),
-  ];
+  List<Widget> get _screens => [
+        const HomeScreen(),
+        const MapScreen(),
+        const TripPlannerScreen(),
+        const ChecklistScreen(),
+        const JournalScreen(),
+        const VehicleDocumentsScreen(),
+        const MaintenanceScreen(),
+        NotificationSettingsScreen(coordinator: _reminderCoordinator),
+        const ProfileScreen(),
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeReminders();
+  }
+
+  Future<void> _initializeReminders() async {
+    await _reminderCoordinator.initializeAndReconcile();
+    final payload = _reminderCoordinator.consumeLaunchPayload();
+    if (!mounted || payload == null) return;
+    setState(() {
+      _index = switch (payload.sourceType) {
+        ReminderSourceType.document => 5,
+        ReminderSourceType.maintenance => 6,
+        ReminderSourceType.custom => 7,
+      };
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +97,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.build_circle_outlined),
             selectedIcon: Icon(Icons.build_circle),
             label: 'Service',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_outlined),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'nav_notifications'.tr(),
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
