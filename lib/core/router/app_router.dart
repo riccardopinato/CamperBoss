@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/checklist/presentation/checklist_screen.dart';
+import '../../features/documents/presentation/vehicle_documents_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/journal/presentation/journal_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
@@ -24,6 +25,7 @@ class _AppShellState extends State<AppShell> {
     TripPlannerScreen(),
     ChecklistScreen(),
     JournalScreen(),
+    VehicleDocumentsScreen(),
     ProfileScreen(),
   ];
 
@@ -59,6 +61,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.auto_stories_outlined),
             selectedIcon: Icon(Icons.auto_stories),
             label: 'nav_journal'.tr(),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.folder_copy_outlined),
+            selectedIcon: Icon(Icons.folder_copy),
+            label: 'Docs',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

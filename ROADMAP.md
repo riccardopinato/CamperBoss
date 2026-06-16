@@ -87,7 +87,7 @@ Esito:
 
 ## STEP 4 — Documenti del mio mezzo
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Creare archivio locale e privato per libretto, assicurazione, revisione, tagliando, bollo, impianto gas, manuali, fatture e altro.
 
@@ -101,9 +101,15 @@ Supportare:
 - comportamento compatibile con mobile e web;
 - nessun upload cloud automatico.
 
+Esito:
+
+- Risultato: archivio documenti locale con scansione Android/iOS, import file, PDF privati, metadati persistenti e conferma OCR prima del salvataggio.
+- Test: `flutter analyze`; `flutter test test/vehicle_documents_screen_test.dart test/data_models_test.dart --timeout=30s`.
+- Commit: `feat: add private vehicle document archive`.
+
 ## STEP 5 — Manutenzione del mezzo
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Creare storico persistente per olio, filtri, revisione, tagliando, gas, estintore, pneumatici, batterie, distribuzione, AdBlue, infiltrazioni e voci personalizzate.
 

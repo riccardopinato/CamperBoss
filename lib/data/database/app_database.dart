@@ -7,12 +7,13 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 5;
+  static const databaseVersion = 6;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
   static const journalTable = 'journal_entries';
   static const vehicleProfilesTable = 'vehicle_profiles';
+  static const vehicleDocumentsTable = 'vehicle_documents';
 
   Database? _database;
 
@@ -101,6 +102,23 @@ CREATE TABLE $vehicleProfilesTable (
   updated_at TEXT NOT NULL
 )
 ''');
+
+    await db.execute('''
+CREATE TABLE $vehicleDocumentsTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  name TEXT NOT NULL,
+  page_paths TEXT NOT NULL DEFAULT '[]',
+  pdf_path TEXT,
+  source TEXT NOT NULL,
+  issue_date TEXT,
+  expiry_date TEXT,
+  notes TEXT,
+  ocr_text TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+''');
   }
 
   Future<void> _migrateSchema(
@@ -152,6 +170,24 @@ CREATE TABLE IF NOT EXISTS $vehicleProfilesTable (
   gas_capacity REAL,
   electric_range REAL,
   notes TEXT,
+  updated_at TEXT NOT NULL
+)
+''');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS $vehicleDocumentsTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  name TEXT NOT NULL,
+  page_paths TEXT NOT NULL DEFAULT '[]',
+  pdf_path TEXT,
+  source TEXT NOT NULL,
+  issue_date TEXT,
+  expiry_date TEXT,
+  notes TEXT,
+  ocr_text TEXT,
+  created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )
 ''');

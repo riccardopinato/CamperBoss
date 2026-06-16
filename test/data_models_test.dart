@@ -1,6 +1,7 @@
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
+import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/vehicle_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -116,5 +117,35 @@ void main() {
     expect(restored.fuelCapacity, 90);
     expect(restored.notes, 'Keep payload margin for bikes.');
     expect(restored.updatedAt, updatedAt);
+  });
+
+  test('vehicle documents serialize metadata and private file paths', () {
+    final issueDate = DateTime.utc(2026, 1, 1);
+    final expiryDate = DateTime.utc(2027, 1, 1);
+    final document = VehicleDocument(
+      id: 9,
+      category: 'Insurance',
+      name: 'Policy 2026',
+      pagePaths: const ['/private/page-1.jpg', '/private/page-2.jpg'],
+      pdfPath: '/private/policy.pdf',
+      source: 'mlkit_scan',
+      issueDate: issueDate,
+      expiryDate: expiryDate,
+      notes: 'Confirmed fields only.',
+      ocrText: 'Policy number 123',
+    );
+
+    final restored = VehicleDocument.fromMap(document.toMap());
+
+    expect(restored.id, 9);
+    expect(restored.category, 'Insurance');
+    expect(restored.name, 'Policy 2026');
+    expect(restored.pagePaths, ['/private/page-1.jpg', '/private/page-2.jpg']);
+    expect(restored.pdfPath, '/private/policy.pdf');
+    expect(restored.source, 'mlkit_scan');
+    expect(restored.issueDate, issueDate);
+    expect(restored.expiryDate, expiryDate);
+    expect(restored.notes, 'Confirmed fields only.');
+    expect(restored.ocrText, 'Policy number 123');
   });
 }

@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CamperBoss uses your position to center the map and load local weather.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>CamperBoss uses the camera to scan vehicle documents into your private local archive.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
