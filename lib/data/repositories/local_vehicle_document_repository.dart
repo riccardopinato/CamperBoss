@@ -4,23 +4,27 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../database/local_json_collection.dart';
 import '../models/vehicle_document.dart';
+import '../../core/services/document_storage_service.dart';
 
 abstract interface class VehicleDocumentRepository {
   Future<List<VehicleDocument>> listDocuments();
   Future<VehicleDocument> saveDocument(VehicleDocument document);
-  Future<void> deleteDocument(int id);
+  Future<void> deleteDocument(VehicleDocument document);
 }
 
 class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
   LocalVehicleDocumentRepository({
     AppDatabase? database,
     LocalJsonCollection? webCollection,
+    DocumentStorageService? storageService,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
-            webCollection ?? LocalJsonCollection('camperboss.vehicle_docs');
+            webCollection ?? LocalJsonCollection('camperboss.vehicle_docs'),
+        _storageService = storageService ?? createDocumentStorageService();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
+  final DocumentStorageService _storageService;
 
   @override
   Future<List<VehicleDocument>> listDocuments() async {
@@ -67,9 +71,13 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
   }
 
   @override
-  Future<void> deleteDocument(int id) async {
+  Future<void> deleteDocument(VehicleDocument document) async {
+    final id = document.id;
+    if (id == null) return;
+
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
+      await _storageService.deleteFiles(document.filePaths);
       return;
     }
 
@@ -79,6 +87,7 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    await _storageService.deleteFiles(document.filePaths);
   }
 
   int _sortDocuments(VehicleDocument a, VehicleDocument b) {

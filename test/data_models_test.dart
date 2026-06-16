@@ -1,4 +1,5 @@
 import 'package:camperboss/data/models/checklist_item.dart';
+import 'package:camperboss/core/services/document_services_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
@@ -125,29 +126,44 @@ void main() {
     final expiryDate = DateTime.utc(2027, 1, 1);
     final document = VehicleDocument(
       id: 9,
+      vehicleId: 1,
       category: 'Insurance',
-      name: 'Policy 2026',
+      title: 'Policy 2026',
+      localFilePath: '/private/policy.pdf',
       pagePaths: const ['/private/page-1.jpg', '/private/page-2.jpg'],
       pdfPath: '/private/policy.pdf',
-      source: 'mlkit_scan',
+      thumbnailPath: '/private/page-1.jpg',
+      mimeType: 'application/pdf',
+      pageCount: 2,
+      fileSize: 2048,
       issueDate: issueDate,
       expiryDate: expiryDate,
       notes: 'Confirmed fields only.',
-      ocrText: 'Policy number 123',
+      extractedText: 'Policy number 123',
+      ocrLanguage: 'latin',
+      ocrStatus: DocumentOcrStatus.ready,
     );
 
     final restored = VehicleDocument.fromMap(document.toMap());
 
     expect(restored.id, 9);
+    expect(restored.vehicleId, 1);
     expect(restored.category, 'Insurance');
-    expect(restored.name, 'Policy 2026');
+    expect(restored.title, 'Policy 2026');
+    expect(restored.localFilePath, '/private/policy.pdf');
     expect(restored.pagePaths, ['/private/page-1.jpg', '/private/page-2.jpg']);
     expect(restored.pdfPath, '/private/policy.pdf');
-    expect(restored.source, 'mlkit_scan');
+    expect(restored.thumbnailPath, '/private/page-1.jpg');
+    expect(restored.mimeType, 'application/pdf');
+    expect(restored.pageCount, 2);
+    expect(restored.fileSize, 2048);
     expect(restored.issueDate, issueDate);
     expect(restored.expiryDate, expiryDate);
     expect(restored.notes, 'Confirmed fields only.');
-    expect(restored.ocrText, 'Policy number 123');
+    expect(restored.extractedText, 'Policy number 123');
+    expect(restored.ocrLanguage, 'latin');
+    expect(restored.ocrStatus, DocumentOcrStatus.ready);
+    expect(restored.matches('policy number'), isTrue);
   });
 
   test('maintenance records serialize intervals and calculate status', () {

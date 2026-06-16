@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/services/document_scan_result.dart';
-import '../../../core/services/document_scanner_service.dart';
+import '../../../core/services/document_capture_service.dart';
+import '../../../core/services/document_ocr_service.dart';
+import '../../../core/services/document_services_models.dart';
 import '../../../data/models/vehicle_document.dart';
 import '../../../data/repositories/local_vehicle_document_repository.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -12,12 +14,14 @@ import '../../../shared/widgets/section_header.dart';
 class VehicleDocumentsScreen extends StatefulWidget {
   const VehicleDocumentsScreen({
     this.repository,
-    this.scannerService,
+    this.captureService,
+    this.ocrService,
     super.key,
   });
 
   final VehicleDocumentRepository? repository;
-  final DocumentScannerService? scannerService;
+  final DocumentCaptureService? captureService;
+  final DocumentOcrService? ocrService;
 
   @override
   State<VehicleDocumentsScreen> createState() => _VehicleDocumentsScreenState();
@@ -26,8 +30,10 @@ class VehicleDocumentsScreen extends StatefulWidget {
 class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
   late final VehicleDocumentRepository _repository =
       widget.repository ?? LocalVehicleDocumentRepository();
-  late final DocumentScannerService _scannerService =
-      widget.scannerService ?? createDocumentScannerService();
+  late final DocumentCaptureService _captureService =
+      widget.captureService ?? createDocumentCaptureService();
+  late final DocumentOcrService _ocrService =
+      widget.ocrService ?? createDocumentOcrService();
 
   List<VehicleDocument> _documents = const [];
   bool _isLoading = true;
@@ -36,13 +42,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
   String? _error;
 
   List<VehicleDocument> get _filteredDocuments {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return _documents;
-    return _documents.where((document) {
-      return document.name.toLowerCase().contains(query) ||
-          document.category.toLowerCase().contains(query) ||
-          (document.notes ?? '').toLowerCase().contains(query);
-    }).toList();
+    return _documents.where((document) => document.matches(_query)).toList();
   }
 
   int get _expiringCount {
@@ -77,25 +77,64 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Document archive unavailable';
+        _error = 'document_error_archive_unavailable'.tr();
       });
     }
   }
 
-  Future<void> _scanDocument() async {
-    await _captureDocument(
-      () => _scannerService.scan(pageLimit: 25, runOcr: true),
+  Future<void> _showCaptureMenu() async {
+    final action = await showModalBottomSheet<_CaptureAction>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_captureService.canScanDocuments)
+              ListTile(
+                leading: const Icon(Icons.document_scanner_outlined),
+                title: Text('document_action_scan'.tr()),
+                onTap: () => Navigator.of(context).pop(_CaptureAction.scan),
+              )
+            else
+              ListTile(
+                enabled: false,
+                leading: const Icon(Icons.document_scanner_outlined),
+                title: Text('document_action_scan'.tr()),
+                subtitle: Text('document_scan_unavailable'.tr()),
+              ),
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: Text('document_action_import_images'.tr()),
+              onTap: () => Navigator.of(context).pop(_CaptureAction.images),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: Text('document_action_import_pdf'.tr()),
+              onTap: () => Navigator.of(context).pop(_CaptureAction.pdf),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: Text('cancel'.tr()),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
     );
-  }
+    if (action == null) return;
 
-  Future<void> _importDocument() async {
-    await _captureDocument(
-      () => _scannerService.importLocalFile(runOcr: true),
-    );
+    switch (action) {
+      case _CaptureAction.scan:
+        await _captureDocument(_captureService.scanDocument);
+      case _CaptureAction.images:
+        await _captureDocument(_captureService.importImages);
+      case _CaptureAction.pdf:
+        await _captureDocument(_captureService.importPdf);
+    }
   }
 
   Future<void> _captureDocument(
-    Future<DocumentScanResult?> Function() capture,
+    Future<DocumentCaptureResult?> Function() capture,
   ) async {
     setState(() {
       _isBusy = true;
@@ -103,67 +142,93 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     });
 
     try {
-      final result = await capture();
-      if (!mounted || result == null || !result.hasFiles) return;
+      final captureResult = await capture();
+      if (!mounted || captureResult == null) return;
 
-      final acceptedOcr = await _confirmOcr(result.ocrText);
+      final ocrResult = await _runOcr(captureResult.imagePaths);
       if (!mounted) return;
       await _openEditor(
-        scanResult: DocumentScanResult(
-          pagePaths: result.pagePaths,
-          pdfPath: result.pdfPath,
-          source: result.source,
-          ocrText: acceptedOcr,
-        ),
+        captureResult: captureResult,
+        ocrResult: ocrResult,
       );
     } on UnsupportedError catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Document capture failed');
+      setState(() => _error = 'document_error_capture_failed'.tr());
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
   }
 
-  Future<String?> _confirmOcr(String? text) async {
-    final extracted = text?.trim();
-    if (extracted == null || extracted.isEmpty) return null;
+  Future<OcrResult> _runOcr(List<String> imagePaths) async {
+    if (imagePaths.isEmpty) {
+      return const OcrResult(
+        status: DocumentOcrStatus.notAvailable,
+        language: 'latin',
+      );
+    }
+    if (!_ocrService.isSupported) {
+      return const OcrResult(
+        status: DocumentOcrStatus.notAvailable,
+        language: 'latin',
+      );
+    }
+    return _ocrService.recognizeImages(imagePaths);
+  }
 
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Use extracted text?'),
-        content: SingleChildScrollView(
-          child: Text(extracted),
+  Future<void> _retryOcr(VehicleDocument document) async {
+    setState(() {
+      _isBusy = true;
+      _error = null;
+      _documents = [
+        for (final current in _documents)
+          if (current.id == document.id)
+            current.copyWith(ocrStatus: DocumentOcrStatus.processing)
+          else
+            current,
+      ];
+    });
+
+    try {
+      final ocrResult = await _runOcr(document.pagePaths);
+      final saved = await _repository.saveDocument(
+        document.copyWith(
+          extractedText: ocrResult.text,
+          ocrLanguage: ocrResult.language,
+          ocrStatus: ocrResult.status,
+          processingError: ocrResult.error,
+          updatedAt: DateTime.now(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Discard'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Use text'),
-          ),
-        ],
-      ),
-    );
-
-    return accepted == true ? extracted : null;
+      );
+      if (!mounted) return;
+      setState(() {
+        _documents = [
+          for (final current in _documents)
+            if (current.id == saved.id) saved else current,
+        ];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'document_error_ocr_failed'.tr());
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
   }
 
   Future<void> _openEditor({
     VehicleDocument? document,
-    DocumentScanResult? scanResult,
+    DocumentCaptureResult? captureResult,
+    OcrResult? ocrResult,
   }) async {
     final result = await showModalBottomSheet<VehicleDocument>(
       context: context,
       isScrollControlled: true,
       builder: (context) => _VehicleDocumentEditor(
         document: document,
-        scanResult: scanResult,
+        captureResult: captureResult,
+        ocrResult: ocrResult,
       ),
     );
     if (result == null) return;
@@ -183,26 +248,23 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Document save failed');
+      setState(() => _error = 'document_error_save_failed'.tr());
     }
   }
 
   Future<void> _deleteDocument(VehicleDocument document) async {
-    final id = document.id;
-    if (id == null) return;
-
     final previous = _documents;
     setState(() {
-      _documents = _documents.where((item) => item.id != id).toList();
+      _documents = _documents.where((item) => item.id != document.id).toList();
     });
 
     try {
-      await _repository.deleteDocument(id);
+      await _repository.deleteDocument(document);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _documents = previous;
-        _error = 'Document delete failed';
+        _error = 'document_error_delete_failed'.tr();
       });
     }
   }
@@ -212,8 +274,8 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     final filtered = _filteredDocuments;
 
     return ScreenScaffold(
-      title: 'Vehicle documents',
-      subtitle: 'Local private archive for scans, PDFs, deadlines, and notes.',
+      title: 'documents_title'.tr(),
+      subtitle: 'documents_subtitle'.tr(),
       children: [
         GridView.count(
           crossAxisCount: 3,
@@ -225,51 +287,39 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
           children: [
             MetricTile(
               icon: Icons.folder_copy_outlined,
-              label: 'Saved',
+              label: 'documents_metric_saved'.tr(),
               value: _documents.length.toString(),
-              detail: 'Local only',
+              detail: 'documents_metric_local'.tr(),
             ),
             MetricTile(
               icon: Icons.picture_as_pdf_outlined,
-              label: 'PDF',
+              label: 'documents_metric_pdf'.tr(),
               value: _documents
-                  .where((document) => document.pdfPath != null)
+                  .where((document) => document.mimeType == 'application/pdf')
                   .length
                   .toString(),
-              detail: 'Private files',
+              detail: 'documents_metric_private'.tr(),
             ),
             MetricTile(
               icon: Icons.event_busy_outlined,
-              label: 'Soon',
+              label: 'documents_metric_soon'.tr(),
               value: _expiringCount.toString(),
-              detail: '45 days',
+              detail: 'documents_metric_45_days'.tr(),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _isBusy ? null : _scanDocument,
-                icon: const Icon(Icons.document_scanner_outlined),
-                label: Text(_isBusy ? 'Working...' : 'Scan'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            IconButton.outlined(
-              tooltip: 'Import file',
-              onPressed: _isBusy ? null : _importDocument,
-              icon: const Icon(Icons.upload_file_outlined),
-            ),
-          ],
+        FilledButton.icon(
+          onPressed: _isBusy ? null : _showCaptureMenu,
+          icon: const Icon(Icons.add),
+          label: Text(_isBusy ? 'documents_working'.tr() : 'document_add'.tr()),
         ),
         const SizedBox(height: 12),
         TextField(
           onChanged: (value) => setState(() => _query = value),
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            labelText: 'Search documents',
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            labelText: 'documents_search'.tr(),
           ),
         ),
         if (_error != null) ...[
@@ -280,18 +330,19 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        const SectionHeader(title: 'Archive'),
+        SectionHeader(title: 'documents_archive'.tr()),
         const SizedBox(height: 12),
         if (_isLoading)
           const Center(child: CircularProgressIndicator())
         else if (filtered.isEmpty)
-          const PremiumCard(child: Text('No documents saved yet'))
+          PremiumCard(child: Text('documents_empty'.tr()))
         else
           for (final document in filtered) ...[
             _VehicleDocumentCard(
               document: document,
               onEdit: () => _openEditor(document: document),
               onDelete: () => _deleteDocument(document),
+              onRetryOcr: () => _retryOcr(document),
             ),
             const SizedBox(height: 12),
           ],
@@ -300,16 +351,28 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
   }
 }
 
+enum _CaptureAction { scan, images, pdf }
+
 class _VehicleDocumentCard extends StatelessWidget {
   const _VehicleDocumentCard({
     required this.document,
     required this.onEdit,
     required this.onDelete,
+    required this.onRetryOcr,
   });
 
   final VehicleDocument document;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onRetryOcr;
+
+  bool get _isExpiring {
+    final expiry = document.expiryDate;
+    if (expiry == null) return false;
+    final now = DateTime.now();
+    return expiry.isAfter(now) &&
+        expiry.isBefore(now.add(const Duration(days: 45)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -319,9 +382,9 @@ class _VehicleDocumentCard extends StatelessWidget {
         children: [
           CircleAvatar(
             child: Icon(
-              document.pdfPath == null
-                  ? Icons.image_outlined
-                  : Icons.picture_as_pdf_outlined,
+              document.mimeType == 'application/pdf'
+                  ? Icons.picture_as_pdf_outlined
+                  : Icons.image_outlined,
             ),
           ),
           const SizedBox(width: 14),
@@ -329,44 +392,72 @@ class _VehicleDocumentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  document.name,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        document.title,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    if (_isExpiring)
+                      const Icon(Icons.warning_amber_outlined, size: 18),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   [
                     document.category,
-                    '${document.pagePaths.length} pages',
-                    document.source,
+                    '${document.pageCount} ${'documents_pages'.tr()}',
+                    _ocrLabel(document.ocrStatus),
                   ].join(' - '),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   [
                     if (document.expiryDate != null)
-                      'Expires ${_dateLabel(document.expiryDate!)}',
-                    if (document.pdfPath != null) 'PDF saved',
-                    if (document.ocrText != null) 'OCR confirmed',
+                      '${'documents_expiry'.tr()} ${_dateLabel(document.expiryDate!)}',
+                    if (document.thumbnailPath != null)
+                      'documents_thumbnail_ready'.tr(),
+                    if (document.processingError != null)
+                      'documents_ocr_retry_available'.tr(),
                   ].join(' - '),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (document.ocrStatus == DocumentOcrStatus.failed) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onRetryOcr,
+                    icon: const Icon(Icons.refresh),
+                    label: Text('documents_retry_ocr'.tr()),
+                  ),
+                ],
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Edit document',
+            tooltip: 'documents_edit'.tr(),
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Delete document',
+            tooltip: 'documents_delete'.tr(),
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),
     );
+  }
+
+  static String _ocrLabel(DocumentOcrStatus status) {
+    return switch (status) {
+      DocumentOcrStatus.notRequested => 'ocr_not_requested'.tr(),
+      DocumentOcrStatus.processing => 'ocr_processing'.tr(),
+      DocumentOcrStatus.ready => 'ocr_ready'.tr(),
+      DocumentOcrStatus.failed => 'ocr_failed'.tr(),
+      DocumentOcrStatus.notAvailable => 'ocr_not_available'.tr(),
+    };
   }
 
   static String _dateLabel(DateTime date) {
@@ -377,11 +468,13 @@ class _VehicleDocumentCard extends StatelessWidget {
 class _VehicleDocumentEditor extends StatefulWidget {
   const _VehicleDocumentEditor({
     this.document,
-    this.scanResult,
+    this.captureResult,
+    this.ocrResult,
   });
 
   final VehicleDocument? document;
-  final DocumentScanResult? scanResult;
+  final DocumentCaptureResult? captureResult;
+  final OcrResult? ocrResult;
 
   @override
   State<_VehicleDocumentEditor> createState() => _VehicleDocumentEditorState();
@@ -389,18 +482,18 @@ class _VehicleDocumentEditor extends StatefulWidget {
 
 class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
   static const _categories = [
-    'Registration',
-    'Insurance',
-    'Inspection',
-    'Service',
-    'Road tax',
-    'Gas system',
-    'Manual',
-    'Invoice',
-    'Other',
+    'document_category_registration',
+    'document_category_insurance',
+    'document_category_inspection',
+    'document_category_service',
+    'document_category_road_tax',
+    'document_category_gas_system',
+    'document_category_manual',
+    'document_category_invoice',
+    'document_category_other',
   ];
 
-  late final TextEditingController _nameController;
+  late final TextEditingController _titleController;
   late final TextEditingController _notesController;
   late String _category;
   DateTime? _issueDate;
@@ -410,10 +503,8 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
   void initState() {
     super.initState();
     final document = widget.document;
-    _nameController = TextEditingController(text: document?.name ?? '');
-    _notesController = TextEditingController(
-      text: document?.notes ?? widget.scanResult?.ocrText ?? '',
-    );
+    _titleController = TextEditingController(text: document?.title ?? '');
+    _notesController = TextEditingController(text: document?.notes ?? '');
     _category = document?.category ?? _categories.first;
     _issueDate = document?.issueDate;
     _expiryDate = document?.expiryDate;
@@ -421,7 +512,7 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _titleController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -444,25 +535,44 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
   }
 
   void _save() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    final title = _titleController.text.trim();
+    if (title.isEmpty) return;
 
     final document = widget.document;
-    final scan = widget.scanResult;
+    final capture = widget.captureResult;
+    final ocr = widget.ocrResult;
     final notes = _notesController.text.trim();
+    final primaryPath = capture?.primaryFilePath ?? document?.localFilePath;
+    if (primaryPath == null || primaryPath.isEmpty) return;
+    final isPdf =
+        capture?.pdfPath != null || document?.mimeType == 'application/pdf';
 
     Navigator.of(context).pop(
       VehicleDocument(
         id: document?.id,
+        vehicleId: document?.vehicleId,
         category: _category,
-        name: name,
-        pagePaths: scan?.pagePaths ?? document?.pagePaths ?? const [],
-        pdfPath: scan?.pdfPath ?? document?.pdfPath,
-        source: scan?.source ?? document?.source ?? 'manual',
+        title: title,
+        localFilePath: primaryPath,
+        thumbnailPath: capture?.thumbnailPath ?? document?.thumbnailPath,
+        pagePaths: capture?.imagePaths ?? document?.pagePaths ?? const [],
+        pdfPath: capture?.pdfPath ?? document?.pdfPath,
+        mimeType: capture?.mimeType ??
+            document?.mimeType ??
+            (isPdf ? 'application/pdf' : 'image/jpeg'),
+        pageCount: capture?.pageCount ?? document?.pageCount ?? 1,
+        fileSize: capture?.fileSize ?? document?.fileSize,
+        extractedText: ocr?.text ?? document?.extractedText,
+        ocrLanguage: ocr?.language ?? document?.ocrLanguage,
+        ocrStatus: ocr?.status ??
+            document?.ocrStatus ??
+            (isPdf
+                ? DocumentOcrStatus.notAvailable
+                : DocumentOcrStatus.notRequested),
+        processingError: ocr?.error ?? document?.processingError,
         issueDate: _issueDate,
         expiryDate: _expiryDate,
         notes: notes.isEmpty ? null : notes,
-        ocrText: scan?.ocrText ?? document?.ocrText,
         createdAt: document?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       ),
@@ -472,9 +582,9 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
   @override
   Widget build(BuildContext context) {
     final document = widget.document;
-    final scan = widget.scanResult;
-    final pageCount = scan?.pagePaths.length ?? document?.pagePaths.length ?? 0;
-    final hasPdf = scan?.pdfPath != null || document?.pdfPath != null;
+    final capture = widget.captureResult;
+    final pageCount = capture?.pageCount ?? document?.pageCount ?? 0;
+    final ocrStatus = widget.ocrResult?.status ?? document?.ocrStatus;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -489,7 +599,7 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              document == null ? 'Save document' : 'Edit document',
+              document == null ? 'document_save'.tr() : 'document_edit'.tr(),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
@@ -497,18 +607,19 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
               initialValue: _category,
               items: [
                 for (final category in _categories)
-                  DropdownMenuItem(value: category, child: Text(category)),
+                  DropdownMenuItem(value: category, child: Text(category.tr())),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _category = value);
               },
-              decoration: const InputDecoration(labelText: 'Category'),
+              decoration: InputDecoration(labelText: 'documents_category'.tr()),
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _nameController,
+              controller: _titleController,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration:
+                  InputDecoration(labelText: 'documents_title_field'.tr()),
             ),
             const SizedBox(height: 12),
             Row(
@@ -517,7 +628,7 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickDate(expiry: false),
                     icon: const Icon(Icons.event_outlined),
-                    label: Text(_dateText(_issueDate, 'Issue date')),
+                    label: Text(_dateText(_issueDate, 'documents_issue_date')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -525,7 +636,8 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickDate(expiry: true),
                     icon: const Icon(Icons.event_available_outlined),
-                    label: Text(_dateText(_expiryDate, 'Expiry')),
+                    label:
+                        Text(_dateText(_expiryDate, 'documents_expiry_date')),
                   ),
                 ),
               ],
@@ -535,14 +647,14 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
               controller: _notesController,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(labelText: 'Notes'),
+              decoration: InputDecoration(labelText: 'documents_notes'.tr()),
             ),
             const SizedBox(height: 12),
             Text(
               [
-                '$pageCount pages',
-                if (hasPdf) 'PDF',
-                if (scan?.ocrText != null) 'OCR confirmed',
+                '$pageCount ${'documents_pages'.tr()}',
+                if (ocrStatus != null)
+                  _VehicleDocumentCard._ocrLabel(ocrStatus),
               ].join(' - '),
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -551,7 +663,7 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: _save,
-                child: const Text('Save'),
+                child: Text('save'.tr()),
               ),
             ),
           ],
@@ -560,8 +672,8 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
     );
   }
 
-  String _dateText(DateTime? date, String fallback) {
-    if (date == null) return fallback;
+  String _dateText(DateTime? date, String fallbackKey) {
+    if (date == null) return fallbackKey.tr();
     return '${date.year}-${date.month}-${date.day}';
   }
 }

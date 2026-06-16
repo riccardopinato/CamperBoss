@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 7;
+  static const databaseVersion = 8;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -107,15 +107,26 @@ CREATE TABLE $vehicleProfilesTable (
     await db.execute('''
 CREATE TABLE $vehicleDocumentsTable (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vehicle_id INTEGER,
   category TEXT NOT NULL,
   name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  local_file_path TEXT NOT NULL,
+  thumbnail_path TEXT,
   page_paths TEXT NOT NULL DEFAULT '[]',
   pdf_path TEXT,
+  mime_type TEXT NOT NULL,
+  page_count INTEGER NOT NULL DEFAULT 1,
+  file_size INTEGER,
   source TEXT NOT NULL,
   issue_date TEXT,
   expiry_date TEXT,
   notes TEXT,
   ocr_text TEXT,
+  extracted_text TEXT,
+  ocr_language TEXT,
+  ocr_status TEXT NOT NULL DEFAULT 'notRequested',
+  processing_error TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )
@@ -199,15 +210,26 @@ CREATE TABLE IF NOT EXISTS $vehicleProfilesTable (
       await db.execute('''
 CREATE TABLE IF NOT EXISTS $vehicleDocumentsTable (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vehicle_id INTEGER,
   category TEXT NOT NULL,
   name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  local_file_path TEXT NOT NULL,
+  thumbnail_path TEXT,
   page_paths TEXT NOT NULL DEFAULT '[]',
   pdf_path TEXT,
+  mime_type TEXT NOT NULL,
+  page_count INTEGER NOT NULL DEFAULT 1,
+  file_size INTEGER,
   source TEXT NOT NULL,
   issue_date TEXT,
   expiry_date TEXT,
   notes TEXT,
   ocr_text TEXT,
+  extracted_text TEXT,
+  ocr_language TEXT,
+  ocr_status TEXT NOT NULL DEFAULT 'notRequested',
+  processing_error TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )
@@ -233,6 +255,99 @@ CREATE TABLE IF NOT EXISTS $maintenanceRecordsTable (
   updated_at TEXT NOT NULL
 )
 ''');
+    }
+    if (oldVersion < 8) {
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'vehicle_id',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'title',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'local_file_path',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'thumbnail_path',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'mime_type',
+        "TEXT NOT NULL DEFAULT 'application/octet-stream'",
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'page_count',
+        'INTEGER NOT NULL DEFAULT 1',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'file_size',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'extracted_text',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'ocr_language',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'ocr_status',
+        "TEXT NOT NULL DEFAULT 'notRequested'",
+      );
+      await _addColumnIfMissing(
+        db,
+        vehicleDocumentsTable,
+        'processing_error',
+        'TEXT',
+      );
+      await db.execute('''
+UPDATE $vehicleDocumentsTable
+SET title = CASE WHEN title = '' THEN name ELSE title END,
+    local_file_path = CASE
+      WHEN local_file_path = '' AND pdf_path IS NOT NULL THEN pdf_path
+      ELSE local_file_path
+    END,
+    extracted_text = CASE
+      WHEN extracted_text IS NULL THEN ocr_text
+      ELSE extracted_text
+    END
+''');
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = columns.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
     }
   }
 }
