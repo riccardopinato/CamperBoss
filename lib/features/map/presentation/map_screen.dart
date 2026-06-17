@@ -10,8 +10,12 @@ import '../../../core/services/location_service.dart';
 import '../../../core/state/selected_location.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/camper_place.dart';
+import '../../../data/models/download_models.dart';
+import '../../../data/models/offline_map_models.dart';
 import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
+import '../../../data/repositories/offline_map_repository.dart';
+import '../../../data/repositories/offline_poi_repository.dart';
 import '../../offline/presentation/offline_content_screen.dart';
 import 'map_marker_cluster_layer.dart';
 import 'map_marker_mapper.dart';
@@ -26,12 +30,16 @@ class MapScreen extends StatefulWidget {
   const MapScreen({
     this.places,
     this.cacheRepository,
+    this.offlineMapRepository,
+    this.poiRepository,
     this.onOpenDirections,
     super.key,
   });
 
   final List<CamperPlace>? places;
   final PoiCacheRepository? cacheRepository;
+  final OfflineMapRepository? offlineMapRepository;
+  final PoiRepository? poiRepository;
   final Future<void> Function(CamperPlace place)? onOpenDirections;
 
   @override
@@ -47,10 +55,14 @@ class _MapScreenState extends State<MapScreen> {
   final _markerMapper = const MapMarkerMapper();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
-  late final List<CamperPlace> _places =
+  late List<CamperPlace> _places =
       widget.places ?? MockCamperRepository.places;
   late final PoiCacheRepository _cacheRepository =
       widget.cacheRepository ?? LocalPoiCacheRepository();
+  late final OfflineMapRepository _offlineMapRepository =
+      widget.offlineMapRepository ?? LocalOfflineMapRepository();
+  late final PoiRepository _poiRepository =
+      widget.poiRepository ?? LocalOfflinePoiRepository();
   late final Set<String> _activeFilters = {...mapFilterLabels.keys};
   bool _isSearching = false;
   bool _isLocating = false;
@@ -58,6 +70,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _isClearingCache = false;
   String? _error;
   PoiCacheSnapshot? _cacheSnapshot;
+  List<InstalledMapRegion> _installedRegions = const [];
+  MapSourceConfiguration? _activeMapSource;
   CamperPlace? _selectedPlace;
 
   @override
@@ -77,8 +91,18 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _loadCacheSnapshot() async {
     try {
       final snapshot = await _cacheRepository.loadSnapshot();
+      final offlinePlaces = await _poiRepository.listAll();
+      final regions = await _offlineMapRepository.listInstalledRegions();
+      final source = await _offlineMapRepository.resolveActiveSource();
       if (!mounted) return;
-      setState(() => _cacheSnapshot = snapshot);
+      setState(() {
+        _cacheSnapshot = snapshot;
+        _installedRegions = regions;
+        _activeMapSource = source;
+        if (offlinePlaces.isNotEmpty && widget.places == null) {
+          _places = offlinePlaces;
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'POI cache unavailable');
@@ -169,6 +193,27 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         setState(() => _isRefreshingCache = false);
       }
+    }
+  }
+
+  Future<void> _activateOfflineRegion(InstalledMapRegion region) async {
+    setState(() => _error = null);
+    try {
+      if (region.active) {
+        await _offlineMapRepository.deactivateRegion(region.packageId);
+      } else {
+        await _offlineMapRepository.activateRegion(region.packageId);
+      }
+      final regions = await _offlineMapRepository.listInstalledRegions();
+      final source = await _offlineMapRepository.resolveActiveSource();
+      if (!mounted) return;
+      setState(() {
+        _installedRegions = regions;
+        _activeMapSource = source;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Offline map region unavailable');
     }
   }
 
@@ -270,6 +315,7 @@ class _MapScreenState extends State<MapScreen> {
           onTap: _selectPlace,
         );
         final cacheSnapshot = _cacheSnapshot;
+        final activeMapSource = _activeMapSource;
 
         return ScreenScaffold(
           title: 'Smart map',
@@ -449,10 +495,17 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Map uses OpenStreetMap tiles live. Offline storage applies to POI only.',
+              activeMapSource == null
+                  ? 'Map uses OpenStreetMap tiles live. Offline map packages are used only when a verified PMTiles region is active.'
+                  : 'Offline map active: ${activeMapSource.packageId} - ${activeMapSource.attribution}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+            ),
+            const SizedBox(height: 24),
+            _OfflineMapStatusCard(
+              regions: _installedRegions,
+              onToggle: _activateOfflineRegion,
             ),
             const SizedBox(height: 24),
             PremiumCard(
@@ -670,5 +723,102 @@ class _MapPlacePopup extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _OfflineMapStatusCard extends StatelessWidget {
+  const _OfflineMapStatusCard({
+    required this.regions,
+    required this.onToggle,
+  });
+
+  final List<InstalledMapRegion> regions;
+  final Future<void> Function(InstalledMapRegion region) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final installed = regions
+        .where((region) => region.status == InstalledResourceStatus.installed)
+        .toList(growable: false);
+    InstalledMapRegion? active;
+    for (final region in installed) {
+      if (region.active) {
+        active = region;
+        break;
+      }
+    }
+
+    return PremiumCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.map_outlined),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  active == null
+                      ? 'Mappe offline'
+                      : 'Mappa offline - ${active.title}',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Chip(
+                label: Text(
+                  active == null ? 'online fallback' : 'disponibile offline',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (active == null)
+            Text(
+              'Nessuna regione PMTiles verificata e attiva. La mappa resta online e i POI locali restano disponibili offline.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else ...[
+            Text('Versione: ${active.version}'),
+            Text('Dimensione: ${_sizeLabel(active.sizeBytes)}'),
+            Text('Ultimo controllo: ${_dateLabel(active.lastVerifiedAt)}'),
+            Text('Stato: disponibile offline'),
+          ],
+          if (installed.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final region in installed)
+                  FilterChip(
+                    label: Text(region.title),
+                    selected: region.active,
+                    onSelected: (_) => onToggle(region),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _sizeLabel(int bytes) {
+    if (bytes <= 0) return '0 B';
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '$bytes B';
+  }
+
+  String _dateLabel(DateTime? value) {
+    if (value == null) return 'mai';
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
   }
 }

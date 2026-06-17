@@ -142,8 +142,14 @@ Esito:
 
 ## STEP 7 — Mappe e POI offline
 
-Stato: `TODO`
+Stato: `BLOCKED`
 Spec: `docs/roadmap/step-07-offline-maps-poi.md`
+
+Esito:
+
+- Risultato: repository regioni offline e POI locali implementati; mappa usa POI offline quando presenti e mostra stato reale regioni PMTiles.
+- Test: non eseguibili perché `flutter` e `dart` non sono disponibili nel PATH; rendering PMTiles locale non verificato.
+- Commit: `feat(map): add verified offline maps and POI packages`.
 
 ## STEP 8 — Carburante, costi, budget e prenotazioni
 
