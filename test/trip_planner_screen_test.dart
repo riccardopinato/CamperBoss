@@ -1,4 +1,7 @@
+import 'package:camperboss/core/services/routing_service.dart';
+import 'package:camperboss/data/models/route_preview.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
+import 'package:camperboss/data/repositories/local_route_preview_repository.dart';
 import 'package:camperboss/data/repositories/local_trip_repository.dart';
 import 'package:camperboss/features/trip/presentation/trip_planner_screen.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +34,26 @@ class FakeTripRepository implements TripRepository {
   }
 }
 
+class FakeRoutePreviewRepository implements RoutePreviewRepository {
+  RouteResult? route;
+
+  @override
+  Future<void> deleteRouteForTrip(int tripId) async {
+    if (route?.tripId == tripId) route = null;
+  }
+
+  @override
+  Future<RouteResult?> loadRouteForTrip(int tripId) async {
+    return route?.tripId == tripId ? route : null;
+  }
+
+  @override
+  Future<RouteResult> saveRoute(RouteResult route) async {
+    this.route = route;
+    return route;
+  }
+}
+
 void main() {
   testWidgets('trip planner edits, creates, and deletes saved trips', (
     tester,
@@ -50,7 +73,12 @@ void main() {
     ]);
 
     await tester.pumpWidget(
-      MaterialApp(home: TripPlannerScreen(repository: repository)),
+      MaterialApp(
+        home: TripPlannerScreen(
+          repository: repository,
+          routePreviewRepository: FakeRoutePreviewRepository(),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -92,5 +120,88 @@ void main() {
 
     expect(repository.trips.length, 1);
     expect(find.text('Coast weekend'), findsNothing);
+  });
+
+  testWidgets('trip planner calculates and saves route preview', (
+    tester,
+  ) async {
+    final repository = FakeTripRepository([
+      const TripPlan(
+        id: 2,
+        title: 'Garda route',
+        destination: 'Lake Garda',
+        summary: 'Two stops',
+        progress: 0.5,
+        stages: [
+          'Sirmione | 45.4927, 10.6087',
+          'Bardolino | 45.5485, 10.7205',
+        ],
+      ),
+    ]);
+    final routeRepository = FakeRoutePreviewRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripPlannerScreen(
+          repository: repository,
+          routePreviewRepository: routeRepository,
+          routingService: const FakeRoutingService(),
+          isRoutingConfigured: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route preview'), findsOneWidget);
+    expect(find.text('Calculate route'), findsOneWidget);
+
+    await tester.tap(find.text('Calculate route'));
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.route, isNotNull);
+    expect(find.text('12.0 km'), findsOneWidget);
+    expect(find.text('30 min'), findsOneWidget);
+    expect(find.textContaining('Sirmione -> Bardolino'), findsOneWidget);
+  });
+
+  testWidgets('trip planner disables routing when API key is absent', (
+    tester,
+  ) async {
+    final repository = FakeTripRepository([
+      const TripPlan(
+        id: 3,
+        title: 'Offline route',
+        summary: 'Two stops',
+        progress: 0.5,
+        stages: [
+          'Verona | 45.4384, 10.9916',
+          'Molveno | 46.1427, 10.9630',
+        ],
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripPlannerScreen(
+          repository: repository,
+          routePreviewRepository: FakeRoutePreviewRepository(),
+          routingService: const FakeRoutingService(),
+          isRoutingConfigured: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Calculate route'),
+    );
+    expect(button.onPressed, isNull);
+    expect(find.text('Routing not configured'), findsOneWidget);
   });
 }

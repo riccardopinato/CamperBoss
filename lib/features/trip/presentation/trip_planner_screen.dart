@@ -1,6 +1,14 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
+import '../../../core/config/routing_config.dart';
+import '../../../core/services/routing_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
+import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -13,10 +21,16 @@ import '../../../shared/widgets/trip_card.dart';
 class TripPlannerScreen extends StatefulWidget {
   const TripPlannerScreen({
     this.repository,
+    this.routePreviewRepository,
+    this.routingService,
+    this.isRoutingConfigured,
     super.key,
   });
 
   final TripRepository? repository;
+  final RoutePreviewRepository? routePreviewRepository;
+  final RoutingService? routingService;
+  final bool? isRoutingConfigured;
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -25,11 +39,19 @@ class TripPlannerScreen extends StatefulWidget {
 class _TripPlannerScreenState extends State<TripPlannerScreen> {
   late final TripRepository _repository =
       widget.repository ?? LocalTripRepository();
+  late final RoutePreviewRepository _routePreviewRepository =
+      widget.routePreviewRepository ?? LocalRoutePreviewRepository();
+  late final RoutingService _routingService = widget.routingService ??
+      OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
+  late final bool _isRoutingConfigured =
+      widget.isRoutingConfigured ?? RoutingConfig.isOpenRouteServiceConfigured;
 
   List<TripPlan> _trips = const [];
   int _selectedIndex = 0;
   bool _isLoading = true;
+  bool _isRouteLoading = false;
   String? _error;
+  RouteResult? _routePreview;
 
   TripPlan? get _selectedTrip {
     if (_trips.isEmpty) return null;
@@ -59,6 +81,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         _selectedIndex = 0;
         _isLoading = false;
       });
+      await _loadRoutePreviewForSelectedTrip();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -73,9 +96,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       MockCamperRepository.trips[0].copyWith(
         destination: 'Dolomites',
         stages: const [
-          'Stage 1: Verona to Molveno',
-          'Overnight: lake area',
-          'Weather checkpoint near mountain pass',
+          'Verona | 45.4384, 10.9916',
+          'Molveno | 46.1427, 10.9630',
+          'Mountain pass checkpoint | 46.4983, 11.3548',
         ],
         overnightStop: 'Lake area backup spot',
         estimatedCost: 148,
@@ -83,7 +106,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       ),
       MockCamperRepository.trips[1].copyWith(
         destination: 'Lake Garda',
-        stages: const ['Sirmione', 'Bardolino', 'Malcesine'],
+        stages: const [
+          'Sirmione | 45.4927, 10.6087',
+          'Bardolino | 45.5485, 10.7205',
+          'Malcesine | 45.7640, 10.8126',
+        ],
         overnightStop: 'North shore aire',
         estimatedCost: 96,
         notes: 'Keep one slow morning for groceries and laundry.',
@@ -120,6 +147,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           ];
         }
       });
+      await _loadRoutePreviewForSelectedTrip();
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Trip save failed');
@@ -139,6 +167,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     try {
       await _repository.deleteTrip(id);
+      await _routePreviewRepository.deleteRouteForTrip(id);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -148,10 +177,85 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     }
   }
 
+  Future<void> _loadRoutePreviewForSelectedTrip() async {
+    final trip = _selectedTrip;
+    final id = trip?.id;
+    if (trip == null || id == null) {
+      if (!mounted) return;
+      setState(() => _routePreview = null);
+      return;
+    }
+
+    final route = await _routePreviewRepository.loadRouteForTrip(id);
+    if (!mounted) return;
+    setState(() => _routePreview = route);
+  }
+
+  Future<void> _calculateRoute() async {
+    final trip = _selectedTrip;
+    final request = _routeRequestFor(trip);
+    if (trip == null || request == null || _isRouteLoading) return;
+    if (!_isRoutingConfigured) {
+      setState(() => _error = 'Routing not configured');
+      return;
+    }
+
+    setState(() {
+      _isRouteLoading = true;
+      _error = null;
+    });
+
+    try {
+      final result = await _routingService.calculateRoute(request);
+      final currentRequest = _routeRequestFor(_selectedTrip);
+      if (currentRequest == null || !result.matches(currentRequest)) {
+        throw const RouteFailure(
+          RouteFailureType.staleTrip,
+          'Trip changed while routing',
+        );
+      }
+      await _routePreviewRepository.saveRoute(result);
+      if (!mounted) return;
+      setState(() => _routePreview = result);
+    } on RouteFailure catch (failure) {
+      if (!mounted) return;
+      setState(() => _error = failure.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Route calculation failed');
+    } finally {
+      if (mounted) {
+        setState(() => _isRouteLoading = false);
+      }
+    }
+  }
+
+  RouteRequest? _routeRequestFor(TripPlan? trip) {
+    final id = trip?.id;
+    if (trip == null || id == null) return null;
+    return RouteRequest(
+      tripId: id,
+      waypoints: parseRouteWaypoints(trip.stages),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final trip = _selectedTrip;
     final progress = trip?.progress ?? 0.0;
+    final routeRequest = _routeRequestFor(trip);
+    final routeFailure = routeRequest?.validate();
+    final routePreview = _routePreview;
+    final hasValidSavedRoute = routePreview != null &&
+        routeRequest != null &&
+        routePreview.matches(routeRequest);
+    final hasStaleSavedRoute = routePreview != null &&
+        routeRequest != null &&
+        !routePreview.matches(routeRequest);
+    final canCalculateRoute = routeRequest != null &&
+        routeFailure == null &&
+        _isRoutingConfigured &&
+        !_isRouteLoading;
 
     return ScreenScaffold(
       title: 'Trip planner',
@@ -195,7 +299,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             _TripSelector(
               trips: _trips,
               selectedIndex: _selectedIndex,
-              onSelected: (index) => setState(() => _selectedIndex = index),
+              onSelected: (index) {
+                setState(() => _selectedIndex = index);
+                _loadRoutePreviewForSelectedTrip();
+              },
             ),
           if (_trips.length > 1) const SizedBox(height: 16),
           TripCard(
@@ -227,6 +334,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           ),
           const SizedBox(height: 16),
           _TripMetrics(trip: trip),
+          const SizedBox(height: 16),
+          _RoutePreviewCard(
+            request: routeRequest,
+            route: routePreview,
+            isSavedRouteCurrent: hasValidSavedRoute,
+            isSavedRouteStale: hasStaleSavedRoute,
+            isRoutingConfigured: _isRoutingConfigured,
+            isLoading: _isRouteLoading,
+            routeFailure: routeFailure,
+            canCalculate: canCalculateRoute,
+            onCalculate: _calculateRoute,
+          ),
           const SizedBox(height: 16),
           for (final stage in trip.stages) ...[
             ActionTile(
@@ -275,6 +394,233 @@ class _TripSelector extends StatelessWidget {
         ],
         selected: {selectedIndex},
         onSelectionChanged: (selection) => onSelected(selection.single),
+      ),
+    );
+  }
+}
+
+class _RoutePreviewCard extends StatelessWidget {
+  const _RoutePreviewCard({
+    required this.request,
+    required this.route,
+    required this.isSavedRouteCurrent,
+    required this.isSavedRouteStale,
+    required this.isRoutingConfigured,
+    required this.isLoading,
+    required this.routeFailure,
+    required this.canCalculate,
+    required this.onCalculate,
+  });
+
+  final RouteRequest? request;
+  final RouteResult? route;
+  final bool isSavedRouteCurrent;
+  final bool isSavedRouteStale;
+  final bool isRoutingConfigured;
+  final bool isLoading;
+  final RouteFailure? routeFailure;
+  final bool canCalculate;
+  final VoidCallback onCalculate;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = this.route;
+    final request = this.request;
+
+    return PremiumCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Route preview',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: canCalculate ? onCalculate : null,
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.route_outlined),
+                label: Text(route == null ? 'Calculate route' : 'Update route'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'routing_camper_warning'.tr(),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 12),
+          if (!isRoutingConfigured)
+            const Text('Routing not configured')
+          else if (routeFailure != null)
+            Text(routeFailure!.message)
+          else if (isSavedRouteStale)
+            const Text('Saved route is obsolete after stage changes')
+          else if (isSavedRouteCurrent)
+            Text('Saved offline - updated ${_dateLabel(route!.calculatedAt)}')
+          else
+            const Text('No saved route preview yet'),
+          if (route != null) ...[
+            const SizedBox(height: 12),
+            _RouteMap(
+              geometry: route.geometry,
+              waypoints: request?.waypoints ?? const [],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.straighten_outlined,
+                    label: 'Distance',
+                    value: _distanceLabel(route.totalDistanceMeters),
+                    detail: route.provider,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.schedule_outlined,
+                    label: 'Duration',
+                    value: _durationLabel(route.totalDurationSeconds),
+                    detail: 'Estimated drive',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (final leg in route.legs) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.alt_route_outlined),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${leg.fromName} -> ${leg.toName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            '${_distanceLabel(leg.distanceMeters)} - ${_durationLabel(leg.durationSeconds)}',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _dateLabel(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _distanceLabel(double meters) {
+    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+    return '${meters.round()} m';
+  }
+
+  static String _durationLabel(double seconds) {
+    final minutes = (seconds / 60).round();
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    return rest == 0 ? '$hours h' : '$hours h $rest min';
+  }
+}
+
+class _RouteMap extends StatelessWidget {
+  const _RouteMap({
+    required this.geometry,
+    required this.waypoints,
+  });
+
+  final List<LatLng> geometry;
+  final List<RouteWaypoint> waypoints;
+
+  @override
+  Widget build(BuildContext context) {
+    final center = geometry.isEmpty
+        ? const LatLng(45.6049, 10.6351)
+        : geometry[geometry.length ~/ 2];
+
+    return AspectRatio(
+      aspectRatio: 1.7,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 9.5,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.camperboss.camperboss',
+            ),
+            if (geometry.length > 1)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: geometry,
+                    color: AppColors.gold,
+                    strokeWidth: 5,
+                  ),
+                ],
+              ),
+            MarkerLayer(
+              markers: [
+                for (final waypoint in waypoints)
+                  Marker(
+                    point: waypoint.point,
+                    width: 42,
+                    height: 42,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(color: AppColors.gold, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.place, color: AppColors.gold),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -479,7 +825,7 @@ class _TripEditorState extends State<_TripEditor> {
               maxLines: 5,
               decoration: const InputDecoration(
                 labelText: 'Stages',
-                hintText: 'One stage or stop per line',
+                hintText: 'One stop per line, e.g. Verona | 45.4384, 10.9916',
               ),
             ),
             const SizedBox(height: 12),

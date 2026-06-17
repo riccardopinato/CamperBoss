@@ -38,7 +38,20 @@ flutter run
 
 - Weather: Open-Meteo Forecast API.
 - Maps: OpenStreetMap tiles via `flutter_map`.
+- Routing: OpenRouteService route previews via `open_route_service`/Directions.
 - Translations: local JSON assets loaded at runtime via `easy_localization`.
+
+## Routing configuration
+
+Route previews compile without secrets and stay disabled until an ORS key is
+provided at runtime:
+
+```bash
+flutter run --dart-define=ORS_API_KEY=your-local-key
+```
+
+Do not commit real API keys. The current client is behind `RoutingService` so it
+can be replaced by a server-side proxy later.
 
 ## Next milestone
 

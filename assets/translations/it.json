@@ -79,5 +79,6 @@
   "notification_permission_granted": "Permesso concesso",
   "notification_permission_denied": "Permesso negato",
   "notification_permission_unavailable": "Permesso non disponibile su questa piattaforma",
-  "notification_permission_denied_help": "Le notifiche sono disattivate. Abilitale dalle impostazioni di sistema per ricevere i promemoria."
+  "notification_permission_denied_help": "Le notifiche sono disattivate. Abilitale dalle impostazioni di sistema per ricevere i promemoria.",
+  "routing_camper_warning": "Percorso stradale indicativo. Verifica sempre restrizioni, dimensioni del mezzo e segnaletica."
 }

@@ -79,5 +79,6 @@
   "notification_permission_granted": "Permission granted",
   "notification_permission_denied": "Permission denied",
   "notification_permission_unavailable": "Permission unavailable on this platform",
-  "notification_permission_denied_help": "Notifications are disabled. Enable them in system settings to receive reminders."
+  "notification_permission_denied_help": "Notifications are disabled. Enable them in system settings to receive reminders.",
+  "routing_camper_warning": "Indicative road route. Always check restrictions, vehicle dimensions, and road signs."
 }
