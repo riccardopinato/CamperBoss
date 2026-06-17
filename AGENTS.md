@@ -1,21 +1,18 @@
 # AGENTS.md
 
-## Efficienza operativa e roadmap
+## Roadmap tecnica modulare
 
-- `ROADMAP.md` e l'unica fonte ufficiale del piano.
-- Lavora su un solo step `CURRENT` alla volta.
-- Leggi solo lo step corrente, i file nel suo scope e le dipendenze dirette indispensabili.
+- `ROADMAP.md` contiene stato e riferimento alla specifica di ogni step.
+- Per ogni task leggere solo `AGENTS.md`, `ROADMAP.md` e il file `Spec` dello step `CURRENT`.
+- Non leggere i file di specifica degli step futuri.
+- Leggere solo i file di codice nello scope dello step corrente e le dipendenze dirette indispensabili.
 - Non analizzare l'intero repository, non fare audit o refactoring globali e non correggere problemi estranei.
 - Ignora `build/`, `.dart_tool/`, `ios/Pods/`, file generati, ZIP, PDF e documentazione non pertinente.
-- Tutti i controlli visibili devono funzionare realmente; nascondi o disabilita chiaramente quelli non implementati.
-- Ogni dato inserito deve essere realmente salvato e la UI deve aggiornarsi dopo il CRUD.
-- Nessun errore deve essere ignorato o trasformato silenziosamente in lista vuota.
-- La persistenza deve funzionare localmente, offline, su mobile e web, anche senza login.
-- Usa database, repository e provider condivisi; non creare database direttamente nelle schermate.
-- I documenti personali restano locali e privati salvo consenso esplicito al cloud.
-- Non chiamare "mappa offline" una semplice cache di POI.
-- Esegui test mirati, formatta solo i file modificati e crea un commit per step.
-- Priorita: correttezza con il minimo consumo possibile di token, letture e tool call.
+- Se serve una feature fuori scope, fermati e motivane la necessità.
+- Non copiare moduli esterni; reimplementa in Dart i pattern necessari e conserva attribuzioni e licenze quando porti codice sostanziale.
+- Un task completa un solo step, produce un solo commit e si ferma.
+- Aggiorna `ROADMAP.md` in-place senza cronologie estese.
+- Priorità permanente: correttezza, testabilità e minimo consumo di token, letture e tool call.
 
 ## Gestione automatica
 

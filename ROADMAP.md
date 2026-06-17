@@ -128,3 +128,38 @@ Esito:
 - Risultato: storico manutenzione persistente con CRUD, intervalli, prossime scadenze, stati e allegati locali.
 - Test: `flutter analyze`; `flutter test test/maintenance_screen_test.dart test/data_models_test.dart --timeout=30s`.
 - Commit: `feat: add vehicle maintenance history`.
+
+## STEP 6 — Offline Content Core
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-06-offline-content-core.md`
+
+## STEP 7 — Mappe e POI offline
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-07-offline-maps-poi.md`
+
+## STEP 8 — Carburante, costi, budget e prenotazioni
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-08-costs-budget-bookings.md`
+
+## STEP 9 — Backup, esportazione e importazione
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-09-backup-export-import.md`
+
+## STEP 10 — Guide offline e onboarding
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-10-offline-guides-onboarding.md`
+
+## STEP 11 — Ricerca locale e architettura AI-ready
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-11-local-search-ai-ready.md`
+
+## STEP 12 — GPX, ricordi e statistiche di viaggio
+
+Stato: `TODO`
+Spec: `docs/roadmap/step-12-gpx-memories-statistics.md`
