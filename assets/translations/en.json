@@ -102,5 +102,14 @@
   "offline_type_language": "Language pack",
   "offline_type_backup": "Backup",
   "offline_type_other": "Other",
-  "offline_size_unknown": "Unknown size"
+  "offline_size_unknown": "Unknown size",
+  "offline_storage_title": "Offline storage",
+  "offline_storage_used": "Used",
+  "offline_storage_available": "Budget",
+  "offline_storage_remaining": "Remaining",
+  "offline_storage_error": "Storage estimate error",
+  "offline_storage_normal": "Normal",
+  "offline_storage_warning": "Warning",
+  "offline_storage_critical": "Critical",
+  "offline_storage_insufficient": "Insufficient"
 }

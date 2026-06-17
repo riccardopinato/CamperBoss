@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 enum DownloadPackageType {
   map,
   poiDatabase,
@@ -8,6 +10,15 @@ enum DownloadPackageType {
   languagePack,
   backup,
   other,
+}
+
+enum InstalledResourceStatus {
+  installing,
+  installed,
+  updateAvailable,
+  missing,
+  corrupted,
+  failed,
 }
 
 enum DownloadStatus {
@@ -56,6 +67,13 @@ class DownloadablePackage {
 
   bool get hasValidUrl => Uri.tryParse(url)?.hasAbsolutePath == true;
 
+  bool get hasSecureUrl => Uri.tryParse(url)?.scheme == 'https';
+
+  String get deterministicTaskId {
+    final source = '$id|$version|$url';
+    return sha256.convert(utf8.encode(source)).toString().substring(0, 24);
+  }
+
   Map<String, Object?> toMap() {
     return {
       'id': id,
@@ -100,28 +118,195 @@ class DownloadablePackage {
 class DownloadManifest {
   const DownloadManifest({
     required this.schemaVersion,
+    required this.updatedAt,
     required this.packages,
+    this.fromCache = false,
   });
 
   final int schemaVersion;
+  final DateTime updatedAt;
   final List<DownloadablePackage> packages;
+  final bool fromCache;
 
   factory DownloadManifest.fromJson(String source) {
     final decoded = jsonDecode(source) as Map<String, dynamic>;
     final schemaVersion = decoded['schemaVersion'] as int?;
+    final updatedAtRaw = decoded['updatedAt'] as String?;
     final packages = decoded['packages'] as List<dynamic>?;
-    if (schemaVersion != 1 || packages == null) {
+    if (schemaVersion != 1 || updatedAtRaw == null || packages == null) {
       throw const FormatException('Invalid download manifest');
     }
-    return DownloadManifest(
+    final parsed = DownloadManifest(
       schemaVersion: schemaVersion!,
+      updatedAt: DateTime.parse(updatedAtRaw),
       packages: packages
           .map((item) => DownloadablePackage.fromMap(
                 Map<String, Object?>.from(item as Map),
               ))
           .toList(growable: false),
     );
+    parsed.validate();
+    return parsed;
   }
+
+  DownloadManifest copyWith({bool? fromCache}) {
+    return DownloadManifest(
+      schemaVersion: schemaVersion,
+      updatedAt: updatedAt,
+      packages: packages,
+      fromCache: fromCache ?? this.fromCache,
+    );
+  }
+
+  String toJson() {
+    return jsonEncode({
+      'schemaVersion': schemaVersion,
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
+      'packages': packages.map((package) => package.toMap()).toList(),
+    });
+  }
+
+  void validate({
+    Set<String> allowedHosts = const {},
+    bool requireHttps = true,
+  }) {
+    if (schemaVersion != 1) {
+      throw const FormatException('Unsupported manifest schema');
+    }
+    final ids = <String>{};
+    for (final package in packages) {
+      if (package.id.trim().isEmpty || !ids.add(package.id)) {
+        throw const FormatException('Package IDs must be unique and non-empty');
+      }
+      if (package.version.trim().isEmpty) {
+        throw const FormatException('Package version is required');
+      }
+      if (package.fileName.trim().isEmpty ||
+          package.fileName.contains('/') ||
+          package.fileName.contains('\\') ||
+          package.fileName.contains('..')) {
+        throw const FormatException('Package file name is invalid');
+      }
+      if (package.fileSizeBytes < 0) {
+        throw const FormatException('Package size cannot be negative');
+      }
+      if (package.expectedSha256.isNotEmpty &&
+          !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(package.expectedSha256)) {
+        throw const FormatException('Package SHA-256 is invalid');
+      }
+      final uri = Uri.tryParse(package.url);
+      if (uri == null || !uri.hasAbsolutePath || uri.host.isEmpty) {
+        throw const FormatException('Package URL is invalid');
+      }
+      if (requireHttps && uri.scheme != 'https') {
+        throw const FormatException('Package URL must use HTTPS');
+      }
+      if (allowedHosts.isNotEmpty && !allowedHosts.contains(uri.host)) {
+        throw const FormatException('Package URL host is not allowed');
+      }
+    }
+  }
+}
+
+String buildDownloadTaskId(DownloadablePackage package) {
+  return package.deterministicTaskId;
+}
+
+class InstalledResource {
+  const InstalledResource({
+    required this.packageId,
+    required this.type,
+    required this.version,
+    required this.localPath,
+    required this.fileSizeBytes,
+    required this.status,
+    this.installedSha256,
+    this.installedAt,
+    this.lastVerifiedAt,
+    this.lastError,
+  });
+
+  final String packageId;
+  final DownloadPackageType type;
+  final String version;
+  final String localPath;
+  final int fileSizeBytes;
+  final InstalledResourceStatus status;
+  final String? installedSha256;
+  final DateTime? installedAt;
+  final DateTime? lastVerifiedAt;
+  final String? lastError;
+
+  InstalledResource copyWith({
+    InstalledResourceStatus? status,
+    String? localPath,
+    int? fileSizeBytes,
+    String? installedSha256,
+    DateTime? installedAt,
+    DateTime? lastVerifiedAt,
+    String? lastError,
+  }) {
+    return InstalledResource(
+      packageId: packageId,
+      type: type,
+      version: version,
+      localPath: localPath ?? this.localPath,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      status: status ?? this.status,
+      installedSha256: installedSha256 ?? this.installedSha256,
+      installedAt: installedAt ?? this.installedAt,
+      lastVerifiedAt: lastVerifiedAt ?? this.lastVerifiedAt,
+      lastError: lastError,
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'package_id': packageId,
+      'type': type.name,
+      'version': version,
+      'local_path': localPath,
+      'file_size_bytes': fileSizeBytes,
+      'installed_sha256': installedSha256,
+      'status': status.name,
+      'installed_at': installedAt?.toIso8601String(),
+      'last_verified_at': lastVerifiedAt?.toIso8601String(),
+      'last_error': lastError,
+    };
+  }
+
+  factory InstalledResource.fromMap(Map<String, Object?> map) {
+    return InstalledResource(
+      packageId: map['package_id'] as String,
+      type: _typeFromName(map['type'] as String?),
+      version: map['version'] as String? ?? '',
+      localPath: map['local_path'] as String? ?? '',
+      fileSizeBytes: (map['file_size_bytes'] as num?)?.toInt() ?? 0,
+      installedSha256: map['installed_sha256'] as String?,
+      status: _installedStatusFromName(map['status'] as String?),
+      installedAt: DateTime.tryParse(map['installed_at'] as String? ?? ''),
+      lastVerifiedAt:
+          DateTime.tryParse(map['last_verified_at'] as String? ?? ''),
+      lastError: map['last_error'] as String?,
+    );
+  }
+}
+
+class ReconciliationReport {
+  const ReconciliationReport({
+    this.missingFiles = 0,
+    this.corruptedFiles = 0,
+    this.orphanRecords = 0,
+    this.updatedRecords = 0,
+  });
+
+  final int missingFiles;
+  final int corruptedFiles;
+  final int orphanRecords;
+  final int updatedRecords;
+
+  bool get hasIssues =>
+      missingFiles > 0 || corruptedFiles > 0 || orphanRecords > 0;
 }
 
 class DownloadRecord {
@@ -263,5 +448,12 @@ DownloadStatus _statusFromName(String? name) {
   return DownloadStatus.values.firstWhere(
     (value) => value.name == name,
     orElse: () => DownloadStatus.failed,
+  );
+}
+
+InstalledResourceStatus _installedStatusFromName(String? name) {
+  return InstalledResourceStatus.values.firstWhere(
+    (value) => value.name == name,
+    orElse: () => InstalledResourceStatus.failed,
   );
 }

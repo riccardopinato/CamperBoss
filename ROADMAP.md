@@ -131,8 +131,14 @@ Esito:
 
 ## STEP 6 — Offline Content Core
 
-Stato: `TODO`
+Stato: `BLOCKED`
 Spec: `docs/roadmap/step-06-offline-content-core.md`
+
+Esito:
+
+- Risultato: core offline implementato con manifest versionato, cache, registro installati, sicurezza download, riconciliazione e proiezione spazio.
+- Test: non eseguibili in questa sessione perché `flutter` e `dart` non sono disponibili nel PATH.
+- Commit: `feat(offline): add versioned offline content core`.
 
 ## STEP 7 — Mappe e POI offline
 

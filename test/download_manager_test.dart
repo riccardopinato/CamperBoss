@@ -3,7 +3,12 @@ import 'dart:io';
 import 'package:camperboss/core/providers/download_manager_provider.dart';
 import 'package:camperboss/core/services/app_download_manager.dart';
 import 'package:camperboss/core/services/download_file_verifier.dart';
+import 'package:camperboss/core/services/storage_inspector.dart';
+import 'package:camperboss/data/database/local_json_collection.dart';
+import 'package:camperboss/data/database/local_key_value_store_stub.dart';
 import 'package:camperboss/data/models/download_models.dart';
+import 'package:camperboss/data/repositories/installed_resource_repository.dart';
+import 'package:camperboss/data/repositories/offline_manifest_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,17 +28,18 @@ void main() {
     destinationDirectory: 'offline/guides',
   );
 
-  test('parses manifest without fake production URLs', () {
+  test('parses and validates a versioned HTTPS manifest', () {
     const source = '''
 {
   "schemaVersion": 1,
+  "updatedAt": "2026-06-17T00:00:00Z",
   "packages": [
     {
       "id": "italy-north-map",
       "type": "map",
       "title": "Nord Italia",
       "version": "2026.06",
-      "url": "",
+      "url": "https://downloads.camperboss.test/italy_north.pmtiles",
       "fileName": "italy_north.pmtiles",
       "fileSizeBytes": 0,
       "sha256": ""
@@ -45,8 +51,91 @@ void main() {
     final manifest = DownloadManifest.fromJson(source);
 
     expect(manifest.schemaVersion, 1);
+    expect(manifest.updatedAt.toUtc().year, 2026);
     expect(manifest.packages.single.id, 'italy-north-map');
-    expect(manifest.packages.single.url, isEmpty);
+    expect(manifest.packages.single.hasSecureUrl, isTrue);
+  });
+
+  test('manifest rejects duplicate ids and unsafe file names', () {
+    const source = '''
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-06-17T00:00:00Z",
+  "packages": [
+    {
+      "id": "dup",
+      "type": "guide",
+      "title": "A",
+      "version": "1",
+      "url": "https://downloads.camperboss.test/a.pdf",
+      "fileName": "../a.pdf",
+      "fileSizeBytes": 1,
+      "sha256": ""
+    },
+    {
+      "id": "dup",
+      "type": "guide",
+      "title": "B",
+      "version": "1",
+      "url": "https://downloads.camperboss.test/b.pdf",
+      "fileName": "b.pdf",
+      "fileSizeBytes": 1,
+      "sha256": ""
+    }
+  ]
+}
+''';
+
+    expect(() => DownloadManifest.fromJson(source), throwsFormatException);
+  });
+
+  test('manifest repository falls back to cached manifest', () async {
+    final collection = LocalJsonCollection(
+      'manifest-test',
+      store: MemoryKeyValueStore(),
+    );
+    const cached = '''
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-06-17T00:00:00Z",
+  "packages": [
+    {
+      "id": "guide",
+      "type": "guide",
+      "title": "Guide",
+      "version": "1",
+      "url": "https://downloads.camperboss.test/guide.pdf",
+      "fileName": "guide.pdf",
+      "fileSizeBytes": 1,
+      "sha256": ""
+    }
+  ]
+}
+''';
+    final writer = LocalOfflineManifestRepository(
+      cacheCollection: collection,
+      allowedHosts: {'downloads.camperboss.test'},
+    );
+    await writer.cacheManifest(DownloadManifest.fromJson(cached));
+
+    final reader = LocalOfflineManifestRepository(
+      cacheCollection: collection,
+      allowedHosts: {'downloads.camperboss.test'},
+      remoteLoader: () => throw StateError('offline'),
+    );
+    final manifest = await reader.loadManifest();
+
+    expect(manifest.fromCache, isTrue);
+    expect(manifest.packages.single.id, 'guide');
+  });
+
+  test('download task id is deterministic and URL based', () {
+    expect(buildDownloadTaskId(package), package.deterministicTaskId);
+    expect(buildDownloadTaskId(package), hasLength(24));
+    expect(
+      buildDownloadTaskId(package),
+      isNot(buildDownloadTaskId(package.copyWithVersionForTest('2026.07'))),
+    );
   });
 
   test('fake manager supports enqueue pause resume cancel retry delete',
@@ -147,6 +236,34 @@ void main() {
     final records = await manager.watchDownloads().first;
     expect(records.single.packageId, package.id);
   });
+
+  test('storage projection warns and blocks when space is insufficient',
+      () async {
+    final repository = _MemoryInstalledResourceRepository([
+      InstalledResource(
+        packageId: 'map',
+        type: DownloadPackageType.map,
+        version: '1',
+        localPath: '/tmp/map.pmtiles',
+        fileSizeBytes: 80,
+        status: InstalledResourceStatus.installed,
+      ),
+    ]);
+    final inspector = LocalStorageInspector(
+      repository: repository,
+      appStorageBudgetBytes: 100,
+    );
+
+    final warning = await inspector.projectInstallation([
+      package.copyWithSizeForTest(5),
+    ]);
+    expect(warning.pressure, StoragePressure.warning);
+
+    final blocked = await inspector.projectInstallation([
+      package.copyWithSizeForTest(30),
+    ]);
+    expect(blocked.pressure, StoragePressure.insufficient);
+  });
 }
 
 Future<void> _settleStream() => Future<void>.delayed(Duration.zero);
@@ -169,5 +286,63 @@ extension on DownloadablePackage {
       priority: priority,
       group: this.group,
     );
+  }
+
+  DownloadablePackage copyWithSizeForTest(int fileSizeBytes) {
+    return DownloadablePackage(
+      id: id,
+      type: type,
+      title: title,
+      description: description,
+      version: version,
+      url: url,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes,
+      expectedSha256: expectedSha256,
+      requiresWifiByDefault: requiresWifiByDefault,
+      destinationDirectory: destinationDirectory,
+      metadata: metadata,
+      priority: priority,
+      group: this.group,
+    );
+  }
+}
+
+class _MemoryInstalledResourceRepository
+    implements InstalledResourceRepository {
+  _MemoryInstalledResourceRepository(this.resources);
+
+  final List<InstalledResource> resources;
+
+  @override
+  Future<void> delete(String packageId) async {
+    resources.removeWhere((resource) => resource.packageId == packageId);
+  }
+
+  @override
+  Future<InstalledResource?> findByPackageId(String packageId) async {
+    for (final resource in resources) {
+      if (resource.packageId == packageId) return resource;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<InstalledResource>> listAll() async => List.of(resources);
+
+  @override
+  Future<ReconciliationReport> reconcile() async {
+    return const ReconciliationReport();
+  }
+
+  @override
+  Future<void> upsert(InstalledResource resource) async {
+    await delete(resource.packageId);
+    resources.add(resource);
+  }
+
+  @override
+  Stream<List<InstalledResource>> watchAll() async* {
+    yield List.of(resources);
   }
 }

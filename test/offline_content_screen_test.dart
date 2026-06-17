@@ -1,5 +1,6 @@
 import 'package:camperboss/core/providers/download_manager_provider.dart';
 import 'package:camperboss/core/services/app_download_manager.dart';
+import 'package:camperboss/core/services/storage_inspector.dart';
 import 'package:camperboss/data/models/download_models.dart';
 import 'package:camperboss/features/offline/presentation/offline_content_screen.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,9 @@ void main() {
       ProviderScope(
         overrides: [
           downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
+          storageInspectorProvider.overrideWithValue(
+            const _FakeStorageInspector(),
+          ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
@@ -46,7 +50,12 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [downloadManagerProvider.overrideWithValue(manager)],
+        overrides: [
+          downloadManagerProvider.overrideWithValue(manager),
+          storageInspectorProvider.overrideWithValue(
+            const _FakeStorageInspector(),
+          ),
+        ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
     );
@@ -57,4 +66,48 @@ void main() {
     expect(find.text('offline_pause'), findsOneWidget);
     expect(find.text('offline_cancel'), findsOneWidget);
   });
+
+  testWidgets('offline content screen shows storage projection',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
+          storageInspectorProvider.overrideWithValue(
+            const _FakeStorageInspector(),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('offline_storage_title'), findsOneWidget);
+    expect(find.textContaining('1.0 MB'), findsOneWidget);
+  });
+}
+
+class _FakeStorageInspector implements StorageInspector {
+  const _FakeStorageInspector();
+
+  @override
+  Future<int> getAvailableBytes() async => 1024 * 1024;
+
+  @override
+  Future<int> getUsedBytesByCategory(DownloadPackageType type) async => 0;
+
+  @override
+  Future<StorageProjection> projectInstallation(
+    Iterable<DownloadablePackage> packages,
+  ) async {
+    return const StorageProjection(
+      availableBytes: 1024 * 1024,
+      usedBytes: 0,
+      selectedBytes: 0,
+      projectedUsedBytes: 0,
+      projectedRemainingBytes: 1024 * 1024,
+      pressure: StoragePressure.normal,
+      usedByType: {},
+    );
+  }
 }

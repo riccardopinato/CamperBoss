@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../data/models/download_models.dart';
 import '../../data/repositories/download_record_repository.dart';
+import '../../data/repositories/installed_resource_repository.dart';
 import 'download_file_verifier.dart';
 
 abstract interface class AppDownloadManager {
@@ -23,17 +24,23 @@ abstract interface class AppDownloadManager {
 class BackgroundDownloaderManager implements AppDownloadManager {
   BackgroundDownloaderManager({
     DownloadRecordRepository? repository,
+    InstalledResourceRepository? installedRepository,
     FileDownloader? downloader,
     DownloadFileVerifier verifier = const DownloadFileVerifier(),
+    this.allowedHosts = const {},
   })  : _repository = repository ?? LocalDownloadRecordRepository(),
+        _installedRepository =
+            installedRepository ?? LocalInstalledResourceRepository(),
         _downloader = downloader ?? FileDownloader(),
         _verifier = verifier {
     _subscription = _downloader.updates.listen(_handleUpdate);
   }
 
   final DownloadRecordRepository _repository;
+  final InstalledResourceRepository _installedRepository;
   final FileDownloader _downloader;
   final DownloadFileVerifier _verifier;
+  final Set<String> allowedHosts;
   late final _controller = StreamController<List<DownloadRecord>>.broadcast(
     onListen: () {
       _publish();
@@ -51,12 +58,19 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   Future<void> enqueue(DownloadablePackage package) async {
     await _ensureStarted();
     final uri = Uri.tryParse(package.url);
-    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
+    if (uri == null || uri.scheme != 'https') {
       throw ArgumentError('Invalid package URL');
+    }
+    if (allowedHosts.isNotEmpty && !allowedHosts.contains(uri.host)) {
+      throw ArgumentError('Package URL host is not allowed');
+    }
+    _validateFileName(package.fileName);
+    if (package.fileSizeBytes < 0) {
+      throw ArgumentError('Package size cannot be negative');
     }
 
     final now = DateTime.now();
-    final taskId = '${package.id}-${package.version}';
+    final taskId = buildDownloadTaskId(package);
     final tempDirectory = '${package.destinationDirectory}/partial';
     final task = DownloadTask(
       taskId: taskId,
@@ -98,6 +112,16 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         createdAt: now,
         updatedAt: now,
         group: package.group,
+      ),
+    );
+    await _installedRepository.upsert(
+      InstalledResource(
+        packageId: package.id,
+        type: package.type,
+        version: package.version,
+        localPath: finalPath,
+        fileSizeBytes: package.fileSizeBytes,
+        status: InstalledResourceStatus.installing,
       ),
     );
     await _publish();
@@ -170,6 +194,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       await installed.delete();
     }
     await _repository.deleteRecord(id);
+    await _installedRepository.delete(id);
     await _publish();
   }
 
@@ -204,6 +229,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         await _verifyAndInstall(record);
       }
     }
+    await _installedRepository.reconcile();
     await _publish();
   }
 
@@ -270,7 +296,29 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         updatedAt: DateTime.now(),
       ),
     );
+    await _installedRepository.upsert(
+      InstalledResource(
+        packageId: record.packageId,
+        type: record.type,
+        version: record.version,
+        localPath: target.path,
+        fileSizeBytes: await target.length(),
+        installedSha256: verification.actualSha256 ?? record.expectedSha256,
+        status: InstalledResourceStatus.installed,
+        installedAt: DateTime.now(),
+        lastVerifiedAt: DateTime.now(),
+      ),
+    );
     await _publish();
+  }
+
+  void _validateFileName(String fileName) {
+    if (fileName.trim().isEmpty ||
+        fileName.contains('/') ||
+        fileName.contains('\\') ||
+        fileName.contains('..')) {
+      throw ArgumentError('Invalid package file name');
+    }
   }
 
   Future<void> _verifyAndInstall(DownloadRecord record) async {
@@ -300,6 +348,19 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         status: DownloadStatus.corrupted,
         installedSha256: verification.actualSha256 ?? '',
         lastError: verification.error,
+      );
+      await _installedRepository.upsert(
+        InstalledResource(
+          packageId: record.packageId,
+          type: record.type,
+          version: record.version,
+          localPath: record.localPath,
+          fileSizeBytes: record.totalBytes,
+          installedSha256: verification.actualSha256,
+          status: InstalledResourceStatus.corrupted,
+          lastVerifiedAt: DateTime.now(),
+          lastError: verification.error,
+        ),
       );
       return;
     }
@@ -392,7 +453,7 @@ class FakeDownloadManager implements AppDownloadManager {
     _records.add(
       DownloadRecord(
         packageId: package.id,
-        taskId: '${package.id}-${package.version}',
+        taskId: buildDownloadTaskId(package),
         type: package.type,
         title: package.title,
         version: package.version,

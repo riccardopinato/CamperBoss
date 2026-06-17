@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 11;
+  static const databaseVersion = 12;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -19,6 +19,7 @@ class AppDatabase {
   static const reminderSettingsTable = 'reminder_settings';
   static const routePreviewsTable = 'route_previews';
   static const downloadRecordsTable = 'download_records';
+  static const installedResourcesTable = 'installed_resources';
 
   Database? _database;
 
@@ -159,6 +160,7 @@ CREATE TABLE $maintenanceRecordsTable (
     await _createReminderTables(db);
     await _createRoutePreviewTable(db);
     await _createDownloadRecordsTable(db);
+    await _createInstalledResourcesTable(db);
   }
 
   Future<void> _migrateSchema(
@@ -353,6 +355,9 @@ SET title = CASE WHEN title = '' THEN name ELSE title END,
     if (oldVersion < 11) {
       await _createDownloadRecordsTable(db);
     }
+    if (oldVersion < 12) {
+      await _createInstalledResourcesTable(db);
+    }
   }
 
   Future<void> _createReminderTables(Database db) async {
@@ -419,6 +424,23 @@ CREATE TABLE IF NOT EXISTS $downloadRecordsTable (
   progress REAL NOT NULL DEFAULT 0,
   speed_bytes_per_second INTEGER,
   download_group TEXT NOT NULL DEFAULT 'offline'
+)
+''');
+  }
+
+  Future<void> _createInstalledResourcesTable(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $installedResourcesTable (
+  package_id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  version TEXT NOT NULL,
+  local_path TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL DEFAULT 0,
+  installed_sha256 TEXT,
+  status TEXT NOT NULL,
+  installed_at TEXT,
+  last_verified_at TEXT,
+  last_error TEXT
 )
 ''');
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/download_manager_provider.dart';
 import '../../../core/services/app_download_manager.dart';
+import '../../../core/services/storage_inspector.dart';
 import '../../../data/models/download_models.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
@@ -16,6 +17,7 @@ class OfflineContentScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final downloads = ref.watch(downloadsProvider);
     final manager = ref.watch(downloadManagerProvider);
+    final storageProjection = ref.watch(storageProjectionProvider);
 
     return ScreenScaffold(
       title: 'offline_title'.tr(),
@@ -41,6 +43,14 @@ class OfflineContentScreen extends ConsumerWidget {
               const Switch(value: true, onChanged: null),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        storageProjection.when(
+          data: (projection) => StorageProjectionCard(projection: projection),
+          error: (error, _) => PremiumCard(
+            child: Text('${'offline_storage_error'.tr()}: $error'),
+          ),
+          loading: () => const LinearProgressIndicator(),
         ),
         const SizedBox(height: 16),
         SectionHeader(title: 'offline_installed'.tr()),
@@ -80,6 +90,70 @@ class OfflineContentScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+class StorageProjectionCard extends StatelessWidget {
+  const StorageProjectionCard({required this.projection, super.key});
+
+  final StorageProjection projection;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = projection.projectedUsageRatio.clamp(0.0, 1.0);
+    final color = switch (projection.pressure) {
+      StoragePressure.normal => Colors.green,
+      StoragePressure.warning => Colors.orange,
+      StoragePressure.critical || StoragePressure.insufficient =>
+        Colors.redAccent,
+    };
+
+    return PremiumCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.storage_outlined),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'offline_storage_title'.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Chip(
+                label: Text('offline_storage_${projection.pressure.name}'.tr()),
+                backgroundColor: color.withValues(alpha: 0.16),
+                side: BorderSide(color: color.withValues(alpha: 0.45)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(value: ratio, color: color),
+          const SizedBox(height: 8),
+          Text(
+            '${'offline_storage_used'.tr()}: ${_sizeLabel(projection.usedBytes)}'
+            ' - ${'offline_storage_available'.tr()}: ${_sizeLabel(projection.availableBytes)}'
+            ' - ${'offline_storage_remaining'.tr()}: ${_sizeLabel(projection.projectedRemainingBytes)}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _sizeLabel(int bytes) {
+    if (bytes <= 0) return 'offline_size_unknown'.tr();
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '$bytes B';
   }
 }
 
