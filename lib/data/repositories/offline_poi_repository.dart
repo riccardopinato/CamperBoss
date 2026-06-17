@@ -17,7 +17,8 @@ abstract interface class PoiRepository {
 class LocalOfflinePoiRepository implements PoiRepository {
   LocalOfflinePoiRepository({
     LocalJsonCollection? collection,
-  }) : _collection = collection ?? LocalJsonCollection('camperboss.offline_poi');
+  }) : _collection =
+            collection ?? LocalJsonCollection('camperboss.offline_poi');
 
   final LocalJsonCollection _collection;
 
@@ -28,7 +29,8 @@ class LocalOfflinePoiRepository implements PoiRepository {
   ) async* {
     final places = await listAll();
     yield places
-        .where((place) => categories.isEmpty || categories.contains(place.category))
+        .where((place) =>
+            categories.isEmpty || categories.contains(place.category))
         .where((place) => bounds.contains(place.latitude, place.longitude))
         .toList(growable: false);
   }
@@ -58,7 +60,8 @@ class LocalOfflinePoiRepository implements PoiRepository {
     for (final place in places) {
       await _collection.saveRow({
         ...place.toMap(),
-        'id': place.id ?? '${place.packageId}:${place.name}:${place.latitude}:${place.longitude}',
+        'id': place.id ??
+            '${place.packageId}:${place.name}:${place.latitude}:${place.longitude}',
       });
     }
     return places.length;
@@ -78,7 +81,8 @@ class LocalOfflinePoiRepository implements PoiRepository {
     if (decoded is List) {
       return decoded
           .whereType<Map>()
-          .map((item) => _placeFromMap(packageId, Map<String, Object?>.from(item)))
+          .map((item) =>
+              _placeFromMap(packageId, Map<String, Object?>.from(item)))
           .toList(growable: false);
     }
     if (decoded is Map && decoded['type'] == 'FeatureCollection') {

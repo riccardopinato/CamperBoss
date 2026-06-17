@@ -104,7 +104,8 @@ class StorageProjectionCard extends StatelessWidget {
     final color = switch (projection.pressure) {
       StoragePressure.normal => Colors.green,
       StoragePressure.warning => Colors.orange,
-      StoragePressure.critical || StoragePressure.insufficient =>
+      StoragePressure.critical ||
+      StoragePressure.insufficient =>
         Colors.redAccent,
     };
 

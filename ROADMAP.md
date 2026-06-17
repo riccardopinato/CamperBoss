@@ -131,14 +131,14 @@ Esito:
 
 ## STEP 6 — Offline Content Core
 
-Stato: `BLOCKED`
+Stato: `DONE`
 Spec: `docs/roadmap/step-06-offline-content-core.md`
 
 Esito:
 
 - Risultato: core offline implementato con manifest versionato, cache, registro installati, sicurezza download, riconciliazione e proiezione spazio.
-- Test: non eseguibili in questa sessione perché `flutter` e `dart` non sono disponibili nel PATH.
-- Commit: `feat(offline): add versioned offline content core`.
+- Test: `flutter analyze`; `flutter test`; test mirati download/offline/map/POI.
+- Commit: `feat(offline): add versioned offline content core` + verifica `test: unblock offline steps verification`.
 
 ## STEP 7 — Mappe e POI offline
 
@@ -148,8 +148,8 @@ Spec: `docs/roadmap/step-07-offline-maps-poi.md`
 Esito:
 
 - Risultato: repository regioni offline e POI locali implementati; mappa usa POI offline quando presenti e mostra stato reale regioni PMTiles.
-- Test: non eseguibili perché `flutter` e `dart` non sono disponibili nel PATH; rendering PMTiles locale non verificato.
-- Commit: `feat(map): add verified offline maps and POI packages`.
+- Test: `flutter analyze`; `flutter test`; test mirati map/POI passati.
+- Commit: `feat(map): add verified offline maps and POI packages`; resta da verificare apertura PMTiles reale.
 
 ## STEP 8 — Carburante, costi, budget e prenotazioni
 

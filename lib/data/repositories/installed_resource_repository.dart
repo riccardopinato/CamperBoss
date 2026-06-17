@@ -36,8 +36,7 @@ class LocalInstalledResourceRepository implements InstalledResourceRepository {
   Future<List<InstalledResource>> listAll() async {
     if (kIsWeb) {
       final rows = await _webCollection.listRows();
-      return rows.map(InstalledResource.fromMap).toList()
-        ..sort(_sortResources);
+      return rows.map(InstalledResource.fromMap).toList()..sort(_sortResources);
     }
 
     final db = await _database.database;

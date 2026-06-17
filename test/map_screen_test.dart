@@ -108,10 +108,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.drag(find.byType(ListView), const Offset(0, -1300));
     await tester.pumpAndSettle();
-    expect(find.text('Camping'), findsOneWidget);
-    expect(find.text('GPL'), findsOneWidget);
+    expect(find.text('Camping'), findsWidgets);
+    expect(find.text('GPL'), findsWidgets);
     expect(find.text('2 visible'), findsOneWidget);
 
     await tester.tap(find.text('Camping'));

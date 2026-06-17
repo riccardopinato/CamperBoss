@@ -90,12 +90,10 @@ void main() {
 ''');
 
     expect(count, 2);
-    final visible = await repository
-        .watchInBounds(
-          const GeoBounds(south: 45, west: 10, north: 46, east: 11),
-          {'sosta'},
-        )
-        .first;
+    final visible = await repository.watchInBounds(
+      const GeoBounds(south: 45, west: 10, north: 46, east: 11),
+      {'sosta'},
+    ).first;
     expect(visible, hasLength(1));
     expect(visible.single.name, 'Area Lago');
     expect(visible.single.services, ['water', 'waste']);
@@ -158,8 +156,7 @@ void main() {
     expect(regions.single.active, isTrue);
   });
 
-  test('offline map repository rejects missing or unreadable source',
-      () async {
+  test('offline map repository rejects missing or unreadable source', () async {
     final repository = LocalOfflineMapRepository(
       installedRepository: _MemoryInstalledResourceRepository([
         const InstalledResource(

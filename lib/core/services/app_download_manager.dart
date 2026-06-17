@@ -296,19 +296,6 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         updatedAt: DateTime.now(),
       ),
     );
-    await _installedRepository.upsert(
-      InstalledResource(
-        packageId: record.packageId,
-        type: record.type,
-        version: record.version,
-        localPath: target.path,
-        fileSizeBytes: await target.length(),
-        installedSha256: verification.actualSha256 ?? record.expectedSha256,
-        status: InstalledResourceStatus.installed,
-        installedAt: DateTime.now(),
-        lastVerifiedAt: DateTime.now(),
-      ),
-    );
     await _publish();
   }
 
@@ -382,6 +369,19 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         updatedAt: DateTime.now(),
         completedAt: DateTime.now(),
         lastError: null,
+      ),
+    );
+    await _installedRepository.upsert(
+      InstalledResource(
+        packageId: record.packageId,
+        type: record.type,
+        version: record.version,
+        localPath: target.path,
+        fileSizeBytes: await target.length(),
+        installedSha256: verification.actualSha256 ?? record.expectedSha256,
+        status: InstalledResourceStatus.installed,
+        installedAt: DateTime.now(),
+        lastVerifiedAt: DateTime.now(),
       ),
     );
     await _publish();

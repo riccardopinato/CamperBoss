@@ -113,7 +113,8 @@ class LocalStorageInspector implements StorageInspector {
   Future<int> _usedBytes() async {
     final resources = await _repository.listAll();
     return resources
-        .where((resource) => resource.status == InstalledResourceStatus.installed)
+        .where(
+            (resource) => resource.status == InstalledResourceStatus.installed)
         .fold<int>(0, (sum, resource) => sum + resource.fileSizeBytes);
   }
 }

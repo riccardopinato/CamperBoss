@@ -27,7 +27,8 @@ class LocalOfflineManifestRepository implements OfflineManifestRepository {
     try {
       final loader = _remoteLoader;
       if (loader == null) {
-        throw const OfflineManifestUnavailable('Remote manifest not configured');
+        throw const OfflineManifestUnavailable(
+            'Remote manifest not configured');
       }
       final manifest = DownloadManifest.fromJson(await loader());
       manifest.validate(allowedHosts: allowedHosts);

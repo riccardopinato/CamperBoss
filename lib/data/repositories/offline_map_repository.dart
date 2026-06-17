@@ -85,7 +85,8 @@ class LocalOfflineMapRepository implements OfflineMapRepository {
   Future<MapSourceConfiguration?> resolveActiveSource() async {
     final activePackageId = await _store.read(_activeRegionKey);
     if (activePackageId == null || activePackageId.isEmpty) return null;
-    final resource = await _installedRepository.findByPackageId(activePackageId);
+    final resource =
+        await _installedRepository.findByPackageId(activePackageId);
     if (resource == null ||
         resource.type != DownloadPackageType.map ||
         resource.status != InstalledResourceStatus.installed ||

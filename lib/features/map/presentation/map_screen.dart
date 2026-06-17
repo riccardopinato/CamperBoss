@@ -55,8 +55,7 @@ class _MapScreenState extends State<MapScreen> {
   final _markerMapper = const MapMarkerMapper();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
-  late List<CamperPlace> _places =
-      widget.places ?? MockCamperRepository.places;
+  late List<CamperPlace> _places = widget.places ?? MockCamperRepository.places;
   late final PoiCacheRepository _cacheRepository =
       widget.cacheRepository ?? LocalPoiCacheRepository();
   late final OfflineMapRepository _offlineMapRepository =

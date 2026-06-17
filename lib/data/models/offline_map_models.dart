@@ -24,7 +24,9 @@ class InstalledMapRegion {
   final String? lastError;
 
   bool get availableOffline =>
-      active && status == InstalledResourceStatus.installed && localPath.isNotEmpty;
+      active &&
+      status == InstalledResourceStatus.installed &&
+      localPath.isNotEmpty;
 }
 
 class MapSourceConfiguration {
