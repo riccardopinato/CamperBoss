@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -20,7 +21,7 @@ Future<void> main() async {
       ],
       path: 'assets/translations',
       fallbackLocale: const Locale('en'),
-      child: const CamperBossApp(),
+      child: const ProviderScope(child: CamperBossApp()),
     ),
   );
 }

@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/camper_place.dart';
 import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
+import '../../offline/presentation/offline_content_screen.dart';
 import 'map_marker_cluster_layer.dart';
 import 'map_marker_mapper.dart';
 import 'map_place_filters.dart';
@@ -503,6 +504,16 @@ class _MapScreenState extends State<MapScreen> {
                               )
                             : const Icon(Icons.delete_outline),
                         label: const Text('Delete'),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton.outlined(
+                        tooltip: 'Offline contents',
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const OfflineContentScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.cloud_download_outlined),
                       ),
                     ],
                   ),

@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 10;
+  static const databaseVersion = 11;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -18,6 +18,7 @@ class AppDatabase {
   static const remindersTable = 'app_reminders';
   static const reminderSettingsTable = 'reminder_settings';
   static const routePreviewsTable = 'route_previews';
+  static const downloadRecordsTable = 'download_records';
 
   Database? _database;
 
@@ -157,6 +158,7 @@ CREATE TABLE $maintenanceRecordsTable (
 
     await _createReminderTables(db);
     await _createRoutePreviewTable(db);
+    await _createDownloadRecordsTable(db);
   }
 
   Future<void> _migrateSchema(
@@ -348,6 +350,9 @@ SET title = CASE WHEN title = '' THEN name ELSE title END,
     if (oldVersion < 10) {
       await _createRoutePreviewTable(db);
     }
+    if (oldVersion < 11) {
+      await _createDownloadRecordsTable(db);
+    }
   }
 
   Future<void> _createReminderTables(Database db) async {
@@ -388,6 +393,32 @@ CREATE TABLE IF NOT EXISTS $routePreviewsTable (
   legs TEXT NOT NULL DEFAULT '[]',
   provider TEXT NOT NULL,
   calculated_at TEXT NOT NULL
+)
+''');
+  }
+
+  Future<void> _createDownloadRecordsTable(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $downloadRecordsTable (
+  package_id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  version TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  local_path TEXT NOT NULL,
+  status TEXT NOT NULL,
+  downloaded_bytes INTEGER NOT NULL DEFAULT 0,
+  total_bytes INTEGER NOT NULL DEFAULT 0,
+  expected_sha256 TEXT,
+  installed_sha256 TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  last_error TEXT,
+  progress REAL NOT NULL DEFAULT 0,
+  speed_bytes_per_second INTEGER,
+  download_group TEXT NOT NULL DEFAULT 'offline'
 )
 ''');
   }
