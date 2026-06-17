@@ -12,6 +12,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/camper_place.dart';
 import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
+import 'map_marker_cluster_layer.dart';
+import 'map_marker_mapper.dart';
+import 'map_place_filters.dart';
 import '../../../shared/widgets/place_card.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/resource_bar.dart';
@@ -35,34 +38,26 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  static const _filterLabels = {
-    'sosta': 'Sosta',
-    'camping': 'Camping',
-    'parcheggio': 'Parcheggio',
-    'acqua': 'Acqua',
-    'scarico': 'Scarico',
-    'gpl': 'GPL',
-    'assistenza': 'Assistenza',
-  };
-
   final _mapController = MapController();
   final _searchController = TextEditingController();
   final _geocodingService = const GeocodingService();
   final _locationService = const LocationService();
   final _distance = const Distance();
+  final _markerMapper = const MapMarkerMapper();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
   late final List<CamperPlace> _places =
       widget.places ?? MockCamperRepository.places;
   late final PoiCacheRepository _cacheRepository =
       widget.cacheRepository ?? LocalPoiCacheRepository();
-  late final Set<String> _activeFilters = {..._filterLabels.keys};
+  late final Set<String> _activeFilters = {...mapFilterLabels.keys};
   bool _isSearching = false;
   bool _isLocating = false;
   bool _isRefreshingCache = false;
   bool _isClearingCache = false;
   String? _error;
   PoiCacheSnapshot? _cacheSnapshot;
+  CamperPlace? _selectedPlace;
 
   @override
   void initState() {
@@ -219,19 +214,21 @@ class _MapScreenState extends State<MapScreen> {
       } else {
         _activeFilters.add(filter);
       }
+      final selectedPlace = _selectedPlace;
+      if (selectedPlace != null &&
+          !_activeFilters.contains(selectedPlace.category)) {
+        _selectedPlace = null;
+      }
     });
   }
 
   List<CamperPlace> _filteredPlaces(LatLng selectedPoint) {
-    final filtered = _places
-        .where((place) => _activeFilters.contains(place.category))
-        .toList();
-    filtered.sort(
-      (a, b) => _distanceKm(a, selectedPoint).compareTo(
-        _distanceKm(b, selectedPoint),
-      ),
+    return filterAndSortPlaces(
+      places: _places,
+      activeFilters: _activeFilters,
+      selectedPoint: selectedPoint,
+      distance: _distance,
     );
-    return filtered;
   }
 
   double _distanceKm(CamperPlace place, LatLng selectedPoint) {
@@ -242,44 +239,9 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  IconData _iconForCategory(String category) {
-    switch (category) {
-      case 'camping':
-        return Icons.cabin_outlined;
-      case 'parcheggio':
-        return Icons.local_parking_outlined;
-      case 'acqua':
-        return Icons.water_drop_outlined;
-      case 'scarico':
-        return Icons.delete_outline;
-      case 'gpl':
-        return Icons.local_gas_station_outlined;
-      case 'assistenza':
-        return Icons.build_outlined;
-      case 'sosta':
-      default:
-        return Icons.rv_hookup;
-    }
-  }
-
-  Color _colorForCategory(String category) {
-    switch (category) {
-      case 'camping':
-        return AppColors.forest;
-      case 'parcheggio':
-        return AppColors.text;
-      case 'acqua':
-        return AppColors.gold;
-      case 'scarico':
-        return Colors.blueGrey;
-      case 'gpl':
-        return Colors.deepOrange;
-      case 'assistenza':
-        return Colors.redAccent;
-      case 'sosta':
-      default:
-        return AppColors.moss;
-    }
+  void _selectPlace(CamperPlace place) {
+    setState(() => _selectedPlace = place);
+    _mapController.move(LatLng(place.latitude, place.longitude), 13.5);
   }
 
   @override
@@ -292,6 +254,20 @@ class _MapScreenState extends State<MapScreen> {
           selectedLocation.longitude,
         );
         final places = _filteredPlaces(selectedPoint);
+        final selectedPlace = _selectedPlace != null &&
+                places.any(
+                  (place) =>
+                      MapMarkerMapper.poiMarkerId(place) ==
+                      MapMarkerMapper.poiMarkerId(_selectedPlace!),
+                )
+            ? _selectedPlace
+            : null;
+        final clusterMarkers = buildClusterablePoiMarkers(
+          places: places,
+          mapper: _markerMapper,
+          selectedPlace: selectedPlace,
+          onTap: _selectPlace,
+        );
         final cacheSnapshot = _cacheSnapshot;
 
         return ScreenScaffold(
@@ -393,54 +369,76 @@ class _MapScreenState extends State<MapScreen> {
                     aspectRatio: 1.4,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: selectedPoint,
-                          initialZoom: 10.2,
-                        ),
+                      child: Stack(
                         children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.camperboss.camperboss',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: selectedPoint,
-                                width: 48,
-                                height: 48,
-                                child: const Icon(
-                                  Icons.navigation,
-                                  color: AppColors.gold,
-                                  size: 42,
-                                ),
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: selectedPoint,
+                              initialZoom: 10.2,
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName:
+                                    'com.camperboss.camperboss',
                               ),
-                              for (final place in places)
-                                Marker(
-                                  point: LatLng(
-                                    place.latitude,
-                                    place.longitude,
+                              MapMarkerClusterLayer(markers: clusterMarkers),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: selectedPoint,
+                                    width: 48,
+                                    height: 48,
+                                    child: const Icon(
+                                      Icons.navigation,
+                                      color: AppColors.gold,
+                                      size: 42,
+                                    ),
                                   ),
-                                  width: 40,
-                                  height: 40,
-                                  child: Icon(
-                                    _iconForCategory(place.category),
-                                    color: _colorForCategory(place.category),
-                                    size: 32,
+                                  if (selectedPlace != null)
+                                    _markerMapper.buildPoiMarker(
+                                      selectedPlace,
+                                      selected: true,
+                                      onTap: () => _selectPlace(selectedPlace),
+                                    ),
+                                ],
+                              ),
+                              RichAttributionWidget(
+                                attributions: [
+                                  TextSourceAttribution(
+                                    'OpenStreetMap contributors',
+                                    onTap: () {},
                                   ),
-                                ),
+                                ],
+                              ),
                             ],
                           ),
-                          RichAttributionWidget(
-                            attributions: [
-                              TextSourceAttribution(
-                                'OpenStreetMap contributors',
-                                onTap: () {},
+                          if (selectedPlace != null)
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 12,
+                              child: _MapPlacePopup(
+                                place: selectedPlace,
+                                categoryLabel:
+                                    mapFilterLabels[selectedPlace.category] ??
+                                        selectedPlace.type,
+                                distanceKm:
+                                    _distanceKm(selectedPlace, selectedPoint),
+                                icon: _markerMapper.iconForCategory(
+                                  selectedPlace.category,
+                                ),
+                                iconColor: _markerMapper.colorForCategory(
+                                  selectedPlace.category,
+                                ),
+                                onDirections: () =>
+                                    _openDirections(selectedPlace),
+                                onClose: () =>
+                                    setState(() => _selectedPlace = null),
                               ),
-                            ],
-                          ),
+                            ),
                         ],
                       ),
                     ),
@@ -518,7 +516,9 @@ class _MapScreenState extends State<MapScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final entry in _filterLabels.entries)
+                for (final entry in mapFilterLabels.entries)
+                  // marker clustering consumes the already-filtered marker list
+                  // so map refresh stays tied to the same filter state.
                   FilterChip(
                     label: Text(entry.value),
                     selected: _activeFilters.contains(entry.key),
@@ -536,7 +536,7 @@ class _MapScreenState extends State<MapScreen> {
             for (final place in places) ...[
               PlaceCard(
                 name: place.name,
-                type: '${place.type} - ${_filterLabels[place.category]}',
+                type: '${place.type} - ${mapFilterLabels[place.category]}',
                 distance:
                     '${_distanceKm(place, selectedPoint).toStringAsFixed(1)} km',
                 rating: place.rating,
@@ -554,6 +554,110 @@ class _MapScreenState extends State<MapScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+class _MapPlacePopup extends StatelessWidget {
+  const _MapPlacePopup({
+    required this.place,
+    required this.categoryLabel,
+    required this.distanceKm,
+    required this.icon,
+    required this.iconColor,
+    required this.onDirections,
+    required this.onClose,
+  });
+
+  final CamperPlace place;
+  final String categoryLabel;
+  final double distanceKm;
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback onDirections;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: AppColors.surfaceSoft,
+                    child: Icon(icon, color: iconColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          place.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '$categoryLabel - ${distanceKm.toStringAsFixed(1)} km',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close popup',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              if (place.address != null || place.city != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  [
+                    if (place.address != null) place.address!,
+                    if (place.city != null) place.city!,
+                  ].join(' - '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: onDirections,
+                  icon: const Icon(Icons.directions_outlined),
+                  label: const Text('Directions'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

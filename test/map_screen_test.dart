@@ -4,6 +4,7 @@ import 'package:camperboss/data/models/camper_place.dart';
 import 'package:camperboss/data/repositories/local_poi_cache_repository.dart';
 import 'package:camperboss/features/map/presentation/map_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakePoiCacheRepository implements PoiCacheRepository {
@@ -111,9 +112,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Camping'), findsOneWidget);
     expect(find.text('GPL'), findsOneWidget);
+    expect(find.text('2 visible'), findsOneWidget);
 
     await tester.tap(find.text('Camping'));
     await tester.pumpAndSettle();
+    expect(find.text('1 visible'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Refresh'));
     await tester.tap(find.text('Refresh'));
@@ -135,5 +138,113 @@ void main() {
     await tester.tap(find.text('Directions').first);
     await tester.pumpAndSettle();
     expect(directionsCount, 1);
+  });
+
+  testWidgets('cluster widget shows aggregated marker count', (tester) async {
+    selectedLocationController.value = const GeoLocationResult(
+      name: 'Lake Garda',
+      latitude: 45.6049,
+      longitude: 10.6351,
+      country: 'Italy',
+    );
+
+    final clusteredPlaces = List.generate(
+      12,
+      (index) => CamperPlace(
+        name: 'Cluster POI $index',
+        category: 'sosta',
+        type: 'Sosta camper',
+        distance: '1 km',
+        rating: '4.5',
+        tags: const ['24h'],
+        latitude: 45.6049 + (index / 100000),
+        longitude: 10.6351 + (index / 100000),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: MapScreen(
+              places: clusteredPlaces,
+              cacheRepository: FakePoiCacheRepository(
+                const PoiCacheSnapshot(
+                  region: 'North Italy',
+                  itemCount: 0,
+                  sizeBytes: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('12'), findsWidgets);
+  });
+
+  testWidgets('tapping a map marker keeps it selected outside the cluster', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    selectedLocationController.value = const GeoLocationResult(
+      name: 'Lake Garda',
+      latitude: 45.6049,
+      longitude: 10.6351,
+      country: 'Italy',
+    );
+
+    const places = [
+      CamperPlace(
+        name: 'Area Sosta Lago',
+        category: 'sosta',
+        type: 'Sosta camper',
+        distance: '1 km',
+        rating: '4.8',
+        tags: ['24h'],
+        latitude: 45.65,
+        longitude: 10.69,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: MapScreen(
+              places: places,
+              cacheRepository: FakePoiCacheRepository(
+                const PoiCacheSnapshot(
+                  region: 'North Italy',
+                  itemCount: 0,
+                  sizeBytes: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byType(FlutterMap));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FlutterMap),
+        matching: find.byIcon(Icons.rv_hookup),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Area Sosta Lago'), findsWidgets);
+    expect(find.byTooltip('Close popup'), findsOneWidget);
+    expect(find.textContaining('Sosta'), findsWidgets);
   });
 }
