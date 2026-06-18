@@ -153,12 +153,18 @@ Esito:
 
 ## STEP 8 — Carburante, costi, budget e prenotazioni
 
-Stato: `TODO`
+Stato: `DONE`
 Spec: `docs/roadmap/step-08-costs-budget-bookings.md`
+
+Esito:
+
+- Risultato: dominio finanza locale completato con rifornimenti, spese, budget viaggio, prenotazioni, reminder e dashboard dedicate collegate a planner e profilo.
+- Test: `flutter analyze` mirato; `flutter test test/finance_summary_service_test.dart test/finance_screen_test.dart test/reminders_test.dart`.
+- Commit: `feat(finance): add fuel expenses trip budgets and bookings`.
 
 ## STEP 9 — Backup, esportazione e importazione
 
-Stato: `TODO`
+Stato: `CURRENT`
 Spec: `docs/roadmap/step-09-backup-export-import.md`
 
 ## STEP 10 — Guide offline e onboarding

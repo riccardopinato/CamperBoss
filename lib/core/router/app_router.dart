@@ -52,6 +52,7 @@ class _AppShellState extends State<AppShell> {
       _index = switch (payload.sourceType) {
         ReminderSourceType.document => 5,
         ReminderSourceType.maintenance => 6,
+        ReminderSourceType.booking => 2,
         ReminderSourceType.custom => 8,
       };
     });

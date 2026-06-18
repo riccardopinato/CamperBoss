@@ -7,6 +7,7 @@ import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/pro_badge.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
+import '../../finance/presentation/finance_screen.dart';
 import '../../subscription/presentation/subscription_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -224,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
-          const _ProfileActions(),
+          _ProfileActions(),
         ],
       ],
     );
@@ -270,7 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _ProfileActions extends StatelessWidget {
-  const _ProfileActions();
+  _ProfileActions();
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +287,18 @@ class _ProfileActions extends StatelessWidget {
           icon: Icons.workspace_premium_outlined,
           title: 'CamperBoss Pro',
           subtitle: 'Monthly, yearly, and lifetime plans',
+        ),
+        const SizedBox(height: 12),
+        PrimaryButton(
+          label: 'Fuel & costs',
+          icon: Icons.local_gas_station_outlined,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const FinanceScreen(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 12),
         PrimaryButton(

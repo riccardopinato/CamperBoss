@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../../data/models/app_reminder.dart';
+import '../../data/models/finance_models.dart';
 import '../../data/models/maintenance_record.dart';
 import '../../data/models/vehicle_document.dart';
+import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
 import '../../data/repositories/local_reminder_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
@@ -13,6 +15,8 @@ abstract interface class ReminderSyncService {
   Future<void> deleteDocumentReminders(String sourceId);
   Future<void> syncMaintenance(MaintenanceRecord record);
   Future<void> deleteMaintenanceReminders(String sourceId);
+  Future<void> syncBooking(TripBooking booking);
+  Future<void> deleteBookingReminders(String sourceId);
 }
 
 class ReminderCoordinator implements ReminderSyncService {
@@ -20,6 +24,7 @@ class ReminderCoordinator implements ReminderSyncService {
     ReminderRepository? reminderRepository,
     VehicleDocumentRepository? documentRepository,
     MaintenanceRepository? maintenanceRepository,
+    FinanceRepository? financeRepository,
     LocalNotificationService? notificationService,
     ReminderFactory? factory,
   })  : _reminderRepository = reminderRepository ?? LocalReminderRepository(),
@@ -27,6 +32,7 @@ class ReminderCoordinator implements ReminderSyncService {
             documentRepository ?? LocalVehicleDocumentRepository(),
         _maintenanceRepository =
             maintenanceRepository ?? LocalMaintenanceRepository(),
+        _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _notificationService =
             notificationService ?? createLocalNotificationService(),
         _factory = factory ?? ReminderFactory();
@@ -34,6 +40,7 @@ class ReminderCoordinator implements ReminderSyncService {
   final ReminderRepository _reminderRepository;
   final VehicleDocumentRepository _documentRepository;
   final MaintenanceRepository _maintenanceRepository;
+  final FinanceRepository _financeRepository;
   final LocalNotificationService _notificationService;
   final ReminderFactory _factory;
 
@@ -46,11 +53,14 @@ class ReminderCoordinator implements ReminderSyncService {
     final settings = await _reminderRepository.loadSettings();
     final documents = await _documentRepository.listDocuments();
     final maintenance = await _maintenanceRepository.listRecords();
+    final bookings = await _financeRepository.listBookings();
     final reminders = <AppReminder>[
       for (final document in documents)
         ..._factory.forDocument(document, settings: settings, now: now),
       for (final record in maintenance)
         ..._factory.forMaintenance(record, settings: settings, now: now),
+      for (final booking in bookings)
+        ..._factory.forBooking(booking, settings: settings, now: now),
     ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
     final limited = _limitForPlatform(reminders);
@@ -76,6 +86,13 @@ class ReminderCoordinator implements ReminderSyncService {
         ReminderSourceType.maintenance,
         id.toString(),
         groupedSources['maintenance:$id'] ?? const [],
+      );
+    }
+    for (final booking in bookings) {
+      await _reminderRepository.replaceSourceReminders(
+        ReminderSourceType.booking,
+        booking.id,
+        groupedSources['booking:${booking.id}'] ?? const [],
       );
     }
 
@@ -119,6 +136,25 @@ class ReminderCoordinator implements ReminderSyncService {
   Future<void> deleteMaintenanceReminders(String sourceId) async {
     await _reminderRepository.deleteSourceReminders(
       ReminderSourceType.maintenance,
+      sourceId,
+    );
+    await _notificationService.rescheduleAll(await activeReminders());
+  }
+
+  Future<void> syncBooking(TripBooking booking) async {
+    final settings = await _reminderRepository.loadSettings();
+    final reminders = _factory.forBooking(booking, settings: settings);
+    await _reminderRepository.replaceSourceReminders(
+      ReminderSourceType.booking,
+      booking.id,
+      reminders,
+    );
+    await _notificationService.rescheduleAll(await activeReminders());
+  }
+
+  Future<void> deleteBookingReminders(String sourceId) async {
+    await _reminderRepository.deleteSourceReminders(
+      ReminderSourceType.booking,
       sourceId,
     );
     await _notificationService.rescheduleAll(await activeReminders());

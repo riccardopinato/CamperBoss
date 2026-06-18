@@ -3,6 +3,7 @@ import 'dart:convert';
 enum ReminderSourceType {
   document,
   maintenance,
+  booking,
   custom;
 
   String get storageValue => name;

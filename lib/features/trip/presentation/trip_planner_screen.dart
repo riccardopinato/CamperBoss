@@ -11,6 +11,7 @@ import '../../../data/models/trip_plan.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
+import '../../finance/presentation/finance_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/metric_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
@@ -331,6 +332,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 icon: const Icon(Icons.delete_outline),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => FinanceScreen(initialTripId: trip.id),
+                ),
+              );
+            },
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: const Text('Budget & bookings'),
           ),
           const SizedBox(height: 16),
           _TripMetrics(trip: trip),

@@ -4,8 +4,10 @@ import 'package:camperboss/core/services/local_notification_service.dart';
 import 'package:camperboss/core/services/reminder_coordinator.dart';
 import 'package:camperboss/core/services/reminder_factory.dart';
 import 'package:camperboss/data/models/app_reminder.dart';
+import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
+import 'package:camperboss/data/repositories/local_finance_repository.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
 import 'package:camperboss/data/repositories/local_reminder_repository.dart';
 import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
@@ -85,6 +87,48 @@ class MemoryMaintenanceRepository implements MaintenanceRepository {
   }
 }
 
+class MemoryFinanceRepository implements FinanceRepository {
+  MemoryFinanceRepository(this.bookings);
+
+  final List<TripBooking> bookings;
+
+  @override
+  Future<void> deleteBooking(String id) async {}
+
+  @override
+  Future<void> deleteExpense(String id) async {}
+
+  @override
+  Future<void> deleteFuelEntry(String id) async {}
+
+  @override
+  Future<void> deleteTripBudget(int tripId) async {}
+
+  @override
+  Future<List<TripBooking>> listBookings() async => bookings;
+
+  @override
+  Future<List<Expense>> listExpenses() async => const [];
+
+  @override
+  Future<List<FuelEntry>> listFuelEntries() async => const [];
+
+  @override
+  Future<TripBudget?> loadTripBudget(int tripId) async => null;
+
+  @override
+  Future<TripBooking> saveBooking(TripBooking booking) async => booking;
+
+  @override
+  Future<Expense> saveExpense(Expense expense) async => expense;
+
+  @override
+  Future<FuelEntry> saveFuelEntry(FuelEntry entry) async => entry;
+
+  @override
+  Future<void> saveTripBudget(TripBudget budget) async {}
+}
+
 void main() {
   test('generates stable notification ids without hashCode', () {
     expect(stableNotificationId('document:42:30'), isPositive);
@@ -138,6 +182,27 @@ void main() {
     expect(reminders.single.id, 'maintenance:7:0');
   });
 
+  test('generates booking reminders from confirmed start date', () {
+    final reminders = ReminderFactory().forBooking(
+      TripBooking(
+        id: 'booking-42',
+        tripId: 3,
+        type: BookingType.campsite,
+        status: BookingStatus.confirmed,
+        title: 'Lake stay',
+        startsAt: DateTime(2026, 8, 20),
+        currencyCode: 'EUR',
+      ),
+      now: DateTime(2026, 7, 25),
+    );
+
+    expect(reminders.map((item) => item.scheduledAt), [
+      DateTime(2026, 8, 13, 9),
+      DateTime(2026, 8, 19, 9),
+      DateTime(2026, 8, 20, 9),
+    ]);
+  });
+
   test('reschedules changed document expiry', () async {
     final repository = MemoryReminderRepository();
     final notifications = FakeLocalNotificationService();
@@ -145,6 +210,7 @@ void main() {
       reminderRepository: repository,
       documentRepository: MemoryDocumentRepository(const []),
       maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
       notificationService: notifications,
     );
 
@@ -162,6 +228,7 @@ void main() {
       reminderRepository: repository,
       documentRepository: MemoryDocumentRepository(const []),
       maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
       notificationService: FakeLocalNotificationService(),
     );
 
@@ -199,6 +266,7 @@ void main() {
       reminderRepository: repository,
       documentRepository: MemoryDocumentRepository(const []),
       maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
       notificationService: notifications,
     );
 
@@ -220,6 +288,7 @@ void main() {
         _document(DateTime(2026, 8, 31)),
       ]),
       maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
       notificationService: notifications,
     );
 
@@ -229,6 +298,35 @@ void main() {
     expect(repository.reminders.map((item) => item.id).toSet(), hasLength(4));
     expect(
         notifications.scheduled.map((item) => item.id).toSet(), hasLength(4));
+  });
+
+  test('reconcile persists booking reminders', () async {
+    final repository = MemoryReminderRepository();
+    final coordinator = ReminderCoordinator(
+      reminderRepository: repository,
+      documentRepository: MemoryDocumentRepository(const []),
+      maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository([
+        TripBooking(
+          id: 'booking-77',
+          tripId: 5,
+          type: BookingType.campsite,
+          status: BookingStatus.confirmed,
+          title: 'Mountain stop',
+          startsAt: DateTime(2026, 9, 10),
+          currencyCode: 'EUR',
+        ),
+      ]),
+      notificationService: FakeLocalNotificationService(),
+    );
+
+    await coordinator.reconcile(now: DateTime(2026, 9, 1));
+
+    expect(
+      repository.reminders
+          .where((item) => item.sourceType == ReminderSourceType.booking),
+      hasLength(3),
+    );
   });
 
   test('parses notification payload safely', () {
@@ -250,6 +348,7 @@ void main() {
       reminderRepository: repository,
       documentRepository: MemoryDocumentRepository(const []),
       maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
       notificationService: FakeLocalNotificationService(),
     );
 

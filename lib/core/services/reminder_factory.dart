@@ -1,4 +1,5 @@
 import '../../data/models/app_reminder.dart';
+import '../../data/models/finance_models.dart';
 import '../../data/models/maintenance_record.dart';
 import '../../data/models/vehicle_document.dart';
 
@@ -43,6 +44,28 @@ class ReminderFactory {
       sourceId: id.toString(),
       title: record.title,
       body: 'Maintenance due on ${_dateLabel(dueDate)}',
+      dueDate: dueDate,
+      settings: settings,
+      now: now,
+    );
+  }
+
+  List<AppReminder> forBooking(
+    TripBooking booking, {
+    ReminderSettings settings = const ReminderSettings(),
+    DateTime? now,
+  }) {
+    final dueDate = booking.startsAt;
+    if (booking.status == BookingStatus.canceled ||
+        dueDate == null ||
+        !settings.enabled) {
+      return const [];
+    }
+    return _build(
+      sourceType: ReminderSourceType.booking,
+      sourceId: booking.id,
+      title: booking.title,
+      body: 'Booking starts on ${_dateLabel(dueDate)}',
       dueDate: dueDate,
       settings: settings,
       now: now,

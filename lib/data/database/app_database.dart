@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 12;
+  static const databaseVersion = 13;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -20,6 +20,10 @@ class AppDatabase {
   static const routePreviewsTable = 'route_previews';
   static const downloadRecordsTable = 'download_records';
   static const installedResourcesTable = 'installed_resources';
+  static const expensesTable = 'expenses';
+  static const fuelEntriesTable = 'fuel_entries';
+  static const tripBudgetsTable = 'trip_budgets';
+  static const tripBookingsTable = 'trip_bookings';
 
   Database? _database;
 
@@ -161,6 +165,7 @@ CREATE TABLE $maintenanceRecordsTable (
     await _createRoutePreviewTable(db);
     await _createDownloadRecordsTable(db);
     await _createInstalledResourcesTable(db);
+    await _createFinanceTables(db);
   }
 
   Future<void> _migrateSchema(
@@ -358,6 +363,9 @@ SET title = CASE WHEN title = '' THEN name ELSE title END,
     if (oldVersion < 12) {
       await _createInstalledResourcesTable(db);
     }
+    if (oldVersion < 13) {
+      await _createFinanceTables(db);
+    }
   }
 
   Future<void> _createReminderTables(Database db) async {
@@ -441,6 +449,71 @@ CREATE TABLE IF NOT EXISTS $installedResourcesTable (
   installed_at TEXT,
   last_verified_at TEXT,
   last_error TEXT
+)
+''');
+  }
+
+  Future<void> _createFinanceTables(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $expensesTable (
+  id TEXT PRIMARY KEY,
+  scope TEXT NOT NULL,
+  vehicle_id INTEGER,
+  trip_id INTEGER,
+  category TEXT NOT NULL,
+  amount_minor INTEGER NOT NULL,
+  currency_code TEXT NOT NULL,
+  occurred_at TEXT NOT NULL,
+  title TEXT,
+  notes TEXT,
+  document_id INTEGER
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $fuelEntriesTable (
+  id TEXT PRIMARY KEY,
+  vehicle_id INTEGER NOT NULL,
+  trip_id INTEGER,
+  date TEXT NOT NULL,
+  odometer_km INTEGER NOT NULL,
+  volume_ml INTEGER NOT NULL,
+  total_cost_minor INTEGER NOT NULL,
+  currency_code TEXT NOT NULL,
+  full_tank INTEGER NOT NULL DEFAULT 0,
+  station TEXT,
+  latitude REAL,
+  longitude REAL,
+  notes TEXT,
+  document_id INTEGER
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $tripBudgetsTable (
+  trip_id INTEGER PRIMARY KEY,
+  planned_amount_minor INTEGER NOT NULL,
+  currency_code TEXT NOT NULL
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $tripBookingsTable (
+  id TEXT PRIMARY KEY,
+  trip_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  title TEXT NOT NULL,
+  starts_at TEXT,
+  ends_at TEXT,
+  address TEXT,
+  booking_code TEXT,
+  cost_minor INTEGER,
+  currency_code TEXT NOT NULL,
+  contact TEXT,
+  notes TEXT,
+  document_id INTEGER,
+  poi_id TEXT
 )
 ''');
   }
