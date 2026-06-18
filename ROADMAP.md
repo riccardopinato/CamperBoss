@@ -164,12 +164,18 @@ Esito:
 
 ## STEP 9 — Backup, esportazione e importazione
 
-Stato: `CURRENT`
+Stato: `DONE`
 Spec: `docs/roadmap/step-09-backup-export-import.md`
+
+Esito:
+
+- Risultato: servizio backup ZIP versionato con manifest/hash, ispezione, restore replace/merge, rollback logico, export PDF e CSV locali.
+- Test: `flutter analyze lib/core/services/data_backup_service.dart test/data_backup_service_test.dart`; `flutter test test/data_backup_service_test.dart`.
+- Commit: `feat(data): add backup restore and export tools`.
 
 ## STEP 10 — Guide offline e onboarding
 
-Stato: `TODO`
+Stato: `CURRENT`
 Spec: `docs/roadmap/step-10-offline-guides-onboarding.md`
 
 ## STEP 11 — Ricerca locale e architettura AI-ready

@@ -1,0 +1,566 @@
+import 'dart:io';
+
+import 'package:archive/archive.dart';
+import 'package:camperboss/core/services/data_backup_service.dart';
+import 'package:camperboss/core/services/document_services_models.dart';
+import 'package:camperboss/data/models/checklist_item.dart';
+import 'package:camperboss/data/models/finance_models.dart';
+import 'package:camperboss/data/models/journal_entry.dart';
+import 'package:camperboss/data/models/maintenance_record.dart';
+import 'package:camperboss/data/models/trip_plan.dart';
+import 'package:camperboss/data/models/vehicle_document.dart';
+import 'package:camperboss/data/models/vehicle_profile.dart';
+import 'package:camperboss/data/repositories/local_checklist_repository.dart';
+import 'package:camperboss/data/repositories/local_finance_repository.dart';
+import 'package:camperboss/data/repositories/local_journal_repository.dart';
+import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
+import 'package:camperboss/data/repositories/local_trip_repository.dart';
+import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
+import 'package:camperboss/data/repositories/local_vehicle_profile_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('creates inspectable zip backup with manifest hashes and files',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_backup_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final attachment = File('${temp.path}/invoice.pdf')
+      ..writeAsStringSync('invoice');
+    final missing = '${temp.path}/missing.pdf';
+    final service = _service(
+      documents: [
+        VehicleDocument(
+          id: 7,
+          category: 'invoice',
+          title: 'Invoice',
+          localFilePath: attachment.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+      maintenance: [
+        MaintenanceRecord(
+          id: 3,
+          category: 'Oil',
+          title: 'Oil service',
+          date: DateTime(2026, 6, 1),
+          mileage: 20000,
+          attachmentPaths: [missing],
+        ),
+      ],
+    );
+
+    final result = await service.createBackup(
+      BackupOptions(
+        outputDirectory: temp,
+        createdAt: DateTime(2026, 6, 17),
+      ),
+    );
+    final inspection = await service.inspectBackup(result.path);
+
+    expect(File(result.path).existsSync(), isTrue);
+    expect(result.manifest.format, DataBackupService.format);
+    expect(result.fileCount, 1);
+    expect(result.missingFiles, [missing]);
+    expect(inspection.isValid, isTrue);
+    expect(inspection.recordCounts['data/documents.json'], 1);
+    expect(inspection.fileCount, 1);
+  });
+
+  test('rejects corrupted backup archives', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_corrupt_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final corrupt = File('${temp.path}/broken.zip')
+      ..writeAsStringSync('no zip');
+
+    final inspection = await _service().inspectBackup(corrupt.path);
+
+    expect(inspection.isValid, isFalse);
+    expect(inspection.errors, isNotEmpty);
+  });
+
+  test('detects unsupported schema version', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_schema_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final archive = Archive()
+      ..addFile(
+        ArchiveFile.string(
+          'manifest.json',
+          '{"format":"camperboss-backup","schemaVersion":99,"appVersion":"x","createdAt":"2026-06-17T00:00:00.000","files":[]}',
+        ),
+      );
+    final file = File('${temp.path}/schema.zip')
+      ..writeAsBytesSync(ZipEncoder().encode(archive));
+
+    final inspection = await _service().inspectBackup(file.path);
+
+    expect(inspection.isValid, isFalse);
+    expect(inspection.errors, contains('Unsupported schema version'));
+  });
+
+  test('restore replaceAll replaces local records and creates safety backup',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_restore_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final source = _memoryState(
+      trips: [
+        const TripPlan(
+            id: 42, title: 'Restored', summary: 'Backup', progress: 1),
+      ],
+    );
+    final sourceService = _serviceFrom(source);
+    final backup = await sourceService.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final target = _memoryState(
+      trips: [
+        const TripPlan(id: 1, title: 'Local', summary: 'Old', progress: 0),
+      ],
+    );
+
+    final result = await _serviceFrom(target).restoreBackup(
+      backup.path,
+      RestoreStrategy.replaceAll,
+    );
+
+    expect(target.trips.map((item) => item.title), ['Restored']);
+    expect(result.restoredRecords, greaterThan(0));
+    expect(File(result.automaticBackupPath).existsSync(), isTrue);
+  });
+
+  test('merge keeps newer local conflicts and restores new records', () async {
+    final temp = await Directory.systemTemp.createTemp('camperboss_merge_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final source = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Older backup',
+          summary: 'Backup',
+          progress: 0.5,
+          updatedAt: DateTime(2026, 1, 1),
+        ),
+        const TripPlan(
+            id: 2, title: 'New trip', summary: 'Backup', progress: 1),
+      ],
+    );
+    final backup = await _serviceFrom(source).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final target = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Newer local',
+          summary: 'Local',
+          progress: 0.8,
+          updatedAt: DateTime(2026, 2, 1),
+        ),
+      ],
+    );
+
+    final result = await _serviceFrom(target).restoreBackup(
+      backup.path,
+      RestoreStrategy.merge,
+    );
+
+    expect(target.trips.map((item) => item.title), ['Newer local', 'New trip']);
+    expect(result.skippedRecords, 1);
+    expect(result.conflicts, 1);
+  });
+
+  test('exports CSV and PDF files', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_export_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final service = _service(
+      profile: _profile,
+      trips: [
+        const TripPlan(id: 5, title: 'Trip', summary: 'Summary', progress: 0.5),
+      ],
+      maintenance: [
+        MaintenanceRecord(
+          id: 2,
+          category: 'Oil',
+          title: 'Oil',
+          date: DateTime(2026, 1, 1),
+          mileage: 10000,
+          cost: 120,
+        ),
+      ],
+      expenses: [
+        Expense(
+          id: 'expense-1',
+          scope: ExpenseScope.trip,
+          tripId: 5,
+          category: ExpenseCategory.food,
+          amountMinor: 1200,
+          currencyCode: 'EUR',
+          occurredAt: DateTime(2026, 1, 2),
+        ),
+      ],
+      fuel: [
+        FuelEntry(
+          id: 'fuel-1',
+          vehicleId: 1,
+          tripId: 5,
+          date: DateTime(2026, 1, 3),
+          odometerKm: 12000,
+          volumeMilliLitres: 30000,
+          totalCostMinor: 5400,
+          currencyCode: 'EUR',
+          fullTank: true,
+        ),
+      ],
+    );
+
+    final csv = await service.exportCsv(outputDirectory: temp);
+    final vehiclePdf = await service.exportVehiclePdf(outputDirectory: temp);
+    final tripPdf = await service.exportTripPdf(5, outputDirectory: temp);
+
+    expect(csv['fuel']!.readAsStringSync(), contains('odometer_km'));
+    expect(csv['expenses']!.readAsStringSync(), contains('amount_minor'));
+    expect(vehiclePdf.lengthSync(), greaterThan(0));
+    expect(tripPdf.lengthSync(), greaterThan(0));
+  });
+}
+
+DataBackupService _service({
+  VehicleProfile? profile,
+  List<TripPlan> trips = const [],
+  List<CamperChecklistItem> checklist = const [],
+  List<JournalEntry> journal = const [],
+  List<MaintenanceRecord> maintenance = const [],
+  List<VehicleDocument> documents = const [],
+  List<Expense> expenses = const [],
+  List<FuelEntry> fuel = const [],
+  List<TripBudget> budgets = const [],
+  List<TripBooking> bookings = const [],
+}) {
+  return _serviceFrom(
+    _memoryState(
+      profile: profile,
+      trips: trips,
+      checklist: checklist,
+      journal: journal,
+      maintenance: maintenance,
+      documents: documents,
+      expenses: expenses,
+      fuel: fuel,
+      budgets: budgets,
+      bookings: bookings,
+    ),
+  );
+}
+
+DataBackupService _serviceFrom(_MemoryState state) {
+  return DataBackupService(
+    profileRepository: _MemoryProfileRepository(state),
+    tripRepository: _MemoryTripRepository(state),
+    checklistRepository: _MemoryChecklistRepository(state),
+    journalRepository: _MemoryJournalRepository(state),
+    maintenanceRepository: _MemoryMaintenanceRepository(state),
+    documentRepository: _MemoryDocumentRepository(state),
+    financeRepository: _MemoryFinanceRepository(state),
+  );
+}
+
+_MemoryState _memoryState({
+  VehicleProfile? profile,
+  List<TripPlan> trips = const [],
+  List<CamperChecklistItem> checklist = const [],
+  List<JournalEntry> journal = const [],
+  List<MaintenanceRecord> maintenance = const [],
+  List<VehicleDocument> documents = const [],
+  List<Expense> expenses = const [],
+  List<FuelEntry> fuel = const [],
+  List<TripBudget> budgets = const [],
+  List<TripBooking> bookings = const [],
+}) {
+  return _MemoryState(
+    profile: profile,
+    trips: [...trips],
+    checklist: [...checklist],
+    journal: [...journal],
+    maintenance: [...maintenance],
+    documents: [...documents],
+    expenses: [...expenses],
+    fuel: [...fuel],
+    budgets: [...budgets],
+    bookings: [...bookings],
+  );
+}
+
+class _MemoryState {
+  _MemoryState({
+    this.profile,
+    required this.trips,
+    required this.checklist,
+    required this.journal,
+    required this.maintenance,
+    required this.documents,
+    required this.expenses,
+    required this.fuel,
+    required this.budgets,
+    required this.bookings,
+  });
+
+  VehicleProfile? profile;
+  final List<TripPlan> trips;
+  final List<CamperChecklistItem> checklist;
+  final List<JournalEntry> journal;
+  final List<MaintenanceRecord> maintenance;
+  final List<VehicleDocument> documents;
+  final List<Expense> expenses;
+  final List<FuelEntry> fuel;
+  final List<TripBudget> budgets;
+  final List<TripBooking> bookings;
+}
+
+class _MemoryProfileRepository implements VehicleProfileRepository {
+  _MemoryProfileRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteProfile() async => state.profile = null;
+
+  @override
+  Future<VehicleProfile?> loadProfile() async => state.profile;
+
+  @override
+  Future<VehicleProfile> saveProfile(VehicleProfile profile) async {
+    state.profile = profile;
+    return profile;
+  }
+}
+
+class _MemoryTripRepository implements TripRepository {
+  _MemoryTripRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteTrip(int id) async {
+    state.trips.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<List<TripPlan>> listTrips() async => [...state.trips];
+
+  @override
+  Future<TripPlan> saveTrip(TripPlan trip) async {
+    final index = state.trips.indexWhere((item) => item.id == trip.id);
+    if (index == -1) {
+      state.trips.add(trip);
+    } else {
+      state.trips[index] = trip;
+    }
+    return trip;
+  }
+}
+
+class _MemoryChecklistRepository implements ChecklistRepository {
+  _MemoryChecklistRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteItem(int id) async {
+    state.checklist.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<List<CamperChecklistItem>> listItems() async => [...state.checklist];
+
+  @override
+  Future<CamperChecklistItem> saveItem(CamperChecklistItem item) async {
+    final index = state.checklist.indexWhere((entry) => entry.id == item.id);
+    if (index == -1) {
+      state.checklist.add(item);
+    } else {
+      state.checklist[index] = item;
+    }
+    return item;
+  }
+}
+
+class _MemoryJournalRepository implements JournalRepository {
+  _MemoryJournalRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteEntry(int id) async {
+    state.journal.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<List<JournalEntry>> listEntries() async => [...state.journal];
+
+  @override
+  Future<JournalEntry> saveEntry(JournalEntry entry) async {
+    final index = state.journal.indexWhere((item) => item.id == entry.id);
+    if (index == -1) {
+      state.journal.add(entry);
+    } else {
+      state.journal[index] = entry;
+    }
+    return entry;
+  }
+}
+
+class _MemoryMaintenanceRepository implements MaintenanceRepository {
+  _MemoryMaintenanceRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteRecord(int id) async {
+    state.maintenance.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<List<MaintenanceRecord>> listRecords() async => [...state.maintenance];
+
+  @override
+  Future<MaintenanceRecord> saveRecord(MaintenanceRecord record) async {
+    final index = state.maintenance.indexWhere((item) => item.id == record.id);
+    if (index == -1) {
+      state.maintenance.add(record);
+    } else {
+      state.maintenance[index] = record;
+    }
+    return record;
+  }
+}
+
+class _MemoryDocumentRepository implements VehicleDocumentRepository {
+  _MemoryDocumentRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteDocument(VehicleDocument document) async {
+    state.documents.removeWhere((item) => item.id == document.id);
+  }
+
+  @override
+  Future<List<VehicleDocument>> listDocuments() async => [...state.documents];
+
+  @override
+  Future<VehicleDocument> saveDocument(VehicleDocument document) async {
+    final index = state.documents.indexWhere((item) => item.id == document.id);
+    if (index == -1) {
+      state.documents.add(document);
+    } else {
+      state.documents[index] = document;
+    }
+    return document;
+  }
+}
+
+class _MemoryFinanceRepository implements FinanceRepository {
+  _MemoryFinanceRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteBooking(String id) async {
+    state.bookings.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<void> deleteExpense(String id) async {
+    state.expenses.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<void> deleteFuelEntry(String id) async {
+    state.fuel.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<void> deleteTripBudget(int tripId) async {
+    state.budgets.removeWhere((item) => item.tripId == tripId);
+  }
+
+  @override
+  Future<List<TripBooking>> listBookings() async => [...state.bookings];
+
+  @override
+  Future<List<Expense>> listExpenses() async => [...state.expenses];
+
+  @override
+  Future<List<FuelEntry>> listFuelEntries() async => [...state.fuel];
+
+  @override
+  Future<TripBudget?> loadTripBudget(int tripId) async {
+    final matches = state.budgets.where((item) => item.tripId == tripId);
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  @override
+  Future<TripBooking> saveBooking(TripBooking booking) async {
+    final index = state.bookings.indexWhere((item) => item.id == booking.id);
+    if (index == -1) {
+      state.bookings.add(booking);
+    } else {
+      state.bookings[index] = booking;
+    }
+    return booking;
+  }
+
+  @override
+  Future<Expense> saveExpense(Expense expense) async {
+    final index = state.expenses.indexWhere((item) => item.id == expense.id);
+    if (index == -1) {
+      state.expenses.add(expense);
+    } else {
+      state.expenses[index] = expense;
+    }
+    return expense;
+  }
+
+  @override
+  Future<FuelEntry> saveFuelEntry(FuelEntry entry) async {
+    final index = state.fuel.indexWhere((item) => item.id == entry.id);
+    if (index == -1) {
+      state.fuel.add(entry);
+    } else {
+      state.fuel[index] = entry;
+    }
+    return entry;
+  }
+
+  @override
+  Future<void> saveTripBudget(TripBudget budget) async {
+    final index =
+        state.budgets.indexWhere((item) => item.tripId == budget.tripId);
+    if (index == -1) {
+      state.budgets.add(budget);
+    } else {
+      state.budgets[index] = budget;
+    }
+  }
+}
+
+const _profile = VehicleProfile(
+  id: 1,
+  vehicleType: 'Motorhome',
+  brand: 'Fiat',
+  model: 'Ducato',
+  year: 2023,
+  length: 7,
+  width: 2.3,
+  height: 3,
+  weight: 3100,
+  maxMass: 3500,
+  seats: 4,
+  fuelType: 'Diesel',
+  mileage: 12000,
+);
