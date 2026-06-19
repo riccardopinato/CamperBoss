@@ -12,6 +12,7 @@ import '../../data/models/checklist_item.dart';
 import '../../data/models/finance_models.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/models/maintenance_record.dart';
+import '../../data/models/travel_history_models.dart';
 import '../../data/models/trip_plan.dart';
 import '../../data/models/vehicle_document.dart';
 import '../../data/models/vehicle_profile.dart';
@@ -19,6 +20,7 @@ import '../../data/repositories/local_checklist_repository.dart';
 import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_journal_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
+import '../../data/repositories/local_travel_history_repository.dart';
 import '../../data/repositories/local_trip_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
 import '../../data/repositories/local_vehicle_profile_repository.dart';
@@ -178,6 +180,7 @@ class DataBackupService implements BackupService {
     MaintenanceRepository? maintenanceRepository,
     VehicleDocumentRepository? documentRepository,
     FinanceRepository? financeRepository,
+    TravelHistoryRepository? travelHistoryRepository,
     String appVersion = '0.1.0',
   })  : _profileRepository =
             profileRepository ?? LocalVehicleProfileRepository(),
@@ -190,6 +193,8 @@ class DataBackupService implements BackupService {
         _documentRepository =
             documentRepository ?? LocalVehicleDocumentRepository(),
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
+        _travelHistoryRepository =
+            travelHistoryRepository ?? LocalTravelHistoryRepository(),
         _appVersion = appVersion;
 
   static const format = 'camperboss-backup';
@@ -202,6 +207,7 @@ class DataBackupService implements BackupService {
   final MaintenanceRepository _maintenanceRepository;
   final VehicleDocumentRepository _documentRepository;
   final FinanceRepository _financeRepository;
+  final TravelHistoryRepository _travelHistoryRepository;
   final String _appVersion;
 
   @override
@@ -581,6 +587,8 @@ class DataBackupService implements BackupService {
       fuelEntries: await _financeRepository.listFuelEntries(),
       budgets: budgets,
       bookings: await _financeRepository.listBookings(),
+      tracks: await _travelHistoryRepository.listTracks(),
+      memories: await _travelHistoryRepository.listMemories(),
     );
   }
 
@@ -606,6 +614,10 @@ class DataBackupService implements BackupService {
           snapshot.budgets.map((item) => item.toMap()).toList(),
       'data/bookings.json':
           snapshot.bookings.map((item) => item.toMap()).toList(),
+      'data/gpx_tracks.json':
+          snapshot.tracks.map((item) => item.toMap()).toList(),
+      'data/travel_memories.json':
+          snapshot.memories.map((item) => item.toMap()).toList(),
     };
   }
 
@@ -634,6 +646,9 @@ class DataBackupService implements BackupService {
       fuelEntries: rows('data/fuel.json').map(FuelEntry.fromMap).toList(),
       budgets: rows('data/budgets.json').map(TripBudget.fromMap).toList(),
       bookings: rows('data/bookings.json').map(TripBooking.fromMap).toList(),
+      tracks: rows('data/gpx_tracks.json').map(GpxTrack.fromMap).toList(),
+      memories:
+          rows('data/travel_memories.json').map(TravelMemory.fromMap).toList(),
     );
   }
 
@@ -669,6 +684,12 @@ class DataBackupService implements BackupService {
     for (final item in current.trips) {
       final id = item.id;
       if (id != null) await _tripRepository.deleteTrip(id);
+    }
+    for (final item in current.memories) {
+      await _travelHistoryRepository.deleteMemory(item.id);
+    }
+    for (final item in current.tracks) {
+      await _travelHistoryRepository.deleteTrack(item.id);
     }
     await _profileRepository.deleteProfile();
     return _saveAll(snapshot);
@@ -749,6 +770,22 @@ class DataBackupService implements BackupService {
       save: _financeRepository.saveBooking,
       counters: counters,
     );
+    await _mergeString(
+      incoming: snapshot.tracks,
+      current: current.tracks,
+      idOf: (item) => item.id,
+      updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
+      save: _travelHistoryRepository.saveTrack,
+      counters: counters,
+    );
+    await _mergeString(
+      incoming: snapshot.memories,
+      current: current.memories,
+      idOf: (item) => item.id,
+      updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
+      save: _travelHistoryRepository.saveMemory,
+      counters: counters,
+    );
     return counters;
   }
 
@@ -792,6 +829,14 @@ class DataBackupService implements BackupService {
     }
     for (final item in snapshot.bookings) {
       await _financeRepository.saveBooking(item);
+      counters.restored++;
+    }
+    for (final item in snapshot.tracks) {
+      await _travelHistoryRepository.saveTrack(item);
+      counters.restored++;
+    }
+    for (final item in snapshot.memories) {
+      await _travelHistoryRepository.saveMemory(item);
       counters.restored++;
     }
     return counters;
@@ -858,6 +903,14 @@ class DataBackupService implements BackupService {
     for (final maintenance in snapshot.maintenance) {
       yield* maintenance.attachmentPaths;
     }
+    for (final track in snapshot.tracks) {
+      if (track.localFilePath != null && track.localFilePath!.isNotEmpty) {
+        yield track.localFilePath!;
+      }
+    }
+    for (final memory in snapshot.memories) {
+      yield* memory.localPhotoPaths;
+    }
   }
 
   String _backupPathForFile(String filePath) {
@@ -893,6 +946,8 @@ class DataBackupService implements BackupService {
     if (value is Expense) return jsonEncode(value.toMap());
     if (value is FuelEntry) return jsonEncode(value.toMap());
     if (value is TripBooking) return jsonEncode(value.toMap());
+    if (value is GpxTrack) return jsonEncode(value.toMap());
+    if (value is TravelMemory) return jsonEncode(value.toMap());
     return value.toString();
   }
 
@@ -965,6 +1020,8 @@ class _BackupSnapshot {
     required this.fuelEntries,
     required this.budgets,
     required this.bookings,
+    required this.tracks,
+    required this.memories,
   });
 
   final VehicleProfile? profile;
@@ -977,6 +1034,8 @@ class _BackupSnapshot {
   final List<FuelEntry> fuelEntries;
   final List<TripBudget> budgets;
   final List<TripBooking> bookings;
+  final List<GpxTrack> tracks;
+  final List<TravelMemory> memories;
 
   int get recordCount {
     return (profile == null ? 0 : 1) +
@@ -988,7 +1047,9 @@ class _BackupSnapshot {
         expenses.length +
         fuelEntries.length +
         budgets.length +
-        bookings.length;
+        bookings.length +
+        tracks.length +
+        memories.length;
   }
 }
 
@@ -1009,4 +1070,6 @@ const _dataPaths = [
   'data/fuel.json',
   'data/budgets.json',
   'data/bookings.json',
+  'data/gpx_tracks.json',
+  'data/travel_memories.json',
 ];

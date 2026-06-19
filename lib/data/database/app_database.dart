@@ -7,7 +7,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const databaseName = 'camperboss.db';
-  static const databaseVersion = 13;
+  static const databaseVersion = 14;
 
   static const checklistTable = 'checklist_items';
   static const tripsTable = 'trip_plans';
@@ -24,6 +24,8 @@ class AppDatabase {
   static const fuelEntriesTable = 'fuel_entries';
   static const tripBudgetsTable = 'trip_budgets';
   static const tripBookingsTable = 'trip_bookings';
+  static const gpxTracksTable = 'gpx_tracks';
+  static const travelMemoriesTable = 'travel_memories';
 
   Database? _database;
 
@@ -166,6 +168,7 @@ CREATE TABLE $maintenanceRecordsTable (
     await _createDownloadRecordsTable(db);
     await _createInstalledResourcesTable(db);
     await _createFinanceTables(db);
+    await _createTravelHistoryTables(db);
   }
 
   Future<void> _migrateSchema(
@@ -366,6 +369,9 @@ SET title = CASE WHEN title = '' THEN name ELSE title END,
     if (oldVersion < 13) {
       await _createFinanceTables(db);
     }
+    if (oldVersion < 14) {
+      await _createTravelHistoryTables(db);
+    }
   }
 
   Future<void> _createReminderTables(Database db) async {
@@ -514,6 +520,42 @@ CREATE TABLE IF NOT EXISTS $tripBookingsTable (
   notes TEXT,
   document_id INTEGER,
   poi_id TEXT
+)
+''');
+  }
+
+  Future<void> _createTravelHistoryTables(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $gpxTracksTable (
+  id TEXT PRIMARY KEY,
+  trip_id INTEGER,
+  name TEXT NOT NULL,
+  points TEXT NOT NULL,
+  distance_meters REAL NOT NULL DEFAULT 0,
+  duration_seconds INTEGER,
+  elevation_gain_meters REAL,
+  local_file_path TEXT,
+  original_point_count INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS $travelMemoriesTable (
+  id TEXT PRIMARY KEY,
+  trip_id INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  occurred_at TEXT NOT NULL,
+  local_photo_paths TEXT NOT NULL DEFAULT '[]',
+  poi_id TEXT,
+  tags TEXT NOT NULL DEFAULT '[]',
+  favorite INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 )
 ''');
   }

@@ -7,6 +7,7 @@ import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
+import 'package:camperboss/data/models/travel_history_models.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/vehicle_profile.dart';
@@ -14,6 +15,7 @@ import 'package:camperboss/data/repositories/local_checklist_repository.dart';
 import 'package:camperboss/data/repositories/local_finance_repository.dart';
 import 'package:camperboss/data/repositories/local_journal_repository.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
+import 'package:camperboss/data/repositories/local_travel_history_repository.dart';
 import 'package:camperboss/data/repositories/local_trip_repository.dart';
 import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
 import 'package:camperboss/data/repositories/local_vehicle_profile_repository.dart';
@@ -49,6 +51,25 @@ void main() {
           attachmentPaths: [missing],
         ),
       ],
+      tracks: [
+        GpxTrack(
+          id: 'track-1',
+          tripId: 1,
+          name: 'Track',
+          points: [GeoPoint(latitude: 45, longitude: 10)],
+          distanceMeters: 10,
+        ),
+      ],
+      memories: [
+        TravelMemory(
+          id: 'memory-1',
+          tripId: 1,
+          title: 'Memory',
+          latitude: 45,
+          longitude: 10,
+          occurredAt: DateTime(2026, 6, 17),
+        ),
+      ],
     );
 
     final result = await service.createBackup(
@@ -65,6 +86,8 @@ void main() {
     expect(result.missingFiles, [missing]);
     expect(inspection.isValid, isTrue);
     expect(inspection.recordCounts['data/documents.json'], 1);
+    expect(inspection.recordCounts['data/gpx_tracks.json'], 1);
+    expect(inspection.recordCounts['data/travel_memories.json'], 1);
     expect(inspection.fileCount, 1);
   });
 
@@ -240,6 +263,8 @@ DataBackupService _service({
   List<FuelEntry> fuel = const [],
   List<TripBudget> budgets = const [],
   List<TripBooking> bookings = const [],
+  List<GpxTrack> tracks = const [],
+  List<TravelMemory> memories = const [],
 }) {
   return _serviceFrom(
     _memoryState(
@@ -253,6 +278,8 @@ DataBackupService _service({
       fuel: fuel,
       budgets: budgets,
       bookings: bookings,
+      tracks: tracks,
+      memories: memories,
     ),
   );
 }
@@ -266,6 +293,7 @@ DataBackupService _serviceFrom(_MemoryState state) {
     maintenanceRepository: _MemoryMaintenanceRepository(state),
     documentRepository: _MemoryDocumentRepository(state),
     financeRepository: _MemoryFinanceRepository(state),
+    travelHistoryRepository: _MemoryTravelHistoryRepository(state),
   );
 }
 
@@ -280,6 +308,8 @@ _MemoryState _memoryState({
   List<FuelEntry> fuel = const [],
   List<TripBudget> budgets = const [],
   List<TripBooking> bookings = const [],
+  List<GpxTrack> tracks = const [],
+  List<TravelMemory> memories = const [],
 }) {
   return _MemoryState(
     profile: profile,
@@ -292,6 +322,8 @@ _MemoryState _memoryState({
     fuel: [...fuel],
     budgets: [...budgets],
     bookings: [...bookings],
+    tracks: [...tracks],
+    memories: [...memories],
   );
 }
 
@@ -307,6 +339,8 @@ class _MemoryState {
     required this.fuel,
     required this.budgets,
     required this.bookings,
+    required this.tracks,
+    required this.memories,
   });
 
   VehicleProfile? profile;
@@ -319,6 +353,8 @@ class _MemoryState {
   final List<FuelEntry> fuel;
   final List<TripBudget> budgets;
   final List<TripBooking> bookings;
+  final List<GpxTrack> tracks;
+  final List<TravelMemory> memories;
 }
 
 class _MemoryProfileRepository implements VehicleProfileRepository {
@@ -546,6 +582,60 @@ class _MemoryFinanceRepository implements FinanceRepository {
     } else {
       state.budgets[index] = budget;
     }
+  }
+}
+
+class _MemoryTravelHistoryRepository implements TravelHistoryRepository {
+  _MemoryTravelHistoryRepository(this.state);
+
+  final _MemoryState state;
+
+  @override
+  Future<void> deleteMemory(String id) async {
+    state.memories.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<void> deleteTrack(String id) async {
+    state.tracks.removeWhere((item) => item.id == id);
+  }
+
+  @override
+  Future<List<TravelMemory>> listMemories({int? tripId}) async {
+    return [
+      for (final memory in state.memories)
+        if (tripId == null || memory.tripId == tripId) memory,
+    ];
+  }
+
+  @override
+  Future<List<GpxTrack>> listTracks({int? tripId}) async {
+    return [
+      for (final track in state.tracks)
+        if (tripId == null || track.tripId == tripId) track,
+    ];
+  }
+
+  @override
+  Future<TravelMemory> saveMemory(TravelMemory memory) async {
+    final index = state.memories.indexWhere((item) => item.id == memory.id);
+    if (index == -1) {
+      state.memories.add(memory);
+    } else {
+      state.memories[index] = memory;
+    }
+    return memory;
+  }
+
+  @override
+  Future<GpxTrack> saveTrack(GpxTrack track) async {
+    final index = state.tracks.indexWhere((item) => item.id == track.id);
+    if (index == -1) {
+      state.tracks.add(track);
+    } else {
+      state.tracks[index] = track;
+    }
+    return track;
   }
 }
 

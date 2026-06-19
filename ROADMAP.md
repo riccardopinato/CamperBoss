@@ -197,5 +197,11 @@ Esito:
 
 ## STEP 12 — GPX, ricordi e statistiche di viaggio
 
-Stato: `CURRENT`
+Stato: `DONE`
 Spec: `docs/roadmap/step-12-gpx-memories-statistics.md`
+
+Esito:
+
+- Risultato: storico viaggio completato con import/export GPX, ricordi geolocalizzati con conferma EXIF, statistiche derivate, vista dedicata e integrazione backup locale.
+- Test: `flutter analyze` mirato; `flutter test test/gpx_service_test.dart test/travel_history_statistics_service_test.dart test/travel_history_screen_test.dart test/data_backup_service_test.dart`.
+- Commit: `feat(history): add GPX travel memories and statistics`.
