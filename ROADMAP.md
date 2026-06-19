@@ -186,10 +186,16 @@ Esito:
 
 ## STEP 11 — Ricerca locale e architettura AI-ready
 
-Stato: `CURRENT`
+Stato: `DONE`
 Spec: `docs/roadmap/step-11-local-search-ai-ready.md`
+
+Esito:
+
+- Risultato: ricerca locale privata con indice rebuildable, sinonimi camper, filtri, snippet, recovery da indice corrotto, UI globale e contratti AI disabilitati.
+- Test: `flutter analyze` mirato; `flutter test test/local_search_index_test.dart test/local_search_screen_test.dart`.
+- Commit: `feat(search): add private local full text search`.
 
 ## STEP 12 — GPX, ricordi e statistiche di viaggio
 
-Stato: `TODO`
+Stato: `CURRENT`
 Spec: `docs/roadmap/step-12-gpx-memories-statistics.md`

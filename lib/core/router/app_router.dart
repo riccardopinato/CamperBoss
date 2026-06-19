@@ -11,6 +11,7 @@ import '../../features/maintenance/presentation/maintenance_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/offline/presentation/offline_content_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/search/presentation/local_search_screen.dart';
 import '../../features/settings/presentation/notification_settings_screen.dart';
 import '../../features/trip/presentation/trip_planner_screen.dart';
 
@@ -33,6 +34,7 @@ class _AppShellState extends State<AppShell> {
         const JournalScreen(),
         const VehicleDocumentsScreen(),
         const MaintenanceScreen(),
+        const LocalSearchScreen(),
         const OfflineContentScreen(),
         NotificationSettingsScreen(coordinator: _reminderCoordinator),
         const ProfileScreen(),
@@ -53,7 +55,7 @@ class _AppShellState extends State<AppShell> {
         ReminderSourceType.document => 5,
         ReminderSourceType.maintenance => 6,
         ReminderSourceType.booking => 2,
-        ReminderSourceType.custom => 8,
+        ReminderSourceType.custom => 9,
       };
     });
   }
@@ -100,6 +102,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.build_circle_outlined),
             selectedIcon: Icon(Icons.build_circle),
             label: 'Service',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.manage_search_outlined),
+            selectedIcon: Icon(Icons.manage_search),
+            label: 'Search',
           ),
           NavigationDestination(
             icon: Icon(Icons.cloud_download_outlined),
