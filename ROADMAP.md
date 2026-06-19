@@ -175,12 +175,18 @@ Esito:
 
 ## STEP 10 — Guide offline e onboarding
 
-Stato: `CURRENT`
+Stato: `DONE`
 Spec: `docs/roadmap/step-10-offline-guides-onboarding.md`
+
+Esito:
+
+- Risultato: guide offline installabili e consultabili con ricerca, preferiti, progresso lettura e onboarding guidato persistente con permessi contestuali e conferma finale.
+- Test: `flutter analyze lib/features/onboarding/presentation/guided_onboarding_screen.dart test/guided_onboarding_screen_test.dart`; `flutter test test/offline_guides_service_test.dart test/onboarding_service_test.dart test/guided_onboarding_screen_test.dart`.
+- Commit: `feat(content): add offline guides and guided onboarding`.
 
 ## STEP 11 — Ricerca locale e architettura AI-ready
 
-Stato: `TODO`
+Stato: `CURRENT`
 Spec: `docs/roadmap/step-11-local-search-ai-ready.md`
 
 ## STEP 12 — GPX, ricordi e statistiche di viaggio

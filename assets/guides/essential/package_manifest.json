@@ -1,0 +1,31 @@
+{
+  "id": "camperboss-essential",
+  "title": "CamperBoss Essential",
+  "version": "1.0.0",
+  "language": "it",
+  "countryCodes": ["IT"],
+  "category": "guides",
+  "requiresPro": false,
+  "updatedAt": "2026-06-18T00:00:00.000Z",
+  "attribution": "CamperBoss editorial starter content.",
+  "entries": [
+    {
+      "id": "emergency-basics",
+      "title": "Emergenze essenziali",
+      "relativePath": "emergency-basics.md",
+      "contentType": "markdown",
+      "summary": "Numeri, priorita e verifiche da fare prima di muovere il mezzo.",
+      "keywords": ["emergenza", "sicurezza", "soccorso"],
+      "imagePaths": []
+    },
+    {
+      "id": "overnight-rules",
+      "title": "Sosta e comportamento responsabile",
+      "relativePath": "overnight-rules.html",
+      "contentType": "html",
+      "summary": "Promemoria pratici per sosta, rumore, rifiuti e scarichi.",
+      "keywords": ["sosta", "regole", "scarico"],
+      "imagePaths": []
+    }
+  ]
+}

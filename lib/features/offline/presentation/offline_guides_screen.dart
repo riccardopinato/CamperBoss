@@ -1,0 +1,410 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/services/offline_guides_service.dart';
+import '../../../data/models/guide_models.dart';
+import '../../../shared/widgets/premium_card.dart';
+import '../../../shared/widgets/screen_scaffold.dart';
+import '../../../shared/widgets/section_header.dart';
+
+class OfflineGuidesScreen extends StatefulWidget {
+  const OfflineGuidesScreen({
+    this.guidesService,
+    super.key,
+  });
+
+  final OfflineGuidesService? guidesService;
+
+  @override
+  State<OfflineGuidesScreen> createState() => _OfflineGuidesScreenState();
+}
+
+class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
+  late final OfflineGuidesService _guidesService =
+      widget.guidesService ?? LocalOfflineGuidesService();
+  final _searchController = TextEditingController();
+
+  List<GuidePackage> _packages = const [];
+  List<GuideEntrySearchResult> _results = const [];
+  Set<String> _favorites = const {};
+  bool _isInstalling = false;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final packages = await _guidesService.listInstalledPackages();
+      final favorites = await _guidesService.loadFavorites();
+      final results = await _guidesService.search(_searchController.text);
+      if (!mounted) return;
+      setState(() {
+        _packages = packages;
+        _favorites = favorites;
+        _results = results;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _installEssential() async {
+    setState(() => _isInstalling = true);
+    try {
+      await _guidesService.installBundledPackage();
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _isInstalling = false);
+    }
+  }
+
+  Future<void> _toggleFavorite(String entryId) async {
+    await _guidesService.toggleFavorite(entryId);
+    await _load();
+  }
+
+  Future<void> _openDocument(String packageId, String entryId) async {
+    final document = await _guidesService.loadDocument(packageId, entryId);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _GuideReaderScreen(
+          document: document,
+          guidesService: _guidesService,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onSearchChanged(String _) async {
+    final results = await _guidesService.search(_searchController.text);
+    if (!mounted) return;
+    setState(() => _results = results);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScreenScaffold(
+      title: 'Offline guides',
+      subtitle:
+          'Read installed content without network, keep favorites, and resume where you stopped.',
+      children: [
+        PremiumCard(
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CamperBoss Essential',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Starter package with emergency notes and responsible overnight reminders.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _isInstalling ? null : _installEssential,
+                icon: const Icon(Icons.download_outlined),
+                label: Text(_isInstalling ? 'Installing...' : 'Install'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _searchController,
+          onChanged: _onSearchChanged,
+          decoration: const InputDecoration(
+            labelText: 'Search guides',
+            prefixIcon: Icon(Icons.search),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_error != null) ...[
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          const SectionHeader(title: 'Installed packages'),
+          const SizedBox(height: 12),
+          if (_packages.isEmpty)
+            const PremiumCard(
+              child: Text('No guide package installed yet.'),
+            )
+          else
+            for (final package in _packages) ...[
+              PremiumCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      package.title,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${package.category} - ${package.language.toUpperCase()} - ${package.version}',
+                    ),
+                    const SizedBox(height: 8),
+                    Text(package.attribution),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          const SectionHeader(title: 'Guide index'),
+          const SizedBox(height: 12),
+          for (final result in _results) ...[
+            PremiumCard(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(result.entry.title),
+                subtitle: Text(
+                  '${result.packageTitle}${result.entry.summary == null ? '' : ' - ${result.entry.summary!}'}',
+                ),
+                leading: Icon(_iconFor(result.entry.contentType)),
+                trailing: IconButton(
+                  tooltip: 'Favorite',
+                  onPressed: () => _toggleFavorite(result.entry.id),
+                  icon: Icon(
+                    _favorites.contains(result.entry.id)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                  ),
+                ),
+                onTap: () => _openDocument(result.packageId, result.entry.id),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ],
+    );
+  }
+
+  IconData _iconFor(GuideContentType type) {
+    return switch (type) {
+      GuideContentType.markdown => Icons.description_outlined,
+      GuideContentType.html => Icons.language_outlined,
+      GuideContentType.pdf => Icons.picture_as_pdf_outlined,
+      GuideContentType.json => Icons.data_object_outlined,
+    };
+  }
+}
+
+class _GuideReaderScreen extends StatefulWidget {
+  const _GuideReaderScreen({
+    required this.document,
+    required this.guidesService,
+  });
+
+  final GuideDocument document;
+  final OfflineGuidesService guidesService;
+
+  @override
+  State<_GuideReaderScreen> createState() => _GuideReaderScreenState();
+}
+
+class _GuideReaderScreenState extends State<_GuideReaderScreen> {
+  final _controller = ScrollController();
+  GuideReadingProgress? _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  @override
+  void dispose() {
+    _saveProgress();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _restore() async {
+    final progress = await widget.guidesService.loadReadingProgress(
+      widget.document.entryId,
+    );
+    if (!mounted || progress == null) return;
+    _progress = progress;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_controller.hasClients) {
+        _controller.jumpTo(progress.offset.toDouble());
+      }
+    });
+  }
+
+  Future<void> _saveProgress() async {
+    if (!_controller.hasClients) return;
+    await widget.guidesService.saveReadingProgress(
+      GuideReadingProgress(
+        entryId: widget.document.entryId,
+        offset: _controller.offset.round(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> _openPdf() async {
+    final path = widget.document.localPath;
+    if (path == null) return;
+    await launchUrl(Uri.file(path));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final document = widget.document;
+    return ScreenScaffold(
+      title: document.title,
+      subtitle: document.attribution,
+      children: [
+        if (_progress != null) ...[
+          Text(
+            'Last reading position saved ${_progress!.updatedAt.toLocal()}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (document.contentType == GuideContentType.pdf)
+          PremiumCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'PDF guides open with the system viewer to avoid executing embedded scripts.',
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _openPdf,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Open PDF'),
+                ),
+              ],
+            ),
+          )
+        else
+          PremiumCard(
+            child: SingleChildScrollView(
+              controller: _controller,
+              child: _GuideBody(document: document),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _GuideBody extends StatelessWidget {
+  const _GuideBody({required this.document});
+
+  final GuideDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (document.contentType) {
+      GuideContentType.markdown => _MarkdownBody(content: document.content),
+      GuideContentType.html => SelectableText(_htmlToText(document.content)),
+      GuideContentType.json => SelectableText(document.content),
+      GuideContentType.pdf => const SizedBox.shrink(),
+    };
+  }
+
+  String _htmlToText(String html) {
+    return html
+        .replaceAll(RegExp(r'<[^>]+>'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+}
+
+class _MarkdownBody extends StatelessWidget {
+  const _MarkdownBody({required this.content});
+
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = content.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines) ...[
+          if (line.startsWith('# '))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                line.substring(2),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            )
+          else if (line.startsWith('## '))
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Text(
+                line.substring(3),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            )
+          else if (line.startsWith('- '))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('• ${line.substring(2)}'),
+            )
+          else if (RegExp(r'^\d+\.\s').hasMatch(line))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(line),
+            )
+          else if (line.trim().isEmpty)
+            const SizedBox(height: 8)
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(line),
+            ),
+        ],
+      ],
+    );
+  }
+}

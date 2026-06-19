@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../offline/presentation/offline_guides_screen.dart';
+import '../../onboarding/presentation/guided_onboarding_screen.dart';
 import '../../../core/services/weather_service.dart';
 import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -113,6 +115,33 @@ class HomeScreen extends StatelessWidget {
           icon: Icons.route_outlined,
           title: 'Dolomites route is 55% ready',
           subtitle: 'Fuel stop selected, overnight backup missing',
+        ),
+        const SizedBox(height: 12),
+        ActionTile(
+          icon: Icons.rocket_launch_outlined,
+          title: 'Resume guided setup',
+          subtitle:
+              'Finish onboarding, permissions, and starter offline content',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const GuidedOnboardingScreen(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        ActionTile(
+          icon: Icons.menu_book_outlined,
+          title: 'Open offline guides',
+          subtitle: 'Consult installed content without network',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const OfflineGuidesScreen(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 24),
         const SectionHeader(title: 'Recommended stop', action: 'View map'),

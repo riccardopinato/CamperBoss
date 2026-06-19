@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../onboarding/presentation/guided_onboarding_screen.dart';
+import 'offline_guides_screen.dart';
 import '../../../core/providers/download_manager_provider.dart';
 import '../../../core/services/app_download_manager.dart';
 import '../../../core/services/storage_inspector.dart';
@@ -23,6 +25,37 @@ class OfflineContentScreen extends ConsumerWidget {
       title: 'offline_title'.tr(),
       subtitle: 'offline_subtitle'.tr(),
       children: [
+        PremiumCard(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const OfflineGuidesScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.menu_book_outlined),
+                label: const Text('Open guides'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const GuidedOnboardingScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.rocket_launch_outlined),
+                label: const Text('Guided setup'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         PremiumCard(
           child: Row(
             children: [
