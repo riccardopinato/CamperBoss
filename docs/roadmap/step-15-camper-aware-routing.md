@@ -2,7 +2,7 @@
 
 ## Stato
 
-CURRENT fino a CI verde.
+DONE — `flutter analyze` e `flutter test` verdi.
 
 ## Obiettivo
 
