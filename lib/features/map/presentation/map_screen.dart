@@ -16,6 +16,7 @@ import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/offline_map_repository.dart';
 import '../../../data/repositories/offline_poi_repository.dart';
 import '../../offline/presentation/offline_content_screen.dart';
+import 'map_engine_v2_preview_screen.dart';
 import 'map_marker_cluster_layer.dart';
 import 'map_marker_mapper.dart';
 import 'map_place_filters.dart';
@@ -504,6 +505,45 @@ class _MapScreenState extends State<MapScreen> {
             _OfflineMapStatusCard(
               regions: _installedRegions,
               onToggle: _activateOfflineRegion,
+            ),
+            const SizedBox(height: 12),
+            PremiumCard(
+              child: Row(
+                children: [
+                  const Icon(Icons.layers_outlined),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Map Engine V2',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Isolated MapLibre vector preview. The current FlutterMap renderer stays active until V2 is validated.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MapEngineV2PreviewScreen(
+                          places: places,
+                          initialLatitude: selectedPoint.latitude,
+                          initialLongitude: selectedPoint.longitude,
+                          onOpenDirections: widget.onOpenDirections,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.science_outlined),
+                    label: const Text('Preview'),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             PremiumCard(
