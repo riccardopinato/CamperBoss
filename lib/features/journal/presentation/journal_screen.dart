@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/journal_entry.dart';
 import '../../../data/repositories/local_journal_repository.dart';
-import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/metric_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
@@ -50,10 +49,7 @@ class _JournalScreenState extends State<JournalScreen> {
     });
 
     try {
-      var entries = await _repository.listEntries();
-      if (entries.isEmpty) {
-        entries = await _seedEntries();
-      }
+      final entries = await _repository.listEntries();
       if (!mounted) return;
       setState(() {
         _entries = entries;
@@ -66,29 +62,6 @@ class _JournalScreenState extends State<JournalScreen> {
         _error = 'Journal unavailable';
       });
     }
-  }
-
-  Future<List<JournalEntry>> _seedEntries() async {
-    final seeds = [
-      MockCamperRepository.journal[0].copyWith(
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        place: 'Lake Garda',
-        kilometers: 128,
-        cost: 42,
-      ),
-      MockCamperRepository.journal[1].copyWith(
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        place: 'Dolomites',
-        kilometers: 64,
-        cost: 18,
-      ),
-    ];
-
-    final saved = <JournalEntry>[];
-    for (final entry in seeds) {
-      saved.add(await _repository.saveEntry(entry));
-    }
-    return saved;
   }
 
   Future<void> _openEditor({JournalEntry? entry}) async {
