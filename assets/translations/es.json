@@ -113,5 +113,9 @@
   "offline_storage_critical": "Critical",
   "offline_storage_insufficient": "Insufficient",
   "nav_vehicle": "Camper",
-  "nav_more": "Más"
+  "nav_more": "Más",
+  "routing_camper_profile_active": "Ruta adaptada a camper activa",
+  "routing_camper_profile_standard": "Ruta por carretera estándar",
+  "routing_camper_profile_dimensions": "Vehículo: {length} × {width} × {height} m · {weight} t máx.",
+  "routing_camper_profile_missing": "Añade dimensiones válidas y masa máxima para activar las restricciones de camper."
 }
