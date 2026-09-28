@@ -9,6 +9,7 @@
 - Web release build
 - translation catalog parity
 - deferred-monetization/no-fake-checkout tests
+- offline lost-task recovery and explicit retry-state coverage
 - Android backup/cleartext policy assertions
 - Android APK size report with 80 MiB optimization warning
 - iOS Runner.app size report
