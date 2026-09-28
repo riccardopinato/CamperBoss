@@ -302,7 +302,10 @@ Implementato:
 - build gate Android/iOS/Web e audit dimensioni bundle;
 - test di parita traduzioni e comportamento monetizzazione differita;
 - stati errore offline con retry esplicito e azioni sicure;
-- recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili.
+- recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili;
+- progetto iOS corretto con file reference esplicita per il bridge privacy;
+- workflow Release Core pubblica APK ARM64 per 1 giorno e cancella run superati;
+- vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate.
 
 Blocchi esterni di certificazione:
 
