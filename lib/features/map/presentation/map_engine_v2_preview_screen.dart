@@ -1,16 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../../core/config/map_engine_v2_config.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
-import '../../../core/services/subscription_service.dart';
 import '../../../data/models/camper_place.dart';
 import '../../../shared/widgets/premium_card.dart';
-import '../../subscription/presentation/subscription_screen.dart';
 import '../domain/maplibre_poi_clusterer.dart';
 
 class MapEngineV2PreviewScreen extends StatefulWidget {
@@ -20,7 +17,6 @@ class MapEngineV2PreviewScreen extends StatefulWidget {
     required this.initialLongitude,
     this.onOpenDirections,
     this.offlineManager,
-    this.subscriptionService,
     this.renderMap = true,
     super.key,
   });
@@ -30,7 +26,6 @@ class MapEngineV2PreviewScreen extends StatefulWidget {
   final double initialLongitude;
   final Future<void> Function(CamperPlace place)? onOpenDirections;
   final MapLibreOfflineRegionManager? offlineManager;
-  final SubscriptionService? subscriptionService;
   final bool renderMap;
 
   @override
@@ -43,15 +38,11 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
 
   late final MapLibreOfflineRegionManager _offlineManager =
       widget.offlineManager ?? const NativeMapLibreOfflineRegionManager();
-  late final SubscriptionService _subscriptionService =
-      widget.subscriptionService ?? RevenueCatSubscriptionService();
 
   MapLibreMapController? _mapController;
   bool _styleReady = false;
   bool _syncingPoi = false;
   bool _downloadingOffline = false;
-  bool _proLoading = true;
-  bool _isPro = false;
   double _zoom = MapEngineV2Config.initialZoom;
   double _offlineProgress = 0;
   String? _error;
@@ -63,40 +54,6 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   void initState() {
     super.initState();
     unawaited(_loadOfflineRegions());
-    unawaited(_loadProAccess());
-  }
-
-  Future<void> _loadProAccess() async {
-    try {
-      final state = await _subscriptionService.load();
-      if (!mounted) return;
-      setState(() {
-        _isPro = state.isPro;
-        _proLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isPro = false;
-        _proLoading = false;
-      });
-    }
-  }
-
-  Future<void> _handleOfflineAction() async {
-    if (_proLoading) return;
-    if (!_isPro) {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => SubscriptionScreen(service: _subscriptionService),
-        ),
-      );
-      if (mounted) {
-        await _loadProAccess();
-      }
-      return;
-    }
-    await _prepareVisibleAreaOffline();
   }
 
   @override
@@ -482,27 +439,17 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       ),
       floatingActionButton: _offlineManager.isSupported
           ? FloatingActionButton.extended(
-              onPressed: _downloadingOffline || !_styleReady || _proLoading
+              onPressed: _downloadingOffline || !_styleReady
                   ? null
-                  : _handleOfflineAction,
-              icon: _downloadingOffline || _proLoading
+                  : _prepareVisibleAreaOffline,
+              icon: _downloadingOffline
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(
-                      _isPro
-                          ? Icons.download_for_offline_outlined
-                          : Icons.lock_outline,
-                    ),
-              label: Text(
-                _proLoading
-                    ? 'pro_checking_access'.tr()
-                    : _isPro
-                        ? 'Offline this area'
-                        : 'pro_unlock_offline_maps'.tr(),
-              ),
+                  : const Icon(Icons.download_for_offline_outlined),
+              label: const Text('Offline this area'),
             )
           : null,
     );
