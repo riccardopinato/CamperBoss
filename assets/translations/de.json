@@ -292,5 +292,9 @@
   "maintenance_next_date": "Nächster Termin {date}",
   "maintenance_attachments_count": "{count} Anhänge",
   "maintenance_date": "Datum",
-  "maintenance_mileage": "Kilometerstand (km)"
+  "maintenance_mileage": "Kilometerstand (km)",
+  "pro_restore_web_unavailable": "Das Wiederherstellen von Käufen ist im Web nicht verfügbar. Verwende das Abrechnungsportal des Web-Kontos.",
+  "pro_offline_maps_locked": "Offline-Kartendownloads sind eine CamperBoss Pro-Funktion.",
+  "pro_unlock_offline_maps": "Offline-Karten freischalten",
+  "pro_checking_access": "Pro-Zugriff wird geprüft..."
 }
