@@ -27,6 +27,50 @@ void main() {
     expect(result.geometry.first.latitude, 45.4384);
   });
 
+  test('camper-aware request sends ORS heavy vehicle restrictions', () {
+    const camperRequest = RouteRequest(
+      tripId: 4,
+      profile: 'driving-hgv',
+      vehicleType: 'hgv',
+      restrictions: RouteVehicleRestrictions(
+        lengthMeters: 6.99,
+        widthMeters: 2.32,
+        heightMeters: 2.95,
+        weightTons: 3.5,
+      ),
+      waypoints: [
+        RouteWaypoint(
+          name: 'Verona',
+          latitude: 45.4384,
+          longitude: 10.9916,
+        ),
+        RouteWaypoint(
+          name: 'Molveno',
+          latitude: 46.1427,
+          longitude: 10.9630,
+        ),
+      ],
+    );
+
+    final body = buildOpenRouteServiceRequestBody(camperRequest);
+    final options = body['options'] as Map<String, Object?>;
+    final profileParams =
+        options['profile_params'] as Map<String, Object?>;
+    final restrictions =
+        profileParams['restrictions'] as Map<String, Object>;
+
+    expect(options['vehicle_type'], 'hgv');
+    expect(restrictions['length'], 6.99);
+    expect(restrictions['width'], 2.32);
+    expect(restrictions['height'], 2.95);
+    expect(restrictions['weight'], 3.5);
+  });
+
+  test('standard car request does not send heavy vehicle options', () {
+    final body = buildOpenRouteServiceRequestBody(request);
+    expect(body.containsKey('options'), isFalse);
+  });
+
   test('missing API key fails before network request', () async {
     final service = OpenRouteServiceRoutingService(
       apiKey: '',
