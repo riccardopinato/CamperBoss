@@ -1,0 +1,59 @@
+# CamperBoss More-section audit for AppLab.
+# Audit-only flow on a clean emulator.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    point: "90%,93%"
+
+- extendedWaitUntil:
+    visible: "More"
+    timeout: 20000
+- takeScreenshot: "camperboss-more-hub"
+
+- tapOn: "Search"
+- extendedWaitUntil:
+    visible: "Search"
+    timeout: 15000
+- takeScreenshot: "camperboss-more-search"
+- pressKey: BACK
+
+- tapOn:
+    text: ".*Offline.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*Offline.*"
+    timeout: 15000
+- takeScreenshot: "camperboss-more-offline"
+- pressKey: BACK
+
+- tapOn:
+    text: ".*Guide.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*Offline guides.*"
+    timeout: 15000
+- takeScreenshot: "camperboss-more-guides"
+- pressKey: BACK
+
+- tapOn:
+    text: ".*Language.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*Language.*"
+    timeout: 15000
+- takeScreenshot: "camperboss-more-language"
+- pressKey: BACK
+
+- tapOn:
+    text: ".*Notification.*"
+- waitForAnimationToEnd
+- takeScreenshot: "camperboss-more-notifications-after-open"
+- pressKey: BACK
+
+- tapOn:
+    text: ".*setup.*"
+- waitForAnimationToEnd
+- takeScreenshot: "camperboss-more-guided-setup"
