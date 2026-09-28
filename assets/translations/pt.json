@@ -292,5 +292,9 @@
   "maintenance_next_date": "Próximo {date}",
   "maintenance_attachments_count": "{count} anexos",
   "maintenance_date": "Data",
-  "maintenance_mileage": "Quilometragem (km)"
+  "maintenance_mileage": "Quilometragem (km)",
+  "pro_restore_web_unavailable": "A restauração de compras não está disponível na Web. Use o portal de faturação da conta Web.",
+  "pro_offline_maps_locked": "O download de mapas offline é uma funcionalidade CamperBoss Pro.",
+  "pro_unlock_offline_maps": "Desbloquear mapas offline",
+  "pro_checking_access": "A verificar acesso Pro..."
 }
