@@ -5,8 +5,7 @@ appId: com.camperboss.camperboss
 - launchApp:
     clearState: true
 
-- tapOn:
-    text: 'Map\\s*Tab 2 of 5'
+- tapOn: "Map"
 
 - extendedWaitUntil:
     visible: "Smart map"
@@ -47,8 +46,7 @@ appId: com.camperboss.camperboss
 - launchApp:
     clearState: false
 
-- tapOn:
-    text: 'Map\\s*Tab 2 of 5'
+- tapOn: "Map"
 - extendedWaitUntil:
     visible: "Smart map"
     timeout: 20000
