@@ -292,5 +292,17 @@
   "maintenance_date": "Date",
   "maintenance_mileage": "Kilométrage (km)",
   "pro_restore_web_unavailable": "La restauration des achats n'est pas disponible sur le Web. Utilisez le portail de facturation du compte Web.",
-  "pro_deferred": "Les achats Pro sont volontairement différés. Aucune formule n'est affichée tant qu'un fournisseur de monétisation de production n'est pas sélectionné et configuré."
+  "pro_deferred": "Les achats Pro sont volontairement différés. Aucune formule n'est affichée tant qu'un fournisseur de monétisation de production n'est pas sélectionné et configuré.",
+  "offline_open_guides": "Ouvrir les guides",
+  "offline_guided_setup": "Configuration guidée",
+  "offline_recovery_help": "Vos données locales restent intactes. Réessayez lorsque le service sera de nouveau disponible.",
+  "offline_action_failed": "L'opération n'a pas pu être terminée. Les données hors ligne existantes n'ont pas été modifiées.",
+  "offline_status_queued": "En attente",
+  "offline_status_running": "Téléchargement",
+  "offline_status_paused": "En pause",
+  "offline_status_verifying": "Vérification",
+  "offline_status_completed": "Prêt",
+  "offline_status_failed": "Échec",
+  "offline_status_corrupted": "Corrompu",
+  "offline_status_canceled": "Annulé"
 }
