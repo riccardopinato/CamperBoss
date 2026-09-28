@@ -119,14 +119,14 @@
   "routing_camper_profile_dimensions": "Mezzo: {length} × {width} × {height} m · {weight} t max",
   "routing_camper_profile_missing": "Aggiungi dimensioni valide e massa massima del mezzo per attivare le restrizioni camper.",
   "pro_title": "Viaggia senza limiti",
-  "pro_subtitle": "Offerte reali dello store e stato dell'accesso gestiti da RevenueCat.",
+  "pro_subtitle": "La monetizzazione è intenzionalmente rinviata finché non verrà scelto il provider di produzione.",
   "pro_badge": "CAMPERBOSS PRO",
   "pro_active_badge": "PRO ATTIVO",
   "pro_pitch_title": "Passa a Pro quando gli strumenti extra ti servono davvero",
   "pro_pitch_body": "Prezzi e piani arrivano dalla configurazione reale di App Store o Google Play. CamperBoss non inventa opzioni di acquisto.",
   "pro_active_title": "CamperBoss Pro è attivo",
   "pro_active_body": "L'accesso Pro risulta attivo per questo account.",
-  "pro_entitlement_active": "Accesso Premium verificato da RevenueCat.",
+  "pro_entitlement_active": "Accesso Premium verificato dal provider configurato.",
   "pro_not_configured": "Gli acquisti non sono configurati in questa build. Non viene mostrato alcun checkout finto.",
   "pro_no_offerings": "Lo store non rende disponibile alcun piano acquistabile al momento.",
   "pro_package_unavailable": "Questo piano non è più disponibile. Aggiorna il paywall e riprova.",
@@ -245,7 +245,7 @@
   "more_language": "Lingua",
   "more_language_body": "Segui la lingua del dispositivo o scegline una manualmente.",
   "more_pro": "CamperBoss Pro",
-  "more_pro_body": "Piani reali dello store, stato accesso e ripristino acquisti.",
+  "more_pro_body": "L'architettura Premium è pronta, ma gli acquisti sono intenzionalmente rinviati.",
   "more_notifications": "Notifiche",
   "more_notifications_body": "Permessi, tempistiche e test dei promemoria locali.",
   "more_setup": "Configurazione guidata",
@@ -296,5 +296,6 @@
   "pro_restore_web_unavailable": "Il ripristino acquisti non è disponibile sul Web. Usa il portale di fatturazione dell'account Web.",
   "pro_offline_maps_locked": "Il download delle mappe offline è una funzione CamperBoss Pro.",
   "pro_unlock_offline_maps": "Sblocca mappe offline",
-  "pro_checking_access": "Verifica accesso Pro..."
+  "pro_checking_access": "Verifica accesso Pro...",
+  "pro_deferred": "Gli acquisti Pro sono intenzionalmente rinviati. Nessun piano viene mostrato finché non verrà scelto e configurato il provider di monetizzazione definitivo."
 }
