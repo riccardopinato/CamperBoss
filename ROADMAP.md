@@ -278,13 +278,34 @@ Esito:
 
 ## STEP 16 — Release Core
 
-Stato: `CURRENT`
+Stato: `BLOCKED`
 
 - monetizzazione reale dietro entitlement, senza CTA finte;
 - privacy/backup Android e iOS verificati per documenti e dati sensibili;
 - localizzazione completa, inclusa opzione lingua Sistema/Automatico;
 - CI/release checks, AppLab/device QA e size audit;
 - hardening degli stati offline, errore e recovery.
+
+Implementato:
+
+- SDK RevenueCat reale con Offering/entitlement e chiavi Android/iOS/Web via dart-define;
+- paywall senza piani o CTA finti quando RevenueCat non e configurato;
+- nuovi download mappe offline protetti da entitlement Pro, senza bloccare contenuti gia locali;
+- lingua Sistema/Automatico e cataloghi IT/EN/DE/FR/ES/PT allineati;
+- backup Android disabilitato per dati privati, cleartext disabilitato e data extraction rules;
+- bridge iOS per escludere i documenti privati dal backup cloud automatico;
+- deploy Web Pages stabile;
+- build gate Android/iOS/Web e audit dimensioni bundle;
+- test paywall, translation parity e gate Pro mappe offline.
+
+Blocco esterno:
+
+- configurare prodotti/Offering reali nel dashboard RevenueCat e relativi store sandbox;
+- eseguire acquisto/restore su device Android e iOS;
+- completare prova fisica MapLibre offline con rete disattivata;
+- GitHub Actions attualmente fallisce prima dell'assegnazione runner (nessuno step avviato), quindi i gate finali non possono essere certificati in CI finche l'account Actions non torna operativo.
+
+Non promuovere STEP 17 finche questi gate non sono chiusi.
 
 ## STEP 17 — Local AI Micro Engine
 
