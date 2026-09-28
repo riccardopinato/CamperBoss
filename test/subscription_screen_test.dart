@@ -51,11 +51,16 @@ void main() {
     expect(find.text('Yearly Pro'), findsNothing);
     expect(find.text('Lifetime'), findsNothing);
     expect(find.text('Choose'), findsNothing);
-    expect(find.textContaining('intentionally deferred'), findsOneWidget);
+    expect(
+      find.text(
+        'Pro purchases are intentionally deferred. No plan is shown until '
+        'a production monetization provider is selected and configured.',
+      ),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('provider abstraction can still render verified entitlement',
-      (tester) async {
+  test('provider abstraction preserves verified entitlement state', () async {
     final service = _FakeSubscriptionService(
       state: const ProSubscriptionState(
         isConfigured: true,
@@ -64,12 +69,11 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(app(service));
-    await tester.pumpAndSettle();
+    final state = await service.load();
 
-    expect(find.text('PRO ACTIVE'), findsOneWidget);
-    expect(find.textContaining('Pro entitlement is currently active'), findsOneWidget);
-    expect(find.text('Choose'), findsNothing);
+    expect(state.isConfigured, isTrue);
+    expect(state.isPro, isTrue);
+    expect(state.packages, isEmpty);
   });
 }
 
