@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,12 +51,31 @@ class FakeWeatherService extends WeatherService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('CamperBoss opens the home dashboard', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: HomeScreen(
-          weatherService: const FakeWeatherService(),
-          cockpitService: FakeHomeCockpitService(),
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              home: HomeScreen(
+                weatherService: const FakeWeatherService(),
+                cockpitService: FakeHomeCockpitService(),
+              ),
+            );
+          },
         ),
       ),
     );
