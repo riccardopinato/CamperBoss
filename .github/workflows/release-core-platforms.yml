@@ -1,6 +1,9 @@
 name: Release Core Platform Builds
 
 on:
+  pull_request:
+    branches: [main]
+    types: [ready_for_review]
   workflow_dispatch:
     inputs:
       android:
@@ -25,7 +28,7 @@ concurrency:
 
 jobs:
   android:
-    if: ${{ inputs.android }}
+    if: ${{ github.event_name == 'pull_request' || inputs.android }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -78,7 +81,7 @@ jobs:
           test -s android/app/src/main/res/xml/data_extraction_rules.xml
 
   ios:
-    if: ${{ inputs.ios }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ios }}
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -102,7 +105,7 @@ jobs:
           du -sh build/ios/iphoneos/Runner.app
 
   web:
-    if: ${{ inputs.web }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.web }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
