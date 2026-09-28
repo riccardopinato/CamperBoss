@@ -1,0 +1,87 @@
+name: Map Engine V2 Platform Builds
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/features/map/**"
+      - "lib/core/config/map_engine_v2_config.dart"
+      - "lib/core/services/maplibre_offline_region_manager.dart"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "android/**"
+      - "ios/**"
+      - "web/**"
+      - ".github/workflows/map-engine-v2-platforms.yml"
+
+jobs:
+  android:
+    name: Android debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --debug --target-platform android-arm64
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CamperBoss-MapEngineV2-android-arm64-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+  web:
+    name: Web release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release
+
+  ios:
+    name: iOS simulator
+    runs-on: macos-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build iOS simulator
+        run: flutter build ios --simulator --no-codesign
