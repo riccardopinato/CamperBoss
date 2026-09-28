@@ -4,7 +4,7 @@
 
 - `flutter analyze`
 - full `flutter test`
-- Android ARM64 release APK build
+- Android ARM64 release APK build and 1-day downloadable artifact
 - iOS release build without codesign
 - Web release build
 - translation catalog parity
