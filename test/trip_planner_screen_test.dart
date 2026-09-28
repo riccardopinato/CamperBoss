@@ -151,7 +151,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Route preview'));
+    await tester.scrollUntilVisible(
+      find.text('Route preview'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Route preview'), findsOneWidget);
@@ -194,7 +198,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Route preview'));
+    await tester.scrollUntilVisible(
+      find.text('Route preview'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
 
     final button = tester.widget<FilledButton>(
