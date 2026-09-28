@@ -81,7 +81,7 @@ jobs:
           test -s android/app/src/main/res/xml/data_extraction_rules.xml
 
   ios:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ios }}
+    if: ${{ github.event_name == 'pull_request' || inputs.ios }}
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -105,7 +105,7 @@ jobs:
           du -sh build/ios/iphoneos/Runner.app
 
   web:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.web }}
+    if: ${{ github.event_name == 'pull_request' || inputs.web }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
