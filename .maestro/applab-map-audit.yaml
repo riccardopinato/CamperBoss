@@ -1,0 +1,70 @@
+# CamperBoss Map audit for AppLab.
+# Covers main Map, MapLibre V2, native offline download and no-network reopen.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    text: 'Map\\s*Tab 2 of 5'
+
+- extendedWaitUntil:
+    visible: "Smart map"
+    timeout: 20000
+
+- assertVisible: "Selected location"
+- assertVisible:
+    text: ".*Lake Garda.*"
+- takeScreenshot: "camperboss-map-main-initial"
+
+- scrollUntilVisible:
+    element:
+      text: "Preview"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: "camperboss-map-main-v2-entry"
+
+- tapOn: "Preview"
+
+- extendedWaitUntil:
+    visible: "Map Engine V2"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Offline this area"
+    timeout: 30000
+- takeScreenshot: "camperboss-maplibre-online"
+
+- tapOn: "Offline this area"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Area .* - .*MB.*"
+    timeout: 180000
+- takeScreenshot: "camperboss-maplibre-downloaded"
+
+- setAirplaneMode: enabled
+- stopApp
+- launchApp:
+    clearState: false
+
+- tapOn:
+    text: 'Map\\s*Tab 2 of 5'
+- extendedWaitUntil:
+    visible: "Smart map"
+    timeout: 20000
+
+- scrollUntilVisible:
+    element:
+      text: "Preview"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Preview"
+
+- extendedWaitUntil:
+    visible: "Map Engine V2"
+    timeout: 30000
+- assertVisible:
+    text: ".*Area .* - .*MB.*"
+- takeScreenshot: "camperboss-maplibre-airplane-reopen"
+
+- setAirplaneMode: disabled
