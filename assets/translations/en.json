@@ -119,14 +119,14 @@
   "routing_camper_profile_dimensions": "Vehicle: {length} × {width} × {height} m · {weight} t max",
   "routing_camper_profile_missing": "Add valid vehicle dimensions and max mass to enable camper-aware restrictions.",
   "pro_title": "Travel without limits",
-  "pro_subtitle": "Real store offerings and entitlement status from RevenueCat.",
+  "pro_subtitle": "Monetization is intentionally deferred until a production provider is selected.",
   "pro_badge": "CAMPERBOSS PRO",
   "pro_active_badge": "PRO ACTIVE",
   "pro_pitch_title": "Upgrade when the extra tools are worth it",
   "pro_pitch_body": "Prices and plans are loaded from the App Store or Google Play configuration. CamperBoss never invents a purchase option.",
   "pro_active_title": "CamperBoss Pro is active",
   "pro_active_body": "Your Pro entitlement is currently active on this account.",
-  "pro_entitlement_active": "Premium entitlement verified by RevenueCat.",
+  "pro_entitlement_active": "Premium entitlement verified by the configured provider.",
   "pro_not_configured": "Purchases are not configured on this build. No fake checkout is shown.",
   "pro_no_offerings": "No purchasable offering is currently available from the store.",
   "pro_package_unavailable": "This plan is no longer available. Refresh the paywall and try again.",
@@ -245,7 +245,7 @@
   "more_language": "Language",
   "more_language_body": "Follow the device language or choose one manually.",
   "more_pro": "CamperBoss Pro",
-  "more_pro_body": "Live store plans, entitlement status and restore purchases.",
+  "more_pro_body": "Premium architecture is ready, but purchases are intentionally deferred.",
   "more_notifications": "Notifications",
   "more_notifications_body": "Reminder permission, timing and local test controls.",
   "more_setup": "Guided setup",
@@ -296,5 +296,6 @@
   "pro_restore_web_unavailable": "Restore purchases is not available on the web. Use the billing portal for the web account.",
   "pro_offline_maps_locked": "Offline map downloads are a CamperBoss Pro feature.",
   "pro_unlock_offline_maps": "Unlock offline maps",
-  "pro_checking_access": "Checking Pro access..."
+  "pro_checking_access": "Checking Pro access...",
+  "pro_deferred": "Pro purchases are intentionally deferred. No plan is shown until a production monetization provider is selected and configured."
 }
