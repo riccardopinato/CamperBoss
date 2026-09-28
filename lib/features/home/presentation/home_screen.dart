@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/home_cockpit_service.dart';
@@ -94,8 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ScreenScaffold(
-        title: 'Camper cockpit',
-        subtitle: 'Only real local data contributes to your readiness.',
+        title: 'home_cockpit_title'.tr(),
+        subtitle: 'home_cockpit_subtitle'.tr(),
         children: [
           if (_error != null) ...[
             Text(
@@ -116,13 +117,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
             SelectedLocationWeatherCard(service: widget.weatherService),
             const SizedBox(height: 24),
-            const SectionHeader(title: 'Needs attention'),
+            SectionHeader(title: 'home_needs_attention'.tr()),
             const SizedBox(height: 12),
             if (snapshot.actions.isEmpty)
-              const PremiumCard(
-                child: Text(
-                  'No urgent local items are currently flagged. Pull to refresh after editing your data.',
-                ),
+              PremiumCard(
+                child: Text('home_no_urgent'.tr()),
               )
             else
               for (final action in snapshot.actions) ...[
@@ -137,16 +136,16 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 12),
             ActionTile(
               icon: Icons.rocket_launch_outlined,
-              title: 'Guided setup',
+              title: 'home_guided_setup'.tr(),
               subtitle:
-                  'Configure permissions, vehicle basics and starter offline content.',
+                  'home_guided_setup_body'.tr(),
               onTap: () => _push(const GuidedOnboardingScreen()),
             ),
             const SizedBox(height: 12),
             ActionTile(
               icon: Icons.menu_book_outlined,
-              title: 'Offline guides',
-              subtitle: 'Open installed guides without relying on connectivity.',
+              title: 'home_offline_guides'.tr(),
+              subtitle: 'home_offline_guides_body'.tr(),
               onTap: () => _push(const OfflineGuidesScreen()),
             ),
           ],
@@ -185,7 +184,7 @@ class _ReadinessCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Boss Readiness',
+                  'home_boss_readiness'.tr(),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -207,14 +206,14 @@ class _ReadinessCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ResourceBar(
-            label: 'Data coverage',
+            label: 'home_data_coverage'.tr(),
             value: coverage / 100,
             detail: '$coverage% of readiness signals are configured',
           ),
           if (score != null) ...[
             const SizedBox(height: 12),
             ResourceBar(
-              label: 'Readiness',
+              label: 'home_readiness'.tr(),
               value: score / 100,
               detail: 'Calculated only from configured local signals',
             ),
@@ -256,7 +255,7 @@ class _MetricsGrid extends StatelessWidget {
       children: [
         MetricTile(
           icon: Icons.speed_outlined,
-          label: 'Mileage',
+          label: 'home_mileage'.tr(),
           value: vehicle == null ? '--' : '${vehicle.mileage.round()} km',
           detail: vehicle == null
               ? 'Vehicle not configured'
@@ -264,7 +263,7 @@ class _MetricsGrid extends StatelessWidget {
         ),
         MetricTile(
           icon: Icons.checklist_outlined,
-          label: 'Checklist',
+          label: 'home_checklist'.tr(),
           value: snapshot.checklistTotal == 0 ? '--' : '$openChecks open',
           detail: snapshot.checklistTotal == 0
               ? 'No checklist created'
@@ -272,7 +271,7 @@ class _MetricsGrid extends StatelessWidget {
         ),
         MetricTile(
           icon: Icons.folder_copy_outlined,
-          label: 'Documents',
+          label: 'home_documents'.tr(),
           value: snapshot.documentCount == 0 ? '--' : '$documentAlerts alerts',
           detail: snapshot.documentCount == 0
               ? 'No documents saved'
@@ -280,7 +279,7 @@ class _MetricsGrid extends StatelessWidget {
         ),
         MetricTile(
           icon: Icons.build_circle_outlined,
-          label: 'Maintenance',
+          label: 'home_maintenance'.tr(),
           value:
               snapshot.maintenanceCount == 0 ? '--' : '$maintenanceAlerts alerts',
           detail: snapshot.maintenanceCount == 0
