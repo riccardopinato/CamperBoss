@@ -39,11 +39,24 @@ jobs:
       - name: Build ARM64 release APK
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
-      - name: Verify APK
+      - name: Verify APK and audit size
         run: |
+          set -euo pipefail
           APK=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s "$APK"
           ls -lh "$APK"
+          SIZE=$(stat -c%s "$APK")
+          WARN_BYTES=$((80 * 1024 * 1024))
+          echo "ARM64 release APK: $SIZE bytes"
+          if [ "$SIZE" -gt "$WARN_BYTES" ]; then
+            echo "::warning::ARM64 release APK exceeds the 80 MiB optimization target."
+          fi
+
+      - name: Verify privacy backup policy
+        run: |
+          grep -Fq 'android:allowBackup="false"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/xml/data_extraction_rules.xml
 
   ios:
     runs-on: macos-latest
@@ -63,6 +76,11 @@ jobs:
       - name: Build iOS release
         run: flutter build ios --release --no-codesign
 
+      - name: Audit iOS app size
+        run: |
+          test -d build/ios/iphoneos/Runner.app
+          du -sh build/ios/iphoneos/Runner.app
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -80,3 +98,9 @@ jobs:
 
       - name: Build Web release
         run: flutter build web --release
+
+      - name: Audit Web bundle size
+        run: |
+          test -s build/web/index.html
+          du -sh build/web
+          find build/web -type f -maxdepth 2 -print0 | xargs -0 du -h | sort -h | tail -20
