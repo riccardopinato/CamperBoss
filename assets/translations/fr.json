@@ -292,5 +292,9 @@
   "maintenance_next_date": "Prochain {date}",
   "maintenance_attachments_count": "{count} pièces jointes",
   "maintenance_date": "Date",
-  "maintenance_mileage": "Kilométrage (km)"
+  "maintenance_mileage": "Kilométrage (km)",
+  "pro_restore_web_unavailable": "La restauration des achats n'est pas disponible sur le Web. Utilisez le portail de facturation du compte Web.",
+  "pro_offline_maps_locked": "Le téléchargement des cartes hors ligne est une fonction CamperBoss Pro.",
+  "pro_unlock_offline_maps": "Débloquer les cartes hors ligne",
+  "pro_checking_access": "Vérification de l'accès Pro..."
 }
