@@ -8,7 +8,6 @@ import '../../offline/presentation/offline_content_screen.dart';
 import '../../offline/presentation/offline_guides_screen.dart';
 import '../../onboarding/presentation/guided_onboarding_screen.dart';
 import '../../search/presentation/local_search_screen.dart';
-import '../../subscription/presentation/subscription_screen.dart';
 import '../../settings/presentation/language_settings_screen.dart';
 import '../../settings/presentation/notification_settings_screen.dart';
 
@@ -58,13 +57,6 @@ class MoreHubScreen extends StatelessWidget {
           title: 'more_language'.tr(),
           subtitle: 'more_language_body'.tr(),
           onTap: () => _open(context, const LanguageSettingsScreen()),
-        ),
-        const SizedBox(height: 12),
-        ActionTile(
-          icon: Icons.workspace_premium_outlined,
-          title: 'more_pro'.tr(),
-          subtitle: 'more_pro_body'.tr(),
-          onTap: () => _open(context, const SubscriptionScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
