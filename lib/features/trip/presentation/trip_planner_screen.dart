@@ -83,7 +83,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     try {
       final trips = await _repository.listTrips();
-      final vehicleProfile = await _vehicleProfileRepository.loadProfile();
+      VehicleProfile? vehicleProfile;
+      try {
+        vehicleProfile = await _vehicleProfileRepository.loadProfile();
+      } catch (_) {
+        // Vehicle metadata is optional for the planner. If it cannot be read,
+        // keep trips usable and fall back to standard road routing.
+        vehicleProfile = null;
+      }
       if (!mounted) return;
       setState(() {
         _trips = trips;
