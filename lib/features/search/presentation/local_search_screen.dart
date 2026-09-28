@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -156,19 +157,19 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
 
     final snapshot = _snapshot;
     return ScreenScaffold(
-      title: 'Search',
-      subtitle: 'Private local search across documents, trips and guides.',
+      title: 'search_title'.tr(),
+      subtitle: 'search_subtitle'.tr(),
       children: [
         TextField(
           controller: _controller,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            labelText: 'Search CamperBoss',
+            labelText: 'search_hint'.tr(),
             suffixIcon: _controller.text.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: 'Clear',
+                    tooltip: 'common_clear'.tr(),
                     onPressed: () {
                       _controller.clear();
                       _search();
@@ -202,7 +203,7 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Rebuild index',
+                tooltip: 'search_rebuild'.tr(),
                 onPressed: _isRebuilding ? null : _rebuild,
                 icon: _isRebuilding
                     ? const SizedBox.square(
@@ -219,13 +220,13 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
           PremiumCard(child: Text(_error!)),
         ],
         const SizedBox(height: 16),
-        SectionHeader(title: 'Results', action: '${_hits.length}'),
+        SectionHeader(title: 'search_results'.tr(), action: '${_hits.length}'),
         const SizedBox(height: 8),
         if (_hits.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.manage_search,
-            title: 'No local results',
-            message: 'Try another term or rebuild the private local index.',
+            title: 'search_empty'.tr(),
+            message: 'search_empty_body'.tr(),
           )
         else
           for (final hit in _groupedHits()) ...[
