@@ -57,3 +57,15 @@ Do not mark Step 16 DONE until:
 - The Android release gate publishes a 1-day ARM64 APK artifact.
 - iOS and Web are opt-in during manual release runs to avoid unnecessary private-repository runner usage.
 - The historical Map Engine V2 platform workflow remains manual-only.
+
+
+## CI certification result
+
+- Flutter analyze: PASS
+- Flutter test: PASS
+- Android ARM64 release build: PASS
+- Android privacy backup assertions: PASS
+- APK artifact: `app-arm64-v8a-release.apk`
+- APK size: 48,412,208 bytes (~46.2 MiB)
+- Artifact retention: 1 day
+- Remaining gate: physical device QA, including MapLibre offline reopen with network disabled.
