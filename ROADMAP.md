@@ -300,7 +300,9 @@ Implementato:
 - bridge iOS per escludere i documenti privati dal backup cloud automatico;
 - deploy Web Pages stabile;
 - build gate Android/iOS/Web e audit dimensioni bundle;
-- test di parita traduzioni e comportamento monetizzazione differita.
+- test di parita traduzioni e comportamento monetizzazione differita;
+- stati errore offline con retry esplicito e azioni sicure;
+- recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili.
 
 Blocchi esterni di certificazione:
 
