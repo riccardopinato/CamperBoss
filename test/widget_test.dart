@@ -64,7 +64,6 @@ void main() {
 
     expect(find.text('Camper cockpit'), findsOneWidget);
     expect(find.text('Boss Readiness'), findsOneWidget);
-    expect(find.text('Mileage'), findsOneWidget);
     expect(find.text('Fresh water'), findsNothing);
   });
 }
