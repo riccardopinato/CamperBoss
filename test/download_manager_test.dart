@@ -129,6 +129,43 @@ void main() {
     expect(manifest.packages.single.id, 'guide');
   });
 
+  test('lost task recovery only reuses matching cached package metadata', () {
+    final now = DateTime(2026);
+    final record = DownloadRecord(
+      packageId: package.id,
+      taskId: package.deterministicTaskId,
+      type: package.type,
+      title: package.title,
+      version: package.version,
+      fileName: package.fileName,
+      localPath: '/tmp/${package.fileName}',
+      status: DownloadStatus.failed,
+      downloadedBytes: 0,
+      totalBytes: package.fileSizeBytes,
+      expectedSha256: package.expectedSha256,
+      installedSha256: '',
+      createdAt: now,
+      updatedAt: now,
+    );
+    final manifest = DownloadManifest(
+      schemaVersion: 1,
+      updatedAt: now,
+      packages: const [package],
+      fromCache: true,
+    );
+
+    expect(findRetryPackage(manifest, record), same(package));
+
+    final wrongVersion = DownloadManifest(
+      schemaVersion: 1,
+      updatedAt: now,
+      packages: [package.copyWithVersionForTest('2026.99')],
+      fromCache: true,
+    );
+    expect(findRetryPackage(wrongVersion, record), isNull);
+    expect(findRetryPackage(null, record), isNull);
+  });
+
   test('download task id is deterministic and URL based', () {
     expect(buildDownloadTaskId(package), package.deterministicTaskId);
     expect(buildDownloadTaskId(package), hasLength(24));
