@@ -8,7 +8,7 @@
 - Al termine corretto, aggiorna lo stato da `CURRENT` a `DONE`.
 - Registra risultato, test e commit in massimo tre righe.
 - Promuovi automaticamente il primo step successivo `TODO` a `CURRENT`, ma non implementarlo nello stesso task.
-- Se lo step non puo essere completato, impostalo `BLOCKED`, annota il motivo e non promuovere altri step.
+- Se lo step non puo essere completato, impostalo `BLOCKED` e annota il motivo. Un nuovo `CURRENT` puo essere promosso soltanto con autorizzazione esplicita dell'utente quando sostituisce o aggira in modo documentato il blocco.
 
 Stati: `CURRENT`, `TODO`, `DONE`, `BLOCKED`.
 
@@ -205,3 +205,78 @@ Esito:
 - Risultato: storico viaggio completato con import/export GPX, ricordi geolocalizzati con conferma EXIF, statistiche derivate, vista dedicata e integrazione backup locale.
 - Test: `flutter analyze` mirato; `flutter test test/gpx_service_test.dart test/travel_history_statistics_service_test.dart test/travel_history_screen_test.dart test/data_backup_service_test.dart`.
 - Commit: `feat(history): add GPX travel memories and statistics`.
+
+
+## STEP 13 — Product Truth Cleanup + Shell V2
+
+Stato: `CURRENT`
+
+Obiettivo:
+
+- eliminare l'inserimento automatico di viaggi, diario, checklist e POI demo;
+- sostituire la Home dimostrativa con un cockpit basato soltanto su dati locali reali;
+- introdurre Boss Readiness deterministico senza inventare valori mancanti;
+- ridurre la navigazione primaria da undici a cinque aree;
+- mantenere tutte le funzioni secondarie raggiungibili tramite hub contestuali;
+- introdurre tema light/dark coerente con il sistema;
+- aggiornare documentazione e CI.
+
+Criteri di completamento:
+
+- nessun dato demo viene salvato automaticamente;
+- Home non mostra acqua, gas, batteria, payload o score inventati;
+- Boss Readiness resta non disponibile finche la copertura dati e insufficiente;
+- tab primarie: Home, Mappa, Viaggi, Camper, Altro;
+- `flutter analyze` e `flutter test` passano in CI;
+- nessuna perdita di accesso a documenti, manutenzione, ricerca, offline, notifiche, checklist, diario e finanza.
+
+## STEP 14 — Map Engine V2 + offline reale
+
+Stato: `TODO`
+
+Creare un proof of concept isolato del nuovo motore cartografico, con priorita a
+MapLibre per vector tiles, layer POI, clustering e regioni offline. Riutilizzare
+i pattern gia sviluppati in TrailPath, senza copiare ciecamente codice e senza
+rimuovere `flutter_map` finche il POC non supera Android, iOS e Web.
+
+Lo Step 7 resta la documentazione storica del primo tentativo PMTiles ed e
+considerato assorbito da questo step quando il nuovo renderer apre realmente
+una regione offline verificata.
+
+## STEP 15 — Routing camper-aware
+
+Stato: `TODO`
+
+Collegare il profilo mezzo al routing tramite un adapter dedicato. Usare
+lunghezza, larghezza, altezza e massa soltanto quando il provider supporta
+restrizioni compatibili. Mostrare sempre che il risultato dipende dalla qualita
+dei dati stradali e non costituisce garanzia di transitabilita.
+
+## STEP 16 — Release Core
+
+Stato: `TODO`
+
+- monetizzazione reale dietro entitlement, senza CTA finte;
+- privacy/backup Android e iOS verificati per documenti e dati sensibili;
+- localizzazione completa, inclusa opzione lingua Sistema/Automatico;
+- CI/release checks, AppLab/device QA e size audit;
+- hardening degli stati offline, errore e recovery.
+
+## STEP 17 — Local AI Micro Engine
+
+Stato: `TODO` — non anticipare prima del Release Core.
+
+Obiettivo futuro: valutare AI on-device facoltativa per manuali/documenti e
+assistenza contestuale privata.
+
+Vincoli iniziali:
+
+- core dell'app sempre usabile senza AI;
+- gateway astratto e modello sostituibile;
+- nessun upload implicito di documenti;
+- primo benchmark orientato a modelli circa <= 50 MB;
+- candidato da verificare: Cactus/Needle 3 o equivalente;
+- confrontare anche alternative piu recenti e leggere prima della scelta;
+- misurare dimensione reale, RAM di picco, first-token latency, tokens/s,
+  qualita su task CamperBoss, licenza, Android/iOS supportati e impatto APK/IPA;
+- non selezionare un modello soltanto in base al numero di parametri.
