@@ -66,7 +66,7 @@ jobs:
         run: flutter build web --release
 
   ios:
-    name: iOS simulator
+    name: iOS device release
     runs-on: macos-latest
     timeout-minutes: 35
 
@@ -83,5 +83,5 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build iOS simulator
-        run: flutter build ios --simulator --no-codesign
+      - name: Build iOS device
+        run: flutter build ios --release --no-codesign
