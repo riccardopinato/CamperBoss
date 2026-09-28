@@ -151,7 +151,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.ensureVisible(find.text('Route preview'));
     await tester.pumpAndSettle();
 
     expect(find.text('Route preview'), findsOneWidget);
@@ -194,7 +194,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.ensureVisible(find.text('Route preview'));
     await tester.pumpAndSettle();
 
     final button = tester.widget<FilledButton>(
