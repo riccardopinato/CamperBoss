@@ -53,7 +53,7 @@ Do not mark Step 16 DONE until:
 ## Quota-aware CI
 
 - Flutter analyze/test runs automatically only for Dart, tests, assets, dependency or analyzer changes.
-- Android/iOS/Web release builds are manual release gates.
-- Android is the default manual target and publishes a 1-day ARM64 APK artifact.
+- Android release build runs once when the Step 16 PR is marked Ready for review; iOS/Web remain manual release gates after the workflow reaches `main`.
+- The Android release gate publishes a 1-day ARM64 APK artifact.
 - iOS and Web are opt-in during manual release runs to avoid unnecessary private-repository runner usage.
 - The historical Map Engine V2 platform workflow remains manual-only.
