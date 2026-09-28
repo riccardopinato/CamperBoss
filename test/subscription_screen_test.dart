@@ -7,13 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    await EasyLocalization.ensureInitialized();
+  });
+
   Widget app(SubscriptionService service) {
     return EasyLocalization(
       supportedLocales: const [Locale('en')],
       path: 'assets/translations',
       fallbackLocale: const Locale('en'),
-      child: MaterialApp(
-        home: SubscriptionScreen(service: service),
+      startLocale: const Locale('en'),
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: SubscriptionScreen(service: service),
+          );
+        },
       ),
     );
   }
@@ -37,7 +49,7 @@ void main() {
     expect(find.text('Yearly Pro'), findsNothing);
     expect(find.text('Lifetime'), findsNothing);
     expect(find.text('Choose'), findsNothing);
-    expect(find.textContaining('deferred'), findsOneWidget);
+    expect(find.textContaining('intentionally deferred'), findsOneWidget);
   });
 
   testWidgets('provider abstraction can still render verified entitlement',
@@ -54,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PRO ACTIVE'), findsOneWidget);
-    expect(find.textContaining('Premium entitlement verified'), findsOneWidget);
+    expect(find.textContaining('Pro entitlement is currently active'), findsOneWidget);
     expect(find.text('Choose'), findsNothing);
   });
 }
