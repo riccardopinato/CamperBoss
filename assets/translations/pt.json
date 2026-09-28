@@ -119,14 +119,14 @@
   "routing_camper_profile_dimensions": "Veículo: {length} × {width} × {height} m · {weight} t máx.",
   "routing_camper_profile_missing": "Adicione dimensões válidas e massa máxima para ativar as restrições do camper.",
   "pro_title": "Viaje sem limites",
-  "pro_subtitle": "Ofertas reais da loja e estado do acesso através do RevenueCat.",
+  "pro_subtitle": "A monetização foi intencionalmente adiada até ser escolhido o fornecedor de produção.",
   "pro_badge": "CAMPERBOSS PRO",
   "pro_active_badge": "PRO ATIVO",
   "pro_pitch_title": "Passe para Pro quando as ferramentas extra realmente forem úteis",
   "pro_pitch_body": "Preços e planos vêm da configuração real da App Store ou Google Play. O CamperBoss não inventa opções de compra.",
   "pro_active_title": "CamperBoss Pro está ativo",
   "pro_active_body": "O seu direito Pro está atualmente ativo nesta conta.",
-  "pro_entitlement_active": "Acesso Premium verificado pelo RevenueCat.",
+  "pro_entitlement_active": "Acesso Premium verificado pelo fornecedor configurado.",
   "pro_not_configured": "As compras não estão configuradas nesta build. Nenhum checkout falso é mostrado.",
   "pro_no_offerings": "A loja não disponibiliza atualmente nenhum plano para compra.",
   "pro_package_unavailable": "Este plano já não está disponível. Atualize a tela e tente novamente.",
@@ -245,7 +245,7 @@
   "more_language": "Idioma",
   "more_language_body": "Siga o idioma do dispositivo ou escolha manualmente.",
   "more_pro": "CamperBoss Pro",
-  "more_pro_body": "Planos reais da loja, estado do acesso e restauro de compras.",
+  "more_pro_body": "A arquitetura Premium está pronta, mas as compras foram intencionalmente adiadas.",
   "more_notifications": "Notificações",
   "more_notifications_body": "Permissões, horários e testes de lembretes locais.",
   "more_setup": "Configuração guiada",
@@ -296,5 +296,6 @@
   "pro_restore_web_unavailable": "A restauração de compras não está disponível na Web. Use o portal de faturação da conta Web.",
   "pro_offline_maps_locked": "O download de mapas offline é uma funcionalidade CamperBoss Pro.",
   "pro_unlock_offline_maps": "Desbloquear mapas offline",
-  "pro_checking_access": "A verificar acesso Pro..."
+  "pro_checking_access": "A verificar acesso Pro...",
+  "pro_deferred": "As compras Pro foram intencionalmente adiadas. Nenhum plano é mostrado até ser escolhido e configurado o fornecedor de monetização de produção."
 }
