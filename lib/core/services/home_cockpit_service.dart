@@ -122,8 +122,10 @@ class HomeCockpitService {
       switch (status) {
         case MaintenanceStatus.overdue:
           overdueMaintenance++;
+          break;
         case MaintenanceStatus.dueSoon:
           maintenanceDueSoon++;
+          break;
         case MaintenanceStatus.regular:
           break;
       }
@@ -243,7 +245,10 @@ class HomeCockpitService {
     }
 
     return (
-      score: ((earnedWeight / availableWeight) * 100).round().clamp(0, 100),
+      score: ((earnedWeight / availableWeight) * 100)
+          .round()
+          .clamp(0, 100)
+          .toInt(),
       coverage: coverage,
     );
   }
