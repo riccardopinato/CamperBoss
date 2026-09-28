@@ -82,7 +82,7 @@ runtime offline, lo Step 14 assorbe definitivamente quel requisito.
 - widget test preview senza platform view
 - build Android ARM64 debug
 - build Web release
-- build iOS simulator
+- build iOS device release senza codesign
 
 ## Verifica runtime obbligatoria prima di DONE
 
