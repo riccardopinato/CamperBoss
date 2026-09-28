@@ -4,12 +4,15 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
+import '../../../core/services/camper_routing_profile_resolver.dart';
 import '../../../core/services/routing_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
+import '../../../data/models/vehicle_profile.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
+import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -24,6 +27,8 @@ class TripPlannerScreen extends StatefulWidget {
     this.repository,
     this.routePreviewRepository,
     this.routingService,
+    this.vehicleProfileRepository,
+    this.routingProfileResolver = const CamperRoutingProfileResolver(),
     this.isRoutingConfigured,
     super.key,
   });
@@ -31,6 +36,8 @@ class TripPlannerScreen extends StatefulWidget {
   final TripRepository? repository;
   final RoutePreviewRepository? routePreviewRepository;
   final RoutingService? routingService;
+  final VehicleProfileRepository? vehicleProfileRepository;
+  final CamperRoutingProfileResolver routingProfileResolver;
   final bool? isRoutingConfigured;
 
   @override
@@ -44,6 +51,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       widget.routePreviewRepository ?? LocalRoutePreviewRepository();
   late final RoutingService _routingService = widget.routingService ??
       OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
+  late final VehicleProfileRepository _vehicleProfileRepository =
+      widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
   late final bool _isRoutingConfigured =
       widget.isRoutingConfigured ?? RoutingConfig.isOpenRouteServiceConfigured;
 
@@ -53,6 +62,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   bool _isRouteLoading = false;
   String? _error;
   RouteResult? _routePreview;
+  VehicleProfile? _vehicleProfile;
 
   TripPlan? get _selectedTrip {
     if (_trips.isEmpty) return null;
@@ -73,9 +83,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     try {
       final trips = await _repository.listTrips();
+      VehicleProfile? vehicleProfile;
+      try {
+        vehicleProfile = await _vehicleProfileRepository.loadProfile();
+      } catch (_) {
+        // Vehicle metadata is optional for the planner. If it cannot be read,
+        // keep trips usable and fall back to standard road routing.
+        vehicleProfile = null;
+      }
       if (!mounted) return;
       setState(() {
         _trips = trips;
+        _vehicleProfile = vehicleProfile;
         _selectedIndex = 0;
         _isLoading = false;
       });
@@ -198,9 +217,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   RouteRequest? _routeRequestFor(TripPlan? trip) {
     final id = trip?.id;
     if (trip == null || id == null) return null;
-    return RouteRequest(
+    return widget.routingProfileResolver.applyVehicleProfile(
       tripId: id,
       waypoints: parseRouteWaypoints(trip.stages),
+      vehicle: _vehicleProfile,
     );
   }
 
@@ -472,6 +492,8 @@ class _RoutePreviewCard extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
+          const SizedBox(height: 10),
+          _RoutingProfileBanner(request: request),
           const SizedBox(height: 12),
           if (!isRoutingConfigured)
             const Text('Routing not configured')
@@ -561,6 +583,82 @@ class _RoutePreviewCard extends StatelessWidget {
     final hours = minutes ~/ 60;
     final rest = minutes % 60;
     return rest == 0 ? '$hours h' : '$hours h $rest min';
+  }
+}
+
+class _RoutingProfileBanner extends StatelessWidget {
+  const _RoutingProfileBanner({required this.request});
+
+  final RouteRequest? request;
+
+  @override
+  Widget build(BuildContext context) {
+    final request = this.request;
+    final restrictions = request?.restrictions;
+    final camperAware = request?.isCamperAware == true && restrictions != null;
+
+    final background = camperAware
+        ? Theme.of(context).colorScheme.primaryContainer
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
+    final foreground = camperAware
+        ? Theme.of(context).colorScheme.onPrimaryContainer
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              camperAware
+                  ? Icons.directions_bus_filled_outlined
+                  : Icons.directions_car_outlined,
+              color: foreground,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    camperAware
+                        ? 'routing_camper_profile_active'.tr()
+                        : 'routing_camper_profile_standard'.tr(),
+                    style: TextStyle(
+                      color: foreground,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    camperAware
+                        ? 'routing_camper_profile_dimensions'.tr(
+                            namedArgs: {
+                              'length':
+                                  restrictions.lengthMeters.toStringAsFixed(2),
+                              'width':
+                                  restrictions.widthMeters.toStringAsFixed(2),
+                              'height':
+                                  restrictions.heightMeters.toStringAsFixed(2),
+                              'weight':
+                                  restrictions.weightTons.toStringAsFixed(2),
+                            },
+                          )
+                        : 'routing_camper_profile_missing'.tr(),
+                    style: TextStyle(color: foreground),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -40,13 +40,7 @@ class OpenRouteServiceRoutingService implements RoutingService {
     }
 
     final uri = Uri.parse('$baseUri/v2/directions/${request.profile}/geojson');
-    final body = jsonEncode({
-      'coordinates': [
-        for (final waypoint in request.waypoints)
-          [waypoint.longitude, waypoint.latitude],
-      ],
-      'instructions': false,
-    });
+    final body = jsonEncode(buildOpenRouteServiceRequestBody(request));
 
     try {
       final response = await _client
@@ -137,6 +131,32 @@ class FakeRoutingService implements RoutingService {
       calculatedAt: DateTime.now(),
     );
   }
+}
+
+Map<String, Object?> buildOpenRouteServiceRequestBody(
+  RouteRequest request,
+) {
+  final body = <String, Object?>{
+    'coordinates': [
+      for (final waypoint in request.waypoints)
+        [waypoint.longitude, waypoint.latitude],
+    ],
+    'instructions': false,
+  };
+
+  final restrictions = request.restrictions;
+  if (request.profile == 'driving-hgv' &&
+      restrictions != null &&
+      restrictions.isValid) {
+    body['options'] = <String, Object?>{
+      'vehicle_type': request.vehicleType ?? 'hgv',
+      'profile_params': <String, Object?>{
+        'restrictions': restrictions.toOpenRouteServiceMap(),
+      },
+    };
+  }
+
+  return body;
 }
 
 RouteResult mapOpenRouteServiceDirectionsResponse(

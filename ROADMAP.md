@@ -260,16 +260,25 @@ Esito:
 
 ## STEP 15 — Routing camper-aware
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Collegare il profilo mezzo al routing tramite un adapter dedicato. Usare
 lunghezza, larghezza, altezza e massa soltanto quando il provider supporta
 restrizioni compatibili. Mostrare sempre che il risultato dipende dalla qualita
 dei dati stradali e non costituisce garanzia di transitabilita.
 
+Esito:
+
+- profilo mezzo tradotto in restrizioni ORS `driving-hgv`;
+- lunghezza/larghezza/altezza in metri e massa massima in tonnellate;
+- fallback `driving-car` senza profilo valido;
+- fingerprint route include le dimensioni del mezzo;
+- UI mostra stato camper-aware e valori realmente applicati;
+- `flutter analyze` PASS e suite `flutter test` PASS.
+
 ## STEP 16 — Release Core
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 - monetizzazione reale dietro entitlement, senza CTA finte;
 - privacy/backup Android e iOS verificati per documenti e dati sensibili;
