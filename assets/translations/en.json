@@ -292,5 +292,17 @@
   "maintenance_date": "Date",
   "maintenance_mileage": "Mileage (km)",
   "pro_restore_web_unavailable": "Restore purchases is not available on the web. Use the billing portal for the web account.",
-  "pro_deferred": "Pro purchases are intentionally deferred. No plan is shown until a production monetization provider is selected and configured."
+  "pro_deferred": "Pro purchases are intentionally deferred. No plan is shown until a production monetization provider is selected and configured.",
+  "offline_open_guides": "Open guides",
+  "offline_guided_setup": "Guided setup",
+  "offline_recovery_help": "Your local data is safe. Retry the operation when the service is available again.",
+  "offline_action_failed": "The operation could not be completed. Your existing offline data was not changed.",
+  "offline_status_queued": "Queued",
+  "offline_status_running": "Downloading",
+  "offline_status_paused": "Paused",
+  "offline_status_verifying": "Verifying",
+  "offline_status_completed": "Ready",
+  "offline_status_failed": "Failed",
+  "offline_status_corrupted": "Corrupted",
+  "offline_status_canceled": "Canceled"
 }
