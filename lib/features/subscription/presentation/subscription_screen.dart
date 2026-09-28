@@ -124,6 +124,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       'revenuecat_not_configured' => 'pro_not_configured'.tr(),
       'revenuecat_package_unavailable' => 'pro_package_unavailable'.tr(),
       'revenuecat_purchase_cancelled' => 'pro_purchase_cancelled'.tr(),
+      'revenuecat_restore_web_unavailable' =>
+        'pro_restore_web_unavailable'.tr(),
       _ => message,
     };
   }
