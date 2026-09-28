@@ -37,28 +37,31 @@ class LanguageSettingsScreen extends StatelessWidget {
       subtitle: 'language_subtitle'.tr(),
       children: [
         PremiumCard(
-          child: Column(
-            children: [
-              RadioListTile<String?>(
-                value: null,
-                groupValue: saved?.languageCode,
-                title: Text('language_system'.tr()),
-                subtitle: Text(context.deviceLocale.toLanguageTag()),
-                onChanged: (_) => _select(context, null),
-              ),
-              for (final entry in _languages.entries)
-                if (supportedCodes.contains(entry.key))
-                  RadioListTile<String?>(
-                    value: entry.key,
-                    groupValue: saved?.languageCode,
-                    title: Text(entry.value.tr()),
-                    onChanged: (code) {
-                      if (code != null) {
-                        _select(context, Locale(code));
-                      }
-                    },
-                  ),
-            ],
+          child: RadioGroup<String>(
+            groupValue: saved?.languageCode ?? '__system__',
+            onChanged: (code) {
+              if (code == null) return;
+              if (code == '__system__') {
+                _select(context, null);
+              } else {
+                _select(context, Locale(code));
+              }
+            },
+            child: Column(
+              children: [
+                RadioListTile<String>(
+                  value: '__system__',
+                  title: Text('language_system'.tr()),
+                  subtitle: Text(context.deviceLocale.toLanguageTag()),
+                ),
+                for (final entry in _languages.entries)
+                  if (supportedCodes.contains(entry.key))
+                    RadioListTile<String>(
+                      value: entry.key,
+                      title: Text(entry.value.tr()),
+                    ),
+              ],
+            ),
           ),
         ),
       ],
