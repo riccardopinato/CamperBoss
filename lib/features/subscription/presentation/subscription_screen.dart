@@ -123,7 +123,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return switch (message) {
       'pro_deferred' => 'pro_deferred'.tr(),
       _ => 'pro_error_generic'.tr(),
-      _ => message,
     };
   }
 
