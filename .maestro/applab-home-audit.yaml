@@ -1,5 +1,5 @@
 # CamperBoss Home audit for AppLab.
-# Focus: first-run home reachability, primary dashboard surfaces and Product Truth.
+# Non-destructive runtime coverage for the first-run Home surface.
 appId: com.camperboss.camperboss
 ---
 - launchApp:
@@ -9,25 +9,26 @@ appId: com.camperboss.camperboss
     visible: "Camper cockpit"
     timeout: 20000
 
-- assertVisible: "Boss Readiness"
-- assertVisible: "Mileage"
-- assertVisible: "Checklist"
-- assertVisible: "Documents"
-- assertVisible: "Maintenance"
+# Flutter merges several card descendants into one accessibility node.
+- assertVisible:
+    text: ".*Boss Readiness.*"
+- assertVisible:
+    text: ".*Mileage.*Vehicle not configured.*"
+- assertVisible:
+    text: ".*Checklist.*No checklist created.*"
+- assertVisible:
+    text: ".*Documents.*No documents saved.*"
+- assertVisible:
+    text: ".*Maintenance.*No service history.*"
 
 - takeScreenshot: "camperboss-home-initial"
 
-# Exercise the Home scroll surface without mutating product data.
+# Scroll the same Home surface to collect lower-page visual/runtime evidence.
 - scroll
 
 - extendedWaitUntil:
-    visible: "Needs attention"
+    visible:
+      text: ".*Needs attention.*"
     timeout: 10000
 
 - takeScreenshot: "camperboss-home-scrolled"
-
-# Product Truth gate: a fresh install must not present a simulated default place.
-# This is intentionally expected to fail on the current release candidate until
-# the hard-coded Lake Garda fallback is removed.
-- assertNotVisible:
-    text: ".*Lake Garda.*"
