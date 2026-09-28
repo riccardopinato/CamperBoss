@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:camperboss/core/services/home_cockpit_service.dart';
 import 'package:camperboss/core/services/weather_service.dart';
@@ -54,6 +55,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
   });
 
