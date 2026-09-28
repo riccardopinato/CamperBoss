@@ -212,6 +212,7 @@ void main() {
       maintenanceRepository: MemoryMaintenanceRepository(const []),
       financeRepository: MemoryFinanceRepository(const []),
       notificationService: notifications,
+      clock: () => DateTime(2026, 7, 25),
     );
 
     await coordinator.syncDocument(_document(DateTime(2026, 8, 31)));

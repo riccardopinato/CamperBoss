@@ -13,7 +13,6 @@ import '../../../data/models/camper_place.dart';
 import '../../../data/models/download_models.dart';
 import '../../../data/models/offline_map_models.dart';
 import '../../../data/repositories/local_poi_cache_repository.dart';
-import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../data/repositories/offline_map_repository.dart';
 import '../../../data/repositories/offline_poi_repository.dart';
 import '../../offline/presentation/offline_content_screen.dart';
@@ -55,7 +54,7 @@ class _MapScreenState extends State<MapScreen> {
   final _markerMapper = const MapMarkerMapper();
   Timer? _debounce;
   List<GeoLocationResult> _results = const [];
-  late List<CamperPlace> _places = widget.places ?? MockCamperRepository.places;
+  late List<CamperPlace> _places = widget.places ?? const <CamperPlace>[];
   late final PoiCacheRepository _cacheRepository =
       widget.cacheRepository ?? LocalPoiCacheRepository();
   late final OfflineMapRepository _offlineMapRepository =

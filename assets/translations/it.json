@@ -111,5 +111,7 @@
   "offline_storage_normal": "Normale",
   "offline_storage_warning": "Avviso",
   "offline_storage_critical": "Critico",
-  "offline_storage_insufficient": "Insufficiente"
+  "offline_storage_insufficient": "Insufficiente",
+  "nav_vehicle": "Camper",
+  "nav_more": "Altro"
 }

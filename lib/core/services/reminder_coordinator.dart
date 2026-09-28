@@ -27,6 +27,7 @@ class ReminderCoordinator implements ReminderSyncService {
     FinanceRepository? financeRepository,
     LocalNotificationService? notificationService,
     ReminderFactory? factory,
+    DateTime Function()? clock,
   })  : _reminderRepository = reminderRepository ?? LocalReminderRepository(),
         _documentRepository =
             documentRepository ?? LocalVehicleDocumentRepository(),
@@ -35,7 +36,8 @@ class ReminderCoordinator implements ReminderSyncService {
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _notificationService =
             notificationService ?? createLocalNotificationService(),
-        _factory = factory ?? ReminderFactory();
+        _factory = factory ?? ReminderFactory(),
+        _clock = clock ?? DateTime.now;
 
   final ReminderRepository _reminderRepository;
   final VehicleDocumentRepository _documentRepository;
@@ -43,6 +45,7 @@ class ReminderCoordinator implements ReminderSyncService {
   final FinanceRepository _financeRepository;
   final LocalNotificationService _notificationService;
   final ReminderFactory _factory;
+  final DateTime Function() _clock;
 
   Future<void> initializeAndReconcile() async {
     await _notificationService.initialize();
@@ -103,7 +106,11 @@ class ReminderCoordinator implements ReminderSyncService {
     final id = document.id;
     if (id == null) return;
     final settings = await _reminderRepository.loadSettings();
-    final reminders = _factory.forDocument(document, settings: settings);
+    final reminders = _factory.forDocument(
+      document,
+      settings: settings,
+      now: _clock(),
+    );
     await _reminderRepository.replaceSourceReminders(
       ReminderSourceType.document,
       id.toString(),
@@ -124,7 +131,11 @@ class ReminderCoordinator implements ReminderSyncService {
     final id = record.id;
     if (id == null) return;
     final settings = await _reminderRepository.loadSettings();
-    final reminders = _factory.forMaintenance(record, settings: settings);
+    final reminders = _factory.forMaintenance(
+      record,
+      settings: settings,
+      now: _clock(),
+    );
     await _reminderRepository.replaceSourceReminders(
       ReminderSourceType.maintenance,
       id.toString(),
@@ -143,7 +154,11 @@ class ReminderCoordinator implements ReminderSyncService {
 
   Future<void> syncBooking(TripBooking booking) async {
     final settings = await _reminderRepository.loadSettings();
-    final reminders = _factory.forBooking(booking, settings: settings);
+    final reminders = _factory.forBooking(
+      booking,
+      settings: settings,
+      now: _clock(),
+    );
     await _reminderRepository.replaceSourceReminders(
       ReminderSourceType.booking,
       booking.id,
@@ -164,7 +179,7 @@ class ReminderCoordinator implements ReminderSyncService {
     final reminders = await _reminderRepository.listReminders();
     final future = reminders
         .where((reminder) =>
-            reminder.enabled && reminder.scheduledAt.isAfter(DateTime.now()))
+            reminder.enabled && reminder.scheduledAt.isAfter(_clock()))
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     return _limitForPlatform(future);

@@ -10,7 +10,6 @@ import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
-import '../../../data/repositories/mock_camper_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -73,10 +72,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
 
     try {
-      var trips = await _repository.listTrips();
-      if (trips.isEmpty) {
-        trips = await _seedTrips();
-      }
+      final trips = await _repository.listTrips();
       if (!mounted) return;
       setState(() {
         _trips = trips;
@@ -91,39 +87,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         _error = 'Trip planner unavailable';
       });
     }
-  }
-
-  Future<List<TripPlan>> _seedTrips() async {
-    final seeds = [
-      MockCamperRepository.trips[0].copyWith(
-        destination: 'Dolomites',
-        stages: const [
-          'Verona | 45.4384, 10.9916',
-          'Molveno | 46.1427, 10.9630',
-          'Mountain pass checkpoint | 46.4983, 11.3548',
-        ],
-        overnightStop: 'Lake area backup spot',
-        estimatedCost: 148,
-        notes: 'Check mountain roads and LPG before arrival.',
-      ),
-      MockCamperRepository.trips[1].copyWith(
-        destination: 'Lake Garda',
-        stages: const [
-          'Sirmione | 45.4927, 10.6087',
-          'Bardolino | 45.5485, 10.7205',
-          'Malcesine | 45.7640, 10.8126',
-        ],
-        overnightStop: 'North shore aire',
-        estimatedCost: 96,
-        notes: 'Keep one slow morning for groceries and laundry.',
-      ),
-    ];
-
-    final saved = <TripPlan>[];
-    for (final trip in seeds) {
-      saved.add(await _repository.saveTrip(trip));
-    }
-    return saved;
   }
 
   Future<void> _openEditor({TripPlan? trip}) async {
@@ -295,7 +258,29 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         if (_isLoading)
           const Center(child: CircularProgressIndicator())
         else if (trip == null)
-          const PremiumCard(child: Text('No trips yet'))
+          PremiumCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No trips yet',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Create your first real itinerary. CamperBoss no longer creates sample trips automatically.',
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => _openEditor(),
+                  icon: const Icon(Icons.add_road_outlined),
+                  label: const Text('Create trip'),
+                ),
+              ],
+            ),
+          )
         else ...[
           if (_trips.length > 1)
             _TripSelector(

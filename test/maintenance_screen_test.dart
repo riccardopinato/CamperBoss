@@ -1,4 +1,5 @@
 import 'package:camperboss/core/services/reminder_coordinator.dart';
+import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
@@ -49,6 +50,12 @@ class FakeReminderSyncService implements ReminderSyncService {
   Future<void> syncMaintenance(MaintenanceRecord record) async {
     syncedMaintenance.add(record);
   }
+
+  @override
+  Future<void> syncBooking(TripBooking booking) async {}
+
+  @override
+  Future<void> deleteBookingReminders(String sourceId) async {}
 }
 
 void main() {

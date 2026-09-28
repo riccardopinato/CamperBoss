@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/checklist_item.dart';
 import '../../../data/repositories/local_checklist_repository.dart';
-import '../../../data/repositories/mock_camper_repository.dart';
 import '../../../shared/widgets/checklist_item_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/resource_bar.dart';
@@ -48,10 +47,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     });
 
     try {
-      var items = await _repository.listItems();
-      if (items.isEmpty) {
-        items = await _seedInitialItems();
-      }
+      final items = await _repository.listItems();
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -64,46 +60,6 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         _error = 'Checklist unavailable';
       });
     }
-  }
-
-  Future<List<CamperChecklistItem>> _seedInitialItems() async {
-    final seeds = <CamperChecklistItem>[
-      for (final (index, item) in MockCamperRepository.checklist.indexed)
-        item.copyWith(
-          listName: 'Departure list',
-          category: 'Pre-trip',
-          position: index,
-        ),
-      const CamperChecklistItem(
-        title: 'Level camper and stabilize',
-        subtitle: 'Check slope before opening fridge',
-        checked: false,
-        listName: 'Arrival list',
-        category: 'Arrival',
-        position: 100,
-      ),
-      const CamperChecklistItem(
-        title: 'Switch fridge to site mode',
-        checked: false,
-        listName: 'Arrival list',
-        category: 'Arrival',
-        position: 101,
-      ),
-      const CamperChecklistItem(
-        title: 'Log overnight location',
-        subtitle: 'Useful for journal and emergency sharing',
-        checked: true,
-        listName: 'Arrival list',
-        category: 'Arrival',
-        position: 102,
-      ),
-    ];
-
-    final saved = <CamperChecklistItem>[];
-    for (final item in seeds) {
-      saved.add(await _repository.saveItem(item));
-    }
-    return saved;
   }
 
   Future<void> _toggle(CamperChecklistItem item, bool? value) async {
@@ -228,6 +184,30 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         const SizedBox(height: 24),
         if (_isLoading)
           const Center(child: CircularProgressIndicator())
+        else if (_items.isEmpty)
+          PremiumCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No checklist items yet',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Create the checks you actually use. CamperBoss no longer inserts demo routines automatically.',
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => _openEditor(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create first check'),
+                ),
+              ],
+            ),
+          )
         else
           for (final category in _categories) ...[
             _ChecklistCategorySection(
