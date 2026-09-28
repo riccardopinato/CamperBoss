@@ -20,7 +20,7 @@ class SubscriptionScreen extends StatefulWidget {
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   late final SubscriptionService _service =
-      widget.service ?? RevenueCatSubscriptionService();
+      widget.service ?? const DeferredSubscriptionService();
 
   ProSubscriptionState? _state;
   bool _loading = true;
@@ -121,11 +121,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   String _localizeServiceMessage(String message) {
     return switch (message) {
-      'revenuecat_not_configured' => 'pro_not_configured'.tr(),
-      'revenuecat_package_unavailable' => 'pro_package_unavailable'.tr(),
-      'revenuecat_purchase_cancelled' => 'pro_purchase_cancelled'.tr(),
-      'revenuecat_restore_web_unavailable' =>
-        'pro_restore_web_unavailable'.tr(),
+      'pro_deferred' => 'pro_deferred'.tr(),
+      _ => 'pro_error_generic'.tr(),
       _ => message,
     };
   }
@@ -195,7 +192,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 children: [
                   const Icon(Icons.info_outline),
                   const SizedBox(width: 12),
-                  Expanded(child: Text('pro_not_configured'.tr())),
+                  Expanded(
+                    child: Text(
+                      state?.message == 'pro_deferred'
+                          ? 'pro_deferred'.tr()
+                          : 'pro_not_configured'.tr(),
+                    ),
+                  ),
                 ],
               ),
             ),
