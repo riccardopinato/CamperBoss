@@ -43,20 +43,79 @@ class RouteWaypoint {
   }
 }
 
+class RouteVehicleRestrictions {
+  const RouteVehicleRestrictions({
+    required this.lengthMeters,
+    required this.widthMeters,
+    required this.heightMeters,
+    required this.weightTons,
+  });
+
+  final double lengthMeters;
+  final double widthMeters;
+  final double heightMeters;
+  final double weightTons;
+
+  bool get isValid {
+    return lengthMeters.isFinite &&
+        widthMeters.isFinite &&
+        heightMeters.isFinite &&
+        weightTons.isFinite &&
+        lengthMeters > 0 &&
+        widthMeters > 0 &&
+        heightMeters > 0 &&
+        weightTons > 0;
+  }
+
+  String get fingerprintPart {
+    return [
+      lengthMeters.toStringAsFixed(3),
+      widthMeters.toStringAsFixed(3),
+      heightMeters.toStringAsFixed(3),
+      weightTons.toStringAsFixed(3),
+    ].join(',');
+  }
+
+  Map<String, Object> toOpenRouteServiceMap() {
+    return {
+      'length': lengthMeters,
+      'width': widthMeters,
+      'height': heightMeters,
+      'weight': weightTons,
+    };
+  }
+}
+
 class RouteRequest {
   const RouteRequest({
     required this.tripId,
     required this.waypoints,
     this.profile = 'driving-car',
+    this.vehicleType,
+    this.restrictions,
   });
 
   final int tripId;
   final List<RouteWaypoint> waypoints;
   final String profile;
+  final String? vehicleType;
+  final RouteVehicleRestrictions? restrictions;
+
+  bool get isCamperAware {
+    return profile == 'driving-hgv' &&
+        vehicleType != null &&
+        restrictions?.isValid == true;
+  }
 
   String get waypointFingerprint {
     final points = waypoints.map((waypoint) => waypoint.fingerprintPart);
-    return '$profile|${points.join('|')}';
+    final restrictionPart = restrictions?.fingerprintPart ?? 'none';
+    return [
+      profile,
+      vehicleType ?? 'none',
+      restrictionPart,
+      ...points,
+    ].join('|');
   }
 
   RouteFailure? validate() {
@@ -70,6 +129,18 @@ class RouteRequest {
       return const RouteFailure(
         RouteFailureType.invalidWaypoints,
         'One or more stage coordinates are invalid',
+      );
+    }
+    if (restrictions != null && restrictions?.isValid != true) {
+      return const RouteFailure(
+        RouteFailureType.invalidVehicleProfile,
+        'Vehicle routing restrictions are invalid',
+      );
+    }
+    if (restrictions != null && profile != 'driving-hgv') {
+      return const RouteFailure(
+        RouteFailureType.invalidVehicleProfile,
+        'Vehicle restrictions require the driving-hgv profile',
       );
     }
     return null;
@@ -193,6 +264,7 @@ class RouteResult {
 enum RouteFailureType {
   missingApiKey,
   invalidWaypoints,
+  invalidVehicleProfile,
   network,
   timeout,
   quotaExceeded,
