@@ -119,14 +119,14 @@
   "routing_camper_profile_dimensions": "Fahrzeug: {length} × {width} × {height} m · max. {weight} t",
   "routing_camper_profile_missing": "Gültige Fahrzeugmaße und zulässige Gesamtmasse hinzufügen, um Camper-Beschränkungen zu aktivieren.",
   "pro_title": "Reisen ohne Grenzen",
-  "pro_subtitle": "Echte Store-Angebote und Berechtigungsstatus über RevenueCat.",
+  "pro_subtitle": "Die Monetarisierung ist bewusst aufgeschoben, bis ein Produktionsanbieter ausgewählt ist.",
   "pro_badge": "CAMPERBOSS PRO",
   "pro_active_badge": "PRO AKTIV",
   "pro_pitch_title": "Pro nur dann, wenn dir die Zusatzfunktionen wirklich helfen",
   "pro_pitch_body": "Preise und Pläne werden direkt aus App Store oder Google Play geladen. CamperBoss erfindet keine Kaufoptionen.",
   "pro_active_title": "CamperBoss Pro ist aktiv",
   "pro_active_body": "Deine Pro-Berechtigung ist für dieses Konto aktiv.",
-  "pro_entitlement_active": "Premium-Berechtigung durch RevenueCat bestätigt.",
+  "pro_entitlement_active": "Premium-Berechtigung durch den konfigurierten Anbieter bestätigt.",
   "pro_not_configured": "Käufe sind in diesem Build nicht konfiguriert. Es wird kein Schein-Checkout angezeigt.",
   "pro_no_offerings": "Der Store stellt derzeit kein kaufbares Angebot bereit.",
   "pro_package_unavailable": "Dieser Plan ist nicht mehr verfügbar. Aktualisiere die Ansicht und versuche es erneut.",
@@ -245,7 +245,7 @@
   "more_language": "Sprache",
   "more_language_body": "Gerätesprache übernehmen oder manuell wählen.",
   "more_pro": "CamperBoss Pro",
-  "more_pro_body": "Live-Store-Pläne, Berechtigungsstatus und Käufe wiederherstellen.",
+  "more_pro_body": "Die Premium-Architektur ist vorbereitet, Käufe sind jedoch bewusst aufgeschoben.",
   "more_notifications": "Benachrichtigungen",
   "more_notifications_body": "Berechtigungen, Zeitpunkte und lokale Erinnerungstests.",
   "more_setup": "Geführte Einrichtung",
@@ -296,5 +296,6 @@
   "pro_restore_web_unavailable": "Das Wiederherstellen von Käufen ist im Web nicht verfügbar. Verwende das Abrechnungsportal des Web-Kontos.",
   "pro_offline_maps_locked": "Offline-Kartendownloads sind eine CamperBoss Pro-Funktion.",
   "pro_unlock_offline_maps": "Offline-Karten freischalten",
-  "pro_checking_access": "Pro-Zugriff wird geprüft..."
+  "pro_checking_access": "Pro-Zugriff wird geprüft...",
+  "pro_deferred": "Pro-Käufe sind bewusst aufgeschoben. Es werden keine Pläne angezeigt, bis ein Produktionsanbieter ausgewählt und konfiguriert ist."
 }
