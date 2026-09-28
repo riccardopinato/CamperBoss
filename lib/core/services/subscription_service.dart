@@ -56,16 +56,19 @@ class RevenueCatSubscriptionService implements SubscriptionService {
         const String.fromEnvironment('REVENUECAT_ANDROID_API_KEY'),
     this.iosApiKey =
         const String.fromEnvironment('REVENUECAT_IOS_API_KEY'),
+    this.webApiKey =
+        const String.fromEnvironment('REVENUECAT_WEB_API_KEY'),
   });
 
   final String entitlementId;
   final String androidApiKey;
   final String iosApiKey;
+  final String webApiKey;
 
   static bool _configured = false;
 
   String get _apiKey {
-    if (kIsWeb) return '';
+    if (kIsWeb) return webApiKey.trim();
     return switch (defaultTargetPlatform) {
       TargetPlatform.android => androidApiKey.trim(),
       TargetPlatform.iOS => iosApiKey.trim(),
@@ -74,7 +77,7 @@ class RevenueCatSubscriptionService implements SubscriptionService {
   }
 
   bool get _platformSupported {
-    if (kIsWeb) return false;
+    if (kIsWeb) return true;
     return defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
   }
@@ -159,6 +162,9 @@ class RevenueCatSubscriptionService implements SubscriptionService {
   Future<ProSubscriptionState> restore() async {
     if (!await _ensureConfigured()) {
       throw const SubscriptionFailure('revenuecat_not_configured');
+    }
+    if (kIsWeb) {
+      throw const SubscriptionFailure('revenuecat_restore_web_unavailable');
     }
 
     try {
