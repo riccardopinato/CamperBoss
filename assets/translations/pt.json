@@ -292,5 +292,17 @@
   "maintenance_date": "Data",
   "maintenance_mileage": "Quilometragem (km)",
   "pro_restore_web_unavailable": "A restauração de compras não está disponível na Web. Use o portal de faturação da conta Web.",
-  "pro_deferred": "As compras Pro foram intencionalmente adiadas. Nenhum plano é mostrado até ser escolhido e configurado o fornecedor de monetização de produção."
+  "pro_deferred": "As compras Pro foram intencionalmente adiadas. Nenhum plano é mostrado até ser escolhido e configurado o fornecedor de monetização de produção.",
+  "offline_open_guides": "Abrir guias",
+  "offline_guided_setup": "Configuração guiada",
+  "offline_recovery_help": "Os dados locais continuam seguros. Tente novamente quando o serviço estiver disponível.",
+  "offline_action_failed": "Não foi possível concluir a operação. Os dados offline existentes não foram alterados.",
+  "offline_status_queued": "Na fila",
+  "offline_status_running": "A transferir",
+  "offline_status_paused": "Em pausa",
+  "offline_status_verifying": "A verificar",
+  "offline_status_completed": "Pronto",
+  "offline_status_failed": "Falhou",
+  "offline_status_corrupted": "Corrompido",
+  "offline_status_canceled": "Cancelado"
 }
