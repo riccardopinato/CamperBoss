@@ -1,0 +1,33 @@
+# CamperBoss Home audit for AppLab.
+# Focus: first-run home reachability, primary dashboard surfaces and Product Truth.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Camper cockpit"
+    timeout: 20000
+
+- assertVisible: "Boss Readiness"
+- assertVisible: "Mileage"
+- assertVisible: "Checklist"
+- assertVisible: "Documents"
+- assertVisible: "Maintenance"
+
+- takeScreenshot: "camperboss-home-initial"
+
+# Exercise the Home scroll surface without mutating product data.
+- scroll
+
+- extendedWaitUntil:
+    visible: "Needs attention"
+    timeout: 10000
+
+- takeScreenshot: "camperboss-home-scrolled"
+
+# Product Truth gate: a fresh install must not present a simulated default place.
+# This is intentionally expected to fail on the current release candidate until
+# the hard-coded Lake Garda fallback is removed.
+- assertNotVisible:
+    text: ".*Lake Garda.*"
