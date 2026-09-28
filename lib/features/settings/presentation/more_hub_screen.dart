@@ -7,6 +7,8 @@ import '../../offline/presentation/offline_content_screen.dart';
 import '../../offline/presentation/offline_guides_screen.dart';
 import '../../onboarding/presentation/guided_onboarding_screen.dart';
 import '../../search/presentation/local_search_screen.dart';
+import '../../subscription/presentation/subscription_screen.dart';
+import '../../settings/presentation/language_settings_screen.dart';
 import '../../settings/presentation/notification_settings_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
@@ -48,6 +50,20 @@ class MoreHubScreen extends StatelessWidget {
           title: 'Offline guides',
           subtitle: 'Read installed guides without a connection.',
           onTap: () => _open(context, const OfflineGuidesScreen()),
+        ),
+        const SizedBox(height: 12),
+        ActionTile(
+          icon: Icons.language_outlined,
+          title: 'Language',
+          subtitle: 'Follow the device language or choose one manually.',
+          onTap: () => _open(context, const LanguageSettingsScreen()),
+        ),
+        const SizedBox(height: 12),
+        ActionTile(
+          icon: Icons.workspace_premium_outlined,
+          title: 'CamperBoss Pro',
+          subtitle: 'Live store plans, entitlement status and restore purchases.',
+          onTap: () => _open(context, const SubscriptionScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
