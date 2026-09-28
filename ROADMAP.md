@@ -280,30 +280,33 @@ Esito:
 
 Stato: `BLOCKED`
 
-- monetizzazione reale dietro entitlement, senza CTA finte;
+Obiettivi:
+
+- eliminare paywall, piani e CTA di acquisto finti;
+- mantenere un boundary di entitlement provider-agnostic, senza scegliere ora RevenueCat o altri provider;
 - privacy/backup Android e iOS verificati per documenti e dati sensibili;
 - localizzazione completa, inclusa opzione lingua Sistema/Automatico;
 - CI/release checks, AppLab/device QA e size audit;
-- hardening degli stati offline, errore e recovery.
+- hardening degli stati offline, errore e recovery;
+- deploy Web stabile per la verifica da PC.
 
 Implementato:
 
-- SDK RevenueCat reale con Offering/entitlement e chiavi Android/iOS/Web via dart-define;
-- paywall senza piani o CTA finti quando RevenueCat non e configurato;
-- nuovi download mappe offline protetti da entitlement Pro, senza bloccare contenuti gia locali;
+- monetizzazione reale rinviata per decisione di prodotto; nessun SDK di billing/RevenueCat incluso nel Release Core;
+- interfaccia di entitlement neutra mantenuta dormiente per il futuro, senza piani o checkout esposti nella UI;
+- download mappe offline non bloccato da un paywall prematuro;
 - lingua Sistema/Automatico e cataloghi IT/EN/DE/FR/ES/PT allineati;
 - backup Android disabilitato per dati privati, cleartext disabilitato e data extraction rules;
 - bridge iOS per escludere i documenti privati dal backup cloud automatico;
 - deploy Web Pages stabile;
 - build gate Android/iOS/Web e audit dimensioni bundle;
-- test paywall, translation parity e gate Pro mappe offline.
+- test di parita traduzioni e comportamento monetizzazione differita.
 
-Blocco esterno:
+Blocchi esterni di certificazione:
 
-- configurare prodotti/Offering reali nel dashboard RevenueCat e relativi store sandbox;
-- eseguire acquisto/restore su device Android e iOS;
 - completare prova fisica MapLibre offline con rete disattivata;
-- GitHub Actions attualmente fallisce prima dell'assegnazione runner (nessuno step avviato), quindi i gate finali non possono essere certificati in CI finche l'account Actions non torna operativo.
+- completare device/AppLab QA finale;
+- GitHub Actions fallisce prima dell'assegnazione runner (nessuno step avviato), quindi analyze/test/build finali non sono certificabili finche l'account Actions non torna operativo.
 
 Non promuovere STEP 17 finche questi gate non sono chiusi.
 
