@@ -292,5 +292,17 @@
   "maintenance_date": "Data",
   "maintenance_mileage": "Chilometraggio (km)",
   "pro_restore_web_unavailable": "Il ripristino acquisti non è disponibile sul Web. Usa il portale di fatturazione dell'account Web.",
-  "pro_deferred": "Gli acquisti Pro sono intenzionalmente rinviati. Nessun piano viene mostrato finché non verrà scelto e configurato il provider di monetizzazione definitivo."
+  "pro_deferred": "Gli acquisti Pro sono intenzionalmente rinviati. Nessun piano viene mostrato finché non verrà scelto e configurato il provider di monetizzazione definitivo.",
+  "offline_open_guides": "Apri guide",
+  "offline_guided_setup": "Configurazione guidata",
+  "offline_recovery_help": "I dati locali restano al sicuro. Riprova quando il servizio sarà di nuovo disponibile.",
+  "offline_action_failed": "Operazione non completata. I dati offline già presenti non sono stati modificati.",
+  "offline_status_queued": "In coda",
+  "offline_status_running": "Download in corso",
+  "offline_status_paused": "In pausa",
+  "offline_status_verifying": "Verifica",
+  "offline_status_completed": "Pronto",
+  "offline_status_failed": "Errore",
+  "offline_status_corrupted": "Corrotto",
+  "offline_status_canceled": "Annullato"
 }
