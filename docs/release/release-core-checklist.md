@@ -48,3 +48,12 @@ Do not mark Step 16 DONE until:
 - physical offline-map reopen test passes;
 - final device/AppLab QA passes;
 - release analyze/test/build gates are green again after GitHub Actions runner availability is restored.
+
+
+## Quota-aware CI
+
+- Flutter analyze/test runs automatically only for Dart, tests, assets, dependency or analyzer changes.
+- Android/iOS/Web release builds are manual release gates.
+- Android is the default manual target and publishes a 1-day ARM64 APK artifact.
+- iOS and Web are opt-in during manual release runs to avoid unnecessary private-repository runner usage.
+- The historical Map Engine V2 platform workflow remains manual-only.
