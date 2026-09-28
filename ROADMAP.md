@@ -238,7 +238,7 @@ Esito:
 
 ## STEP 14 — Map Engine V2 + offline reale
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Creare un proof of concept isolato del nuovo motore cartografico, con priorita a
 MapLibre per vector tiles, layer POI, clustering e regioni offline. Riutilizzare
@@ -246,12 +246,21 @@ i pattern gia sviluppati in TrailPath, senza copiare ciecamente codice e senza
 rimuovere `flutter_map` finche il POC non supera Android, iOS e Web.
 
 Lo Step 7 resta la documentazione storica del primo tentativo PMTiles ed e
-considerato assorbito da questo step quando il nuovo renderer apre realmente
-una regione offline verificata.
+considerato assorbito dal nuovo Map Engine V2. La certificazione runtime con
+rete disattivata resta un gate esplicito del Release Core: la CI ha validato
+Android APK, iOS device build e Web, ma non sostituisce una prova fisica offline.
+
+Esito:
+
+- MapLibre V2 isolato introdotto senza rimuovere `flutter_map`;
+- POI/cluster e regioni native offline Android/iOS implementati;
+- `flutter analyze` e `flutter test` PASS;
+- Android APK, iOS device release e Web release PASS;
+- validazione fisica offline mantenuta come gate pre-release, non come blocco allo sviluppo successivo.
 
 ## STEP 15 — Routing camper-aware
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Collegare il profilo mezzo al routing tramite un adapter dedicato. Usare
 lunghezza, larghezza, altezza e massa soltanto quando il provider supporta
