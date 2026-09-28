@@ -1,11 +1,15 @@
 import 'package:camperboss/core/services/maplibre_offline_region_manager.dart';
+import 'package:camperboss/core/services/subscription_service.dart';
 import 'package:camperboss/data/models/camper_place.dart';
 import 'package:camperboss/features/map/domain/maplibre_poi_clusterer.dart';
 import 'package:camperboss/features/map/presentation/map_engine_v2_preview_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('MapLibre clusterer groups nearby POIs and separates them at high zoom',
       () {
     final places = List.generate(
@@ -52,6 +56,40 @@ void main() {
     expect(request.east, 12.0);
     expect(request.minZoom, 8.0);
     expect(request.maxZoom, greaterThanOrEqualTo(11.0));
+  });
+
+
+  testWidgets('offline download entry point reflects Pro entitlement',
+      (tester) async {
+    final service = _FakeSubscriptionService(
+      const ProSubscriptionState(
+        isConfigured: true,
+        isPro: false,
+        packages: [],
+      ),
+    );
+
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        child: MaterialApp(
+          home: MapEngineV2PreviewScreen(
+            places: const [],
+            initialLatitude: 45.60,
+            initialLongitude: 10.63,
+            offlineManager: const _SupportedOfflineManager(),
+            subscriptionService: service,
+            renderMap: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unlock offline maps'), findsOneWidget);
+    expect(service.loadCalls, 1);
   });
 
   testWidgets('Map Engine V2 preview can render without native map in tests',
@@ -120,4 +158,46 @@ class _UnsupportedOfflineManager implements MapLibreOfflineRegionManager {
 
   @override
   Future<List<MapLibreOfflineRegionSnapshot>> listRegions() async => const [];
+}
+
+
+class _SupportedOfflineManager implements MapLibreOfflineRegionManager {
+  const _SupportedOfflineManager();
+
+  @override
+  bool get isSupported => true;
+
+  @override
+  Future<void> clearAmbientCache() async {}
+
+  @override
+  Future<void> delete(String regionId) async {}
+
+  @override
+  Stream<MapLibreOfflineRegionSnapshot> download(
+    MapLibreOfflineRegionRequest request,
+  ) async* {}
+
+  @override
+  Future<List<MapLibreOfflineRegionSnapshot>> listRegions() async => const [];
+}
+
+class _FakeSubscriptionService implements SubscriptionService {
+  _FakeSubscriptionService(this.state);
+
+  final ProSubscriptionState state;
+  int loadCalls = 0;
+
+  @override
+  Future<ProSubscriptionState> load() async {
+    loadCalls++;
+    return state;
+  }
+
+  @override
+  Future<ProSubscriptionState> purchase(String packageIdentifier) async =>
+      state;
+
+  @override
+  Future<ProSubscriptionState> restore() async => state;
 }
