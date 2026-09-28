@@ -83,6 +83,29 @@ flutter run --dart-define=ORS_API_KEY=your-local-key
 Do not commit real API keys. Routing remains behind an application service so
 the provider can be replaced or proxied later.
 
+## RevenueCat Pro configuration
+
+CamperBoss never ships fake purchase buttons. The Pro screen becomes purchasable
+only when RevenueCat public SDK keys and a current Offering are configured.
+
+Runtime keys:
+
+```bash
+--dart-define=REVENUECAT_ANDROID_API_KEY=...
+--dart-define=REVENUECAT_IOS_API_KEY=...
+--dart-define=REVENUECAT_WEB_API_KEY=...
+--dart-define=REVENUECAT_ENTITLEMENT_ID=pro
+```
+
+Android/iOS use store products attached to the RevenueCat Offering. Web uses a
+separate RevenueCat web billing configuration but shares the same entitlement.
+When keys or offerings are absent, CamperBoss reports the unavailable state
+instead of presenting invented plans.
+
+New offline-map downloads require an active Pro entitlement. Existing local
+content remains readable so an expired subscription never traps the user's
+already-downloaded data.
+
 ## Quality
 
 GitHub Actions runs dependency resolution, `flutter analyze` and
