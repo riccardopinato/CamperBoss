@@ -18,56 +18,29 @@ void main() {
     );
   }
 
-  testWidgets('shows live packages and enables real purchase action',
-      (tester) async {
-    final service = _FakeSubscriptionService(
-      state: const ProSubscriptionState(
-        isConfigured: true,
-        isPro: false,
-        packages: [
-          ProPackage(
-            identifier: 'monthly',
-            title: 'Monthly Pro',
-            description: 'Monthly access',
-            price: '€4.99',
-          ),
-        ],
-      ),
-    );
+  test('default monetization service stays intentionally deferred', () async {
+    const service = DeferredSubscriptionService();
+    final state = await service.load();
 
-    await tester.pumpWidget(app(service));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Monthly Pro'), findsOneWidget);
-    expect(find.text('€4.99'), findsOneWidget);
-    expect(find.text('Choose'), findsOneWidget);
-
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-
-    expect(service.purchased, 'monthly');
+    expect(state.isConfigured, isFalse);
+    expect(state.isPro, isFalse);
+    expect(state.packages, isEmpty);
+    expect(state.message, 'pro_deferred');
   });
 
-  testWidgets('does not show fake plans when RevenueCat is unavailable',
+  testWidgets('deferred monetization never exposes fake plans or checkout',
       (tester) async {
-    final service = _FakeSubscriptionService(
-      state: const ProSubscriptionState(
-        isConfigured: false,
-        isPro: false,
-        packages: [],
-        message: 'revenuecat_not_configured',
-      ),
-    );
-
-    await tester.pumpWidget(app(service));
+    await tester.pumpWidget(app(const DeferredSubscriptionService()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('not configured'), findsOneWidget);
     expect(find.text('Monthly Pro'), findsNothing);
+    expect(find.text('Yearly Pro'), findsNothing);
+    expect(find.text('Lifetime'), findsNothing);
     expect(find.text('Choose'), findsNothing);
+    expect(find.textContaining('deferred'), findsOneWidget);
   });
 
-  testWidgets('shows verified active entitlement without checkout buttons',
+  testWidgets('provider abstraction can still render verified entitlement',
       (tester) async {
     final service = _FakeSubscriptionService(
       state: const ProSubscriptionState(
@@ -89,17 +62,13 @@ void main() {
 class _FakeSubscriptionService implements SubscriptionService {
   _FakeSubscriptionService({required this.state});
 
-  ProSubscriptionState state;
-  String? purchased;
+  final ProSubscriptionState state;
 
   @override
   Future<ProSubscriptionState> load() async => state;
 
   @override
-  Future<ProSubscriptionState> purchase(String packageIdentifier) async {
-    purchased = packageIdentifier;
-    return state;
-  }
+  Future<ProSubscriptionState> purchase(String packageIdentifier) async => state;
 
   @override
   Future<ProSubscriptionState> restore() async => state;
