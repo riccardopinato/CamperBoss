@@ -2,8 +2,8 @@
 
 ## Stato
 
-Implementation POC: in verifica.
-Roadmap: CURRENT fino a validazione runtime offline su device.
+Implementation POC: completato.
+Roadmap: DONE; la certificazione fisica offline resta un gate del Release Core.
 
 ## Obiettivo
 
@@ -110,5 +110,6 @@ runtime offline, lo Step 14 assorbe definitivamente quel requisito.
 
 ## Gate
 
-Lo step resta CURRENT finché la prova runtime offline non è documentata.
-Compilare correttamente non equivale a dimostrare l'uso offline reale.
+La prova runtime offline resta obbligatoria prima della release pubblica.
+Le build multipiattaforma riuscite dimostrano l'integrazione tecnica ma non
+sostituiscono la verifica fisica con rete disattivata.
