@@ -144,7 +144,7 @@ class RevenueCatSubscriptionService implements SubscriptionService {
         throw const SubscriptionFailure('revenuecat_package_unavailable');
       }
 
-      final result = await rc.Purchases.purchasePackage(package);
+      final result = await rc.Purchases.purchase(rc.PurchaseParams.package(package));
       return _stateFromCustomerInfo(result.customerInfo, packages);
     } on PlatformException catch (error) {
       final code = rc.PurchasesErrorHelper.getErrorCode(error);
