@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/action_tile.dart';
@@ -18,28 +19,28 @@ class CamperHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenScaffold(
-      title: 'My camper',
+      title: 'camper_hub_title'.tr(),
       subtitle:
-          'Vehicle identity, documents and maintenance stay local by default.',
+          'camper_hub_subtitle'.tr(),
       children: [
         ActionTile(
           icon: Icons.directions_bus_outlined,
-          title: 'Vehicle profile',
-          subtitle: 'Dimensions, mass, mileage, tanks and technical limits.',
+          title: 'camper_hub_profile'.tr(),
+          subtitle: 'camper_hub_profile_body'.tr(),
           onTap: () => _open(context, const ProfileScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.folder_copy_outlined,
-          title: 'Vehicle documents',
-          subtitle: 'Private archive with scans, PDFs, OCR and expiry dates.',
+          title: 'camper_hub_documents'.tr(),
+          subtitle: 'camper_hub_documents_body'.tr(),
           onTap: () => _open(context, const VehicleDocumentsScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.build_circle_outlined,
-          title: 'Maintenance',
-          subtitle: 'Service history, mileage intervals and next due items.',
+          title: 'camper_hub_maintenance'.tr(),
+          subtitle: 'camper_hub_maintenance_body'.tr(),
           onTap: () => _open(context, const MaintenanceScreen()),
         ),
       ],
