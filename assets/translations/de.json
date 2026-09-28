@@ -292,5 +292,17 @@
   "maintenance_date": "Datum",
   "maintenance_mileage": "Kilometerstand (km)",
   "pro_restore_web_unavailable": "Das Wiederherstellen von Käufen ist im Web nicht verfügbar. Verwende das Abrechnungsportal des Web-Kontos.",
-  "pro_deferred": "Pro-Käufe sind bewusst aufgeschoben. Es werden keine Pläne angezeigt, bis ein Produktionsanbieter ausgewählt und konfiguriert ist."
+  "pro_deferred": "Pro-Käufe sind bewusst aufgeschoben. Es werden keine Pläne angezeigt, bis ein Produktionsanbieter ausgewählt und konfiguriert ist.",
+  "offline_open_guides": "Guides öffnen",
+  "offline_guided_setup": "Geführte Einrichtung",
+  "offline_recovery_help": "Deine lokalen Daten bleiben sicher. Versuche es erneut, sobald der Dienst wieder verfügbar ist.",
+  "offline_action_failed": "Der Vorgang konnte nicht abgeschlossen werden. Vorhandene Offline-Daten wurden nicht verändert.",
+  "offline_status_queued": "Warteschlange",
+  "offline_status_running": "Wird heruntergeladen",
+  "offline_status_paused": "Pausiert",
+  "offline_status_verifying": "Wird geprüft",
+  "offline_status_completed": "Bereit",
+  "offline_status_failed": "Fehlgeschlagen",
+  "offline_status_corrupted": "Beschädigt",
+  "offline_status_canceled": "Abgebrochen"
 }
