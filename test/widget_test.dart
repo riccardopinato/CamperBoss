@@ -1,8 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:camperboss/core/services/home_cockpit_service.dart';
 import 'package:camperboss/core/services/weather_service.dart';
 import 'package:camperboss/features/home/presentation/home_screen.dart';
+
+class FakeHomeCockpitService extends HomeCockpitService {
+  @override
+  Future<HomeCockpitSnapshot> load() async {
+    return const HomeCockpitSnapshot(
+      vehicle: null,
+      checklistTotal: 0,
+      checklistCompleted: 0,
+      documentCount: 0,
+      expiredDocuments: 0,
+      documentsDueSoon: 0,
+      maintenanceCount: 0,
+      overdueMaintenance: 0,
+      maintenanceDueSoon: 0,
+      activeTrip: null,
+      readinessScore: null,
+      readinessCoverage: 0,
+      actions: [],
+    );
+  }
+}
 
 class FakeWeatherService extends WeatherService {
   const FakeWeatherService();
@@ -30,13 +52,19 @@ class FakeWeatherService extends WeatherService {
 void main() {
   testWidgets('CamperBoss opens the home dashboard', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: HomeScreen(weatherService: FakeWeatherService()),
+      MaterialApp(
+        home: HomeScreen(
+          weatherService: const FakeWeatherService(),
+          cockpitService: FakeHomeCockpitService(),
+        ),
       ),
     );
 
+    await tester.pumpAndSettle();
+
     expect(find.text('Camper cockpit'), findsOneWidget);
-    expect(find.text('Boss Score'), findsOneWidget);
-    expect(find.text('Fresh water'), findsOneWidget);
+    expect(find.text('Boss Readiness'), findsOneWidget);
+    expect(find.text('Mileage'), findsOneWidget);
+    expect(find.text('Fresh water'), findsNothing);
   });
 }
