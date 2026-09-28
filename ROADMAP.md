@@ -209,7 +209,7 @@ Esito:
 
 ## STEP 13 — Product Truth Cleanup + Shell V2
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Obiettivo:
 
@@ -230,9 +230,15 @@ Criteri di completamento:
 - `flutter analyze` e `flutter test` passano in CI;
 - nessuna perdita di accesso a documenti, manutenzione, ricerca, offline, notifiche, checklist, diario e finanza.
 
+Esito:
+
+- Risultato: dati demo automatici rimossi, Home basata su dati reali, Boss Readiness deterministico, shell ridotta a 5 aree, hub contestuali e tema sistema light/dark.
+- Test: GitHub Actions `flutter analyze` PASS; suite `flutter test` PASS.
+- PR: #1 `Step 13: product truth cleanup and shell v2`.
+
 ## STEP 14 — Map Engine V2 + offline reale
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Creare un proof of concept isolato del nuovo motore cartografico, con priorita a
 MapLibre per vector tiles, layer POI, clustering e regioni offline. Riutilizzare
