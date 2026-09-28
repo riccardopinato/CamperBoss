@@ -292,5 +292,9 @@
   "maintenance_next_date": "Next {date}",
   "maintenance_attachments_count": "{count} attachments",
   "maintenance_date": "Date",
-  "maintenance_mileage": "Mileage (km)"
+  "maintenance_mileage": "Mileage (km)",
+  "pro_restore_web_unavailable": "Restore purchases is not available on the web. Use the billing portal for the web account.",
+  "pro_offline_maps_locked": "Offline map downloads are a CamperBoss Pro feature.",
+  "pro_unlock_offline_maps": "Unlock offline maps",
+  "pro_checking_access": "Checking Pro access..."
 }
