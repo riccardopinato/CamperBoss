@@ -50,7 +50,7 @@ void main() {
     expect(await service.requestNotificationAccess(), isFalse);
   });
 
-  test('saves vehicle draft and finalizes selected setup only on confirmation',
+  test('does not synthesize vehicle data and finalizes selected setup on confirmation',
       () async {
     final profileRepository = _MemoryProfileRepository();
     final checklistRepository = _MemoryChecklistRepository();
@@ -84,7 +84,7 @@ void main() {
       ),
     );
 
-    expect(profileRepository.profile?.vehicleType, 'Motorhome');
+    expect(profileRepository.profile, isNull);
     expect(guidesService.installed, isTrue);
     expect(checklistRepository.items, isNotEmpty);
   });

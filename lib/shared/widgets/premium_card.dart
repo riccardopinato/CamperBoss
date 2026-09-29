@@ -22,15 +22,20 @@ class PremiumCard extends StatelessWidget {
         ? scheme.outlineVariant.withValues(alpha: 0.72)
         : scheme.outline.withValues(alpha: 0.30);
 
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }
