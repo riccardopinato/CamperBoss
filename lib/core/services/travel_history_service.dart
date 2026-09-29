@@ -137,11 +137,10 @@ class TravelHistoryService {
   }
 
   List<JournalEntry> _filterJournal(List<JournalEntry> entries, int? tripId) {
-    return tripId == null
-        ? entries
-        : entries
-            .where((entry) => entry.place != null && entry.place!.isNotEmpty)
-            .toList();
+    // JournalEntry does not currently carry a tripId. Including every entry
+    // with a place in a trip-specific summary produced false statistics.
+    // Until an explicit relation exists, only the all-trips view may use it.
+    return tripId == null ? entries : const <JournalEntry>[];
   }
 
   String _fileName(String path) {
