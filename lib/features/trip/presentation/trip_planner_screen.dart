@@ -433,7 +433,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             routeFailure: routeFailure,
             canCalculate: canCalculateRoute,
             onCalculate: _calculateRoute,
-            renderMap: renderMap,
+            renderMap: widget.renderMaps,
           ),
           const SizedBox(height: 16),
           for (final stage in trip.stages) ...[
@@ -570,7 +570,7 @@ class _RoutePreviewCard extends StatelessWidget {
             _RouteMap(
               geometry: route.geometry,
               waypoints: request?.waypoints ?? const [],
-              renderMap: widget.renderMaps,
+              renderMap: renderMap,
             ),
             const SizedBox(height: 12),
             Row(
