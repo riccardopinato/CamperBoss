@@ -73,7 +73,10 @@ class OfflineContentScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Switch(value: true, onChanged: null),
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),

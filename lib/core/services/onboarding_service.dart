@@ -122,23 +122,9 @@ class LocalOnboardingService implements OnboardingService {
     required double mileage,
   }) async {
     final existing = await _profileRepository.loadProfile();
+    if (existing == null) return;
     await _profileRepository.saveProfile(
-      (existing ??
-              const VehicleProfile(
-                vehicleType: 'Camper van',
-                brand: 'CamperBoss',
-                model: 'Setup',
-                year: 2024,
-                length: 6,
-                width: 2.1,
-                height: 2.8,
-                weight: 3000,
-                maxMass: 3500,
-                seats: 4,
-                fuelType: 'Diesel',
-                mileage: 0,
-              ))
-          .copyWith(
+      existing.copyWith(
         vehicleType: vehicleType,
         length: length,
         width: width,

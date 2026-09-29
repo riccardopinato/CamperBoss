@@ -65,12 +65,7 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       _error = null;
     });
     try {
-      final snapshot = await _searchService.snapshot();
-      if (snapshot.status == SearchIndexStatus.empty) {
-        await _rebuild(silent: true);
-      } else {
-        await _search();
-      }
+      await _rebuild(silent: true);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -126,15 +121,16 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
     _search();
   }
 
-  void _openHit(SearchHit hit) {
+  Future<void> _openHit(SearchHit hit) async {
     final callback = widget.onOpenHit;
     if (callback != null) {
       callback(hit);
       return;
     }
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => _screenFor(hit.type)),
     );
+    if (mounted) await _rebuild(silent: true);
   }
 
   Widget _screenFor(SearchDocumentType type) {
@@ -192,27 +188,17 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        PremiumCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  snapshot == null
-                      ? 'Index status unavailable'
-                      : '${snapshot.documentCount} local items - ${snapshot.status.name}',
-                ),
-              ),
-              IconButton(
-                tooltip: 'search_rebuild'.tr(),
-                onPressed: _isRebuilding ? null : _rebuild,
-                icon: _isRebuilding
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
-              ),
-            ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: _isRebuilding ? null : _rebuild,
+            icon: _isRebuilding
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+            label: Text('search_rebuild'.tr()),
           ),
         ),
         if (_error != null) ...[
@@ -247,13 +233,13 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
 
   String _labelFor(SearchDocumentType type) {
     return switch (type) {
-      SearchDocumentType.vehicleDocument => 'Documents',
-      SearchDocumentType.maintenance => 'Service',
-      SearchDocumentType.journal => 'Journal',
-      SearchDocumentType.trip => 'Trips',
-      SearchDocumentType.booking => 'Bookings',
-      SearchDocumentType.offlineGuide => 'Guides',
-      SearchDocumentType.vehicleNote => 'Vehicle',
+      SearchDocumentType.vehicleDocument => 'search_filter_documents'.tr(),
+      SearchDocumentType.maintenance => 'search_filter_service'.tr(),
+      SearchDocumentType.journal => 'search_filter_journal'.tr(),
+      SearchDocumentType.trip => 'search_filter_trips'.tr(),
+      SearchDocumentType.booking => 'search_filter_bookings'.tr(),
+      SearchDocumentType.offlineGuide => 'search_filter_guides'.tr(),
+      SearchDocumentType.vehicleNote => 'search_filter_vehicle'.tr(),
     };
   }
 }
