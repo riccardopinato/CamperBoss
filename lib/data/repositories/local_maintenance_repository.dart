@@ -43,17 +43,39 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<MaintenanceRecord> saveRecord(MaintenanceRecord record) async {
-    if (kIsWeb) {
-      final saved = await _webCollection.saveRow(record.toMap());
-      return MaintenanceRecord.fromMap(saved);
+    MaintenanceRecord? previous;
+    if (record.id != null) {
+      final records = await listRecords();
+      for (final candidate in records) {
+        if (candidate.id == record.id) {
+          previous = candidate;
+          break;
+        }
+      }
     }
 
-    final db = await _database.database;
-    final values = record.toMap()..remove('id');
-    final id = record.id == null
-        ? await db.insert(AppDatabase.maintenanceRecordsTable, values)
-        : await _updateRecord(db, record.id!, values);
-    return record.copyWith(id: id, updatedAt: DateTime.now());
+    late final MaintenanceRecord savedRecord;
+    if (kIsWeb) {
+      final saved = await _webCollection.saveRow(record.toMap());
+      savedRecord = MaintenanceRecord.fromMap(saved);
+    } else {
+      final db = await _database.database;
+      final values = record.toMap()..remove('id');
+      final id = record.id == null
+          ? await db.insert(AppDatabase.maintenanceRecordsTable, values)
+          : await _updateRecord(db, record.id!, values);
+      savedRecord = record.copyWith(id: id, updatedAt: DateTime.now());
+    }
+
+    final previousPaths = previous?.attachmentPaths ?? const <String>[];
+    if (previousPaths.isNotEmpty) {
+      final retained = savedRecord.attachmentPaths.toSet();
+      await _storageService.deleteFiles(
+        previousPaths.where((path) => !retained.contains(path)),
+      );
+    }
+
+    return savedRecord;
   }
 
   Future<int> _updateRecord(
