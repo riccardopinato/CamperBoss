@@ -646,8 +646,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             MetricTile(
               icon: Icons.account_balance_wallet_outlined,
               label: 'Costs',
-              value: 'EUR ${(stats.totalCostMinor / 100).toStringAsFixed(0)}',
-              detail: 'Linked to trip',
+              value: _costSummary(stats),
+              detail: stats.hasMixedCurrencies
+                  ? 'Separate currencies; no fake conversion'
+                  : 'Linked to trip',
             ),
             MetricTile(
               icon: Icons.local_gas_station_outlined,
@@ -680,6 +682,16 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         ),
       ],
     );
+  }
+
+  String _costSummary(TravelHistoryStats stats) {
+    if (stats.costByCurrency.isEmpty) return 'N/A';
+    return stats.costByCurrency.entries
+        .map(
+          (entry) =>
+              '${entry.key} ${(entry.value / 100).toStringAsFixed(0)}',
+        )
+        .join(' · ');
   }
 
   Future<void> _pickDateRange({required bool start}) async {
