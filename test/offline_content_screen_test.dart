@@ -1,5 +1,6 @@
 import 'package:camperboss/core/providers/download_manager_provider.dart';
 import 'package:camperboss/core/services/app_download_manager.dart';
+import 'package:camperboss/core/services/offline_system_coordinator.dart';
 import 'package:camperboss/core/services/storage_inspector.dart';
 import 'package:camperboss/data/models/download_models.dart';
 import 'package:camperboss/features/offline/presentation/offline_content_screen.dart';
@@ -15,6 +16,12 @@ void main() {
           downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          offlineSystemSnapshotProvider.overrideWith(
+            (ref) async => const OfflineSystemSnapshot(
+              mapRegions: [],
+              guidePackages: [],
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
@@ -55,6 +62,12 @@ void main() {
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
           ),
+          offlineSystemSnapshotProvider.overrideWith(
+            (ref) async => const OfflineSystemSnapshot(
+              mapRegions: [],
+              guidePackages: [],
+            ),
+          ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
@@ -75,6 +88,12 @@ void main() {
           downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          offlineSystemSnapshotProvider.overrideWith(
+            (ref) async => const OfflineSystemSnapshot(
+              mapRegions: [],
+              guidePackages: [],
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
