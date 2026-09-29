@@ -124,6 +124,7 @@ Future<DocumentCaptureResult?> _importImages(
   final picked = await FilePicker.pickFiles(
     type: FileType.custom,
     allowedExtensions: const ['jpg', 'jpeg', 'png'],
+    allowMultiple: true,
   );
   if (picked == null || picked.files.isEmpty) return null;
 

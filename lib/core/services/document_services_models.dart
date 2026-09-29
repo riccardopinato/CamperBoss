@@ -64,6 +64,12 @@ class DocumentCaptureResult {
     if (imagePaths.isNotEmpty) return imagePaths.first;
     return null;
   }
+
+  List<String> get filePaths => {
+        ...imagePaths,
+        if (pdfPath != null) pdfPath!,
+        if (thumbnailPath != null) thumbnailPath!,
+      }.toList(growable: false);
 }
 
 class OcrResult {

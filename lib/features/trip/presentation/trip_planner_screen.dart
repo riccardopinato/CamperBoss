@@ -143,6 +143,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final id = trip?.id;
     if (trip == null || id == null) return;
 
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('trip_delete_title'.tr()),
+            content: Text(
+              'trip_delete_body'.tr(namedArgs: {'title': trip.title}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('delete'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
     final previous = _trips;
     setState(() {
       _trips = _trips.where((entry) => entry.id != id).toList();
