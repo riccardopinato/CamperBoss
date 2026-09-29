@@ -1,11 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/services/travel_history_service.dart';
-import '../../../data/models/route_preview.dart';
 import '../../../data/models/travel_history_models.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/repositories/local_trip_repository.dart';
@@ -14,20 +11,21 @@ import '../../../shared/widgets/metric_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
-import '../../map/presentation/map_marker_cluster_layer.dart';
-import '../../map/presentation/map_marker_mapper.dart';
+import '../../map/presentation/maplibre_overlay_map.dart';
 
 class TravelHistoryScreen extends StatefulWidget {
   const TravelHistoryScreen({
     this.initialTripId,
     this.tripRepository,
     this.historyService,
+    this.renderMaps = true,
     super.key,
   });
 
   final int? initialTripId;
   final TripRepository? tripRepository;
   final TravelHistoryService? historyService;
+  final bool renderMaps;
 
   @override
   State<TravelHistoryScreen> createState() => _TravelHistoryScreenState();
@@ -41,8 +39,6 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
       widget.historyService ?? TravelHistoryService();
   late final TabController _tabController =
       TabController(length: 4, vsync: this);
-  final _mapController = MapController();
-  final _markerMapper = const MapMarkerMapper();
 
   List<TripPlan> _trips = const [];
   List<GpxTrack> _tracks = const [];
@@ -67,7 +63,6 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _mapController.dispose();
     super.dispose();
   }
 
@@ -338,38 +333,12 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   }
 
   Widget _buildMapTab(BuildContext context) {
-    final allPoints = [
-      for (final track in _tracks) ...track.points,
-    ];
-    final center = allPoints.isEmpty
-        ? const LatLng(45.4642, 9.19)
-        : LatLng(
-            allPoints.last.latitude,
-            allPoints.last.longitude,
-          );
     final selectedMemory = _selectedMemory != null &&
             _filteredMemories.any((memory) => memory.id == _selectedMemory!.id)
         ? _selectedMemory
         : null;
-    final memoryMarkers = [
-      for (final memory in _filteredMemories)
-        if (selectedMemory == null || memory.id != selectedMemory.id)
-          _markerMapper.buildPersonalMarker(
-            PersonalMapMarker(
-              id: memory.id,
-              latitude: memory.latitude,
-              longitude: memory.longitude,
-              icon: Icons.photo_camera_outlined,
-            ),
-            onTap: () => setState(() => _selectedMemory = memory),
-          ),
-    ];
-
-    final plannedStops = _selectedTripId == null
-        ? const <RouteWaypoint>[]
-        : parseRouteWaypoints(
-            _selectedTripStages(),
-          );
+    final plannedStops =
+        _selectedTripId == null ? const <TripStage>[] : _selectedTripStages();
 
     return Column(
       children: [
@@ -385,7 +354,8 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
                   selected: _selectedTag == tag,
                   onSelected: (_) {
                     setState(
-                        () => _selectedTag = _selectedTag == tag ? null : tag);
+                      () => _selectedTag = _selectedTag == tag ? null : tag,
+                    );
                   },
                 ),
               OutlinedButton.icon(
@@ -418,53 +388,65 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             borderRadius: BorderRadius.circular(16),
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(initialCenter: center, initialZoom: 6),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.camperboss.camperboss',
-                    ),
-                    for (final track in _tracks)
-                      if (track.points.length > 1)
-                        PolylineLayer(
-                          polylines: [
-                            Polyline(
-                              points: [
-                                for (final point in track.points)
-                                  LatLng(point.latitude, point.longitude),
-                              ],
-                              color: Theme.of(context).colorScheme.primary,
-                              strokeWidth: 4,
-                            ),
-                          ],
+                Positioned.fill(
+                  child: MapLibreOverlayMap(
+                    renderMap: widget.renderMaps,
+                    fallbackLatitude: 45.4642,
+                    fallbackLongitude: 9.19,
+                    paths: [
+                      for (final track in _tracks)
+                        if (track.points.length > 1)
+                          MapLibreOverlayPath(
+                            id: 'track:${track.id}',
+                            colorHex: '#1565C0',
+                            width: 4,
+                            points: [
+                              for (var index = 0;
+                                  index < track.points.length;
+                                  index++)
+                                MapLibreOverlayPoint(
+                                  id: 'track:${track.id}:$index',
+                                  latitude: track.points[index].latitude,
+                                  longitude: track.points[index].longitude,
+                                ),
+                            ],
+                          ),
+                    ],
+                    points: [
+                      for (final memory in _filteredMemories)
+                        MapLibreOverlayPoint(
+                          id: 'memory:${memory.id}',
+                          latitude: memory.latitude,
+                          longitude: memory.longitude,
+                          kind: 'memory',
+                          selected: selectedMemory?.id == memory.id,
                         ),
-                    if (memoryMarkers.isNotEmpty)
-                      MapMarkerClusterLayer(markers: memoryMarkers),
-                    MarkerLayer(
-                      markers: [
-                        for (final stop in plannedStops)
-                          Marker(
-                            point: stop.point,
-                            width: 38,
-                            height: 38,
-                            child: const Icon(Icons.flag_circle_outlined),
+                      for (var index = 0;
+                          index < plannedStops.length;
+                          index++)
+                        if (plannedStops[index].isGeocoded)
+                          MapLibreOverlayPoint(
+                            id: 'planned:$index',
+                            latitude: plannedStops[index].latitude!,
+                            longitude: plannedStops[index].longitude!,
+                            kind: 'plannedStop',
                           ),
-                        if (selectedMemory != null)
-                          _markerMapper.buildPersonalMarker(
-                            PersonalMapMarker(
-                              id: selectedMemory.id,
-                              latitude: selectedMemory.latitude,
-                              longitude: selectedMemory.longitude,
-                              icon: Icons.photo_camera,
-                            ),
-                            onTap: () {},
-                          ),
-                      ],
-                    ),
-                  ],
+                    ],
+                    onPointTap: (id) {
+                      if (!id.startsWith('memory:')) return;
+                      final memoryId = id.substring('memory:'.length);
+                      TravelMemory? match;
+                      for (final memory in _filteredMemories) {
+                        if (memory.id == memoryId) {
+                          match = memory;
+                          break;
+                        }
+                      }
+                      if (match != null) {
+                        setState(() => _selectedMemory = match);
+                      }
+                    },
+                  ),
                 ),
                 if (selectedMemory != null)
                   Positioned(
@@ -646,8 +628,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             MetricTile(
               icon: Icons.account_balance_wallet_outlined,
               label: 'Costs',
-              value: 'EUR ${(stats.totalCostMinor / 100).toStringAsFixed(0)}',
-              detail: 'Linked to trip',
+              value: _costSummary(stats),
+              detail: stats.hasMixedCurrencies
+                  ? 'Separate currencies; no fake conversion'
+                  : 'Linked to trip',
             ),
             MetricTile(
               icon: Icons.local_gas_station_outlined,
@@ -680,6 +664,16 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         ),
       ],
     );
+  }
+
+  String _costSummary(TravelHistoryStats stats) {
+    if (stats.costByCurrency.isEmpty) return 'N/A';
+    return stats.costByCurrency.entries
+        .map(
+          (entry) =>
+              '${entry.key} ${(entry.value / 100).toStringAsFixed(0)}',
+        )
+        .join(' · ');
   }
 
   Future<void> _pickDateRange({required bool start}) async {
@@ -718,9 +712,9 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
     return null;
   }
 
-  List<String> _selectedTripStages() {
+  List<TripStage> _selectedTripStages() {
     for (final trip in _trips) {
-      if (trip.id == _selectedTripId) return trip.stages;
+      if (trip.id == _selectedTripId) return trip.resolvedStages;
     }
     return const [];
   }

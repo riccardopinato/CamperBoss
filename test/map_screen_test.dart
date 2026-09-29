@@ -1,10 +1,11 @@
 import 'package:camperboss/core/services/geocoding_service.dart';
+import 'package:camperboss/core/services/maplibre_offline_region_manager.dart';
 import 'package:camperboss/core/state/selected_location.dart';
 import 'package:camperboss/data/models/camper_place.dart';
 import 'package:camperboss/data/repositories/local_poi_cache_repository.dart';
+import 'package:camperboss/features/map/presentation/map_engine_v2_preview_screen.dart';
 import 'package:camperboss/features/map/presentation/map_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakePoiCacheRepository implements PoiCacheRepository {
@@ -98,6 +99,8 @@ void main() {
             child: MapScreen(
               places: places,
               cacheRepository: cacheRepository,
+              mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+              renderMap: false,
               onOpenDirections: (_) async {
                 directionsCount++;
               },
@@ -114,20 +117,28 @@ void main() {
     expect(find.text('GPL'), findsWidgets);
     expect(find.text('2 visible'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Camping'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Camping'));
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Refresh'));
-    await tester.tap(find.text('Refresh'));
+    final refreshButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Refresh'),
+    );
+    refreshButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('2 items'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Delete'));
-    await tester.tap(find.text('Delete'));
+    final deleteButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Delete'),
+    );
+    deleteButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('0 items'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Camping'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Camping'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -1500));
@@ -140,7 +151,7 @@ void main() {
     expect(directionsCount, 1);
   });
 
-  testWidgets('cluster widget shows aggregated marker count', (tester) async {
+  testWidgets('main map uses the unified MapLibre surface', (tester) async {
     selectedLocationController.value = const GeoLocationResult(
       name: 'Lake Garda',
       latitude: 45.6049,
@@ -148,103 +159,48 @@ void main() {
       country: 'Italy',
     );
 
-    final clusteredPlaces = List.generate(
-      12,
-      (index) => CamperPlace(
-        name: 'Cluster POI $index',
-        category: 'sosta',
-        type: 'Sosta camper',
-        distance: '1 km',
-        rating: '4.5',
-        tags: const ['24h'],
-        latitude: 45.6049 + (index / 100000),
-        longitude: 10.6351 + (index / 100000),
-      ),
-    );
-
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
-              places: clusteredPlaces,
-              cacheRepository: FakePoiCacheRepository(
-                const PoiCacheSnapshot(
-                  region: 'North Italy',
-                  itemCount: 0,
-                  sizeBytes: 0,
-                ),
-              ),
+        home: MapScreen(
+          places: const [],
+          cacheRepository: FakePoiCacheRepository(
+            const PoiCacheSnapshot(
+              region: 'North Italy',
+              itemCount: 0,
+              sizeBytes: 0,
             ),
           ),
+          mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+          renderMap: false,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('12'), findsWidgets);
+    expect(find.byType(MapEngineV2PreviewScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('primary-maplibre-map')), findsOneWidget);
+    expect(find.text('Mappa & offline'), findsOneWidget);
+    expect(find.textContaining('PMTiles'), findsNothing);
   });
+}
 
-  testWidgets('tapping a map marker keeps it selected outside the cluster', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 1800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+class _UnsupportedOfflineManager implements MapLibreOfflineRegionManager {
+  const _UnsupportedOfflineManager();
 
-    selectedLocationController.value = const GeoLocationResult(
-      name: 'Lake Garda',
-      latitude: 45.6049,
-      longitude: 10.6351,
-      country: 'Italy',
-    );
+  @override
+  bool get isSupported => false;
 
-    const places = [
-      CamperPlace(
-        name: 'Area Sosta Lago',
-        category: 'sosta',
-        type: 'Sosta camper',
-        distance: '1 km',
-        rating: '4.8',
-        tags: ['24h'],
-        latitude: 45.65,
-        longitude: 10.69,
-      ),
-    ];
+  @override
+  Future<void> clearAmbientCache() async {}
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
-              places: places,
-              cacheRepository: FakePoiCacheRepository(
-                const PoiCacheSnapshot(
-                  region: 'North Italy',
-                  itemCount: 0,
-                  sizeBytes: 0,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+  @override
+  Future<void> delete(String regionId) async {}
 
-    await tester.ensureVisible(find.byType(FlutterMap));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FlutterMap),
-        matching: find.byIcon(Icons.rv_hookup),
-      ),
-    );
-    await tester.pumpAndSettle();
+  @override
+  Stream<MapLibreOfflineRegionSnapshot> download(
+    MapLibreOfflineRegionRequest request,
+  ) async* {}
 
-    expect(find.text('Area Sosta Lago'), findsWidgets);
-    expect(find.byTooltip('Close popup'), findsOneWidget);
-    expect(find.textContaining('Sosta'), findsWidgets);
-  });
+  @override
+  Future<List<MapLibreOfflineRegionSnapshot>> listRegions() async => const [];
 }

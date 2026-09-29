@@ -18,6 +18,7 @@ void main() {
             initialTripId: 1,
             tripRepository: _FakeTripRepository(),
             historyService: _FakeTravelHistoryService(),
+            renderMaps: false,
           ),
         ),
       ),

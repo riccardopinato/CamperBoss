@@ -83,6 +83,16 @@ flutter run --dart-define=ORS_API_KEY=your-local-key
 Do not commit real API keys. Routing remains behind an application service so
 the provider can be replaced or proxied later.
 
+## Monetization status
+
+Production monetization is intentionally deferred. CamperBoss does not ship a
+billing SDK, invented plans or fake purchase buttons in the Release Core.
+
+A provider-neutral entitlement boundary remains in the codebase so a future
+monetization step can integrate RevenueCat or another provider without coupling
+core features to a specific vendor. Offline maps remain available without a
+premature Pro gate until that product decision is revisited.
+
 ## Quality
 
 GitHub Actions runs dependency resolution, `flutter analyze` and

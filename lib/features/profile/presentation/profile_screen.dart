@@ -1,14 +1,12 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/locale_number_parser.dart';
 import '../../../data/models/vehicle_profile.dart';
 import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../../shared/widgets/metric_tile.dart';
 import '../../../shared/widgets/premium_card.dart';
-import '../../../shared/widgets/primary_button.dart';
-import '../../../shared/widgets/pro_badge.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
-import '../../finance/presentation/finance_screen.dart';
-import '../../subscription/presentation/subscription_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -41,7 +39,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
       _error = null;
     });
-
     try {
       final profile = await _repository.loadProfile();
       if (!mounted) return;
@@ -53,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Vehicle profile unavailable';
+        _error = 'profile_error_load'.tr();
       });
     }
   }
@@ -62,32 +59,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final result = await showModalBottomSheet<VehicleProfile>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => _VehicleProfileEditor(profile: _profile),
     );
-
     if (result == null) return;
 
     try {
       final saved = await _repository.saveProfile(result);
       if (!mounted) return;
-      setState(() => _profile = saved);
+      setState(() {
+        _profile = saved;
+        _error = null;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Vehicle profile save failed');
+      setState(() => _error = 'profile_error_save'.tr());
     }
   }
 
   Future<void> _deleteProfile() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('profile_delete_title'.tr()),
+            content: Text('profile_delete_body'.tr()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('delete'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
     final previous = _profile;
     setState(() => _profile = null);
-
     try {
       await _repository.deleteProfile();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _profile = previous;
-        _error = 'Vehicle profile delete failed';
+        _error = 'profile_error_delete'.tr();
       });
     }
   }
@@ -97,8 +116,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = _profile;
 
     return ScreenScaffold(
-      title: 'My vehicle',
-      subtitle: 'Save dimensions, tanks, mileage, and limits locally.',
+      title: 'profile_title'.tr(),
+      subtitle: 'profile_subtitle'.tr(),
       children: [
         if (_error != null) ...[
           Text(
@@ -129,14 +148,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         profile == null
-                            ? 'No vehicle profile saved yet'
+                            ? 'profile_empty_title'.tr()
                             : '${profile.brand} ${profile.model}',
                         style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         profile == null
-                            ? 'Create one to track dimensions, tanks, mileage, and payload.'
+                            ? 'profile_empty_body'.tr()
                             : _profileSummary(profile),
                       ),
                       if (profile != null) ...[
@@ -155,14 +174,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const ProBadge(label: 'LOCAL'),
+                Chip(label: Text('profile_local_badge'.tr())),
               ],
             ),
           ),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 2,
-            childAspectRatio: 1.15,
+            childAspectRatio: 1.05,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             shrinkWrap: true,
@@ -170,29 +189,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               MetricTile(
                 icon: Icons.height_outlined,
-                label: 'Dimensions',
+                label: 'profile_dimensions'.tr(),
                 value: profile == null ? '--' : _dimensionsLabel(profile),
-                detail: 'L / W / H',
+                detail: 'profile_dimensions_detail'.tr(),
               ),
               MetricTile(
                 icon: Icons.monitor_weight_outlined,
-                label: 'Mass',
+                label: 'profile_mass'.tr(),
                 value: profile == null ? '--' : _massLabel(profile),
-                detail: 'Weight and max mass',
+                detail: 'profile_mass_detail'.tr(),
               ),
               MetricTile(
                 icon: Icons.water_drop_outlined,
-                label: 'Tanks',
+                label: 'profile_tanks'.tr(),
                 value: profile == null ? '--' : _tanksLabel(profile),
-                detail: 'Fuel, water, gas',
+                detail: 'profile_tanks_detail'.tr(),
               ),
               MetricTile(
                 icon: Icons.route_outlined,
-                label: 'Mileage',
+                label: 'profile_mileage'.tr(),
                 value: profile == null ? '--' : _mileageLabel(profile),
                 detail: profile == null
-                    ? 'No profile saved'
-                    : '${profile.seats} seats and ${profile.fuelType}',
+                    ? 'profile_not_saved'.tr()
+                    : 'profile_seats_fuel'.tr(
+                        namedArgs: {
+                          'seats': profile.seats.toString(),
+                          'fuel': profile.fuelType,
+                        },
+                      ),
               ),
             ],
           ),
@@ -204,14 +228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: _openEditor,
                   icon: Icon(profile == null ? Icons.add : Icons.edit_outlined),
                   label: Text(
-                    profile == null ? 'Create profile' : 'Edit profile',
+                    profile == null
+                        ? 'profile_create'.tr()
+                        : 'profile_edit'.tr(),
                   ),
                 ),
               ),
               if (profile != null) ...[
                 const SizedBox(width: 12),
                 IconButton.outlined(
-                  tooltip: 'Delete profile',
+                  tooltip: 'profile_delete'.tr(),
                   onPressed: _deleteProfile,
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -222,20 +248,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16),
             PremiumCard(child: Text(profile.notes!)),
           ],
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 8),
-          _ProfileActions(),
         ],
       ],
     );
   }
 
-  static String _profileSummary(VehicleProfile profile) {
-    final year = profile.year.toString();
-    final length = profile.length.toStringAsFixed(2);
-    final maxMass = profile.maxMass.toStringAsFixed(0);
-    return '${profile.vehicleType} - $year - $length m - ${profile.seats} seats - $maxMass kg max';
+  String _profileSummary(VehicleProfile profile) {
+    return 'profile_summary'.tr(
+      namedArgs: {
+        'type': profile.vehicleType,
+        'year': profile.year.toString(),
+        'length': profile.length.toStringAsFixed(2),
+        'seats': profile.seats.toString(),
+        'mass': profile.maxMass.toStringAsFixed(0),
+      },
+    );
   }
 
   static String _dimensionsLabel(VehicleProfile profile) {
@@ -243,14 +270,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       '${profile.length.toStringAsFixed(2)} m',
       '${profile.width.toStringAsFixed(2)} m',
       '${profile.height.toStringAsFixed(2)} m',
-    ].join(' x ');
+    ].join(' × ');
   }
 
   static String _massLabel(VehicleProfile profile) {
     return '${profile.weight.toStringAsFixed(0)} / ${profile.maxMass.toStringAsFixed(0)} kg';
   }
 
-  static String _tanksLabel(VehicleProfile profile) {
+  String _tanksLabel(VehicleProfile profile) {
     final parts = <String>[
       if (profile.fuelCapacity != null)
         'F ${profile.fuelCapacity!.toStringAsFixed(0)} L',
@@ -261,101 +288,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (profile.electricRange != null)
         'EV ${profile.electricRange!.toStringAsFixed(0)} km',
     ];
-    if (parts.isEmpty) return 'Unset';
+    if (parts.isEmpty) return 'profile_unset'.tr();
     return parts.join(' - ');
   }
 
   static String _mileageLabel(VehicleProfile profile) {
     return '${profile.mileage.toStringAsFixed(0)} km';
-  }
-}
-
-class _ProfileActions extends StatelessWidget {
-  _ProfileActions();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Vehicle tools',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 12),
-        const _ActionRow(
-          icon: Icons.workspace_premium_outlined,
-          title: 'CamperBoss Pro',
-          subtitle: 'Monthly, yearly, and lifetime plans',
-        ),
-        const SizedBox(height: 12),
-        PrimaryButton(
-          label: 'Fuel & costs',
-          icon: Icons.local_gas_station_outlined,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const FinanceScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        PrimaryButton(
-          label: 'Preview paywall',
-          icon: Icons.payments_outlined,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const SubscriptionScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        const _ActionRow(
-          icon: Icons.emoji_events_outlined,
-          title: 'Achievements',
-          subtitle: 'Badges and seasonal challenges',
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return PremiumCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text(subtitle),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -370,92 +308,113 @@ class _VehicleProfileEditor extends StatefulWidget {
 
 class _VehicleProfileEditorState extends State<_VehicleProfileEditor> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _typeController;
-  late final TextEditingController _brandController;
-  late final TextEditingController _modelController;
-  late final TextEditingController _yearController;
-  late final TextEditingController _plateController;
-  late final TextEditingController _lengthController;
-  late final TextEditingController _widthController;
-  late final TextEditingController _heightController;
-  late final TextEditingController _weightController;
-  late final TextEditingController _maxMassController;
-  late final TextEditingController _seatsController;
-  late final TextEditingController _fuelController;
-  late final TextEditingController _mileageController;
-  late final TextEditingController _fuelCapacityController;
-  late final TextEditingController _waterCapacityController;
-  late final TextEditingController _gasCapacityController;
-  late final TextEditingController _electricRangeController;
-  late final TextEditingController _notesController;
+  late final Map<String, TextEditingController> _controllers;
+
+  TextEditingController get _type => _controllers['type']!;
+  TextEditingController get _brand => _controllers['brand']!;
+  TextEditingController get _model => _controllers['model']!;
+  TextEditingController get _year => _controllers['year']!;
+  TextEditingController get _plate => _controllers['plate']!;
+  TextEditingController get _length => _controllers['length']!;
+  TextEditingController get _width => _controllers['width']!;
+  TextEditingController get _height => _controllers['height']!;
+  TextEditingController get _weight => _controllers['weight']!;
+  TextEditingController get _maxMass => _controllers['maxMass']!;
+  TextEditingController get _seats => _controllers['seats']!;
+  TextEditingController get _fuel => _controllers['fuel']!;
+  TextEditingController get _mileage => _controllers['mileage']!;
+  TextEditingController get _fuelCapacity => _controllers['fuelCapacity']!;
+  TextEditingController get _waterCapacity => _controllers['waterCapacity']!;
+  TextEditingController get _gasCapacity => _controllers['gasCapacity']!;
+  TextEditingController get _electricRange => _controllers['electricRange']!;
+  TextEditingController get _notes => _controllers['notes']!;
 
   @override
   void initState() {
     super.initState();
-    final profile = widget.profile;
-    _typeController = TextEditingController(text: profile?.vehicleType ?? '');
-    _brandController = TextEditingController(text: profile?.brand ?? '');
-    _modelController = TextEditingController(text: profile?.model ?? '');
-    _yearController =
-        TextEditingController(text: profile?.year.toString() ?? '');
-    _plateController = TextEditingController(text: profile?.plate ?? '');
-    _lengthController = TextEditingController(
-      text: profile?.length.toStringAsFixed(2) ?? '',
-    );
-    _widthController = TextEditingController(
-      text: profile?.width.toStringAsFixed(2) ?? '',
-    );
-    _heightController = TextEditingController(
-      text: profile?.height.toStringAsFixed(2) ?? '',
-    );
-    _weightController = TextEditingController(
-      text: profile?.weight.toStringAsFixed(0) ?? '',
-    );
-    _maxMassController = TextEditingController(
-      text: profile?.maxMass.toStringAsFixed(0) ?? '',
-    );
-    _seatsController =
-        TextEditingController(text: profile?.seats.toString() ?? '');
-    _fuelController = TextEditingController(text: profile?.fuelType ?? '');
-    _mileageController = TextEditingController(
-      text: profile?.mileage.toStringAsFixed(0) ?? '',
-    );
-    _fuelCapacityController = TextEditingController(
-      text: profile?.fuelCapacity?.toStringAsFixed(0) ?? '',
-    );
-    _waterCapacityController = TextEditingController(
-      text: profile?.waterCapacity?.toStringAsFixed(0) ?? '',
-    );
-    _gasCapacityController = TextEditingController(
-      text: profile?.gasCapacity?.toStringAsFixed(0) ?? '',
-    );
-    _electricRangeController = TextEditingController(
-      text: profile?.electricRange?.toStringAsFixed(0) ?? '',
-    );
-    _notesController = TextEditingController(text: profile?.notes ?? '');
+    final p = widget.profile;
+    _controllers = {
+      'type': TextEditingController(text: p?.vehicleType ?? ''),
+      'brand': TextEditingController(text: p?.brand ?? ''),
+      'model': TextEditingController(text: p?.model ?? ''),
+      'year': TextEditingController(text: p?.year.toString() ?? ''),
+      'plate': TextEditingController(text: p?.plate ?? ''),
+      'length': TextEditingController(text: p?.length.toStringAsFixed(2) ?? ''),
+      'width': TextEditingController(text: p?.width.toStringAsFixed(2) ?? ''),
+      'height': TextEditingController(text: p?.height.toStringAsFixed(2) ?? ''),
+      'weight': TextEditingController(text: p?.weight.toStringAsFixed(0) ?? ''),
+      'maxMass': TextEditingController(text: p?.maxMass.toStringAsFixed(0) ?? ''),
+      'seats': TextEditingController(text: p?.seats.toString() ?? ''),
+      'fuel': TextEditingController(text: p?.fuelType ?? ''),
+      'mileage': TextEditingController(text: p?.mileage.toStringAsFixed(0) ?? ''),
+      'fuelCapacity':
+          TextEditingController(text: p?.fuelCapacity?.toStringAsFixed(0) ?? ''),
+      'waterCapacity':
+          TextEditingController(text: p?.waterCapacity?.toStringAsFixed(0) ?? ''),
+      'gasCapacity':
+          TextEditingController(text: p?.gasCapacity?.toStringAsFixed(0) ?? ''),
+      'electricRange':
+          TextEditingController(text: p?.electricRange?.toStringAsFixed(0) ?? ''),
+      'notes': TextEditingController(text: p?.notes ?? ''),
+    };
   }
 
   @override
   void dispose() {
-    _typeController.dispose();
-    _brandController.dispose();
-    _modelController.dispose();
-    _yearController.dispose();
-    _plateController.dispose();
-    _lengthController.dispose();
-    _widthController.dispose();
-    _heightController.dispose();
-    _weightController.dispose();
-    _maxMassController.dispose();
-    _seatsController.dispose();
-    _fuelController.dispose();
-    _mileageController.dispose();
-    _fuelCapacityController.dispose();
-    _waterCapacityController.dispose();
-    _gasCapacityController.dispose();
-    _electricRangeController.dispose();
-    _notesController.dispose();
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  String? _requiredText(String? value) {
+    if (value == null || value.trim().isEmpty) return 'form_required'.tr();
+    return null;
+  }
+
+  String? _positive(String? value) {
+    final parsed = parseLocaleDouble(value ?? '');
+    if (parsed == null) return 'form_number_invalid'.tr();
+    if (parsed <= 0) return 'form_number_positive'.tr();
+    return null;
+  }
+
+  String? _nonNegative(String? value) {
+    final parsed = parseLocaleDouble(value ?? '');
+    if (parsed == null) return 'form_number_invalid'.tr();
+    if (parsed < 0) return 'form_number_non_negative'.tr();
+    return null;
+  }
+
+  String? _optionalPositive(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return _positive(value);
+  }
+
+  String? _yearValidator(String? value) {
+    final year = int.tryParse(value?.trim() ?? '');
+    final maxYear = DateTime.now().year + 1;
+    if (year == null) return 'form_number_invalid'.tr();
+    if (year < 1900 || year > maxYear) return 'profile_year_invalid'.tr();
+    return null;
+  }
+
+  String? _seatsValidator(String? value) {
+    final seats = int.tryParse(value?.trim() ?? '');
+    if (seats == null) return 'form_number_invalid'.tr();
+    if (seats <= 0) return 'form_number_positive'.tr();
+    return null;
+  }
+
+  String? _maxMassValidator(String? value) {
+    final base = _positive(value);
+    if (base != null) return base;
+    final mass = parseLocaleDouble(value ?? '')!;
+    final weight = parseLocaleDouble(_weight.text);
+    if (weight != null && mass < weight) {
+      return 'profile_max_mass_invalid'.tr();
+    }
+    return null;
   }
 
   void _save() {
@@ -464,265 +423,182 @@ class _VehicleProfileEditorState extends State<_VehicleProfileEditor> {
     Navigator.of(context).pop(
       VehicleProfile(
         id: widget.profile?.id,
-        vehicleType: _typeController.text.trim(),
-        brand: _brandController.text.trim(),
-        model: _modelController.text.trim(),
-        year: int.parse(_yearController.text.trim()),
-        plate: _trimmedOrNull(_plateController.text),
-        length: double.parse(_lengthController.text.trim()),
-        width: double.parse(_widthController.text.trim()),
-        height: double.parse(_heightController.text.trim()),
-        weight: double.parse(_weightController.text.trim()),
-        maxMass: double.parse(_maxMassController.text.trim()),
-        seats: int.parse(_seatsController.text.trim()),
-        fuelType: _fuelController.text.trim(),
-        mileage: double.parse(_mileageController.text.trim()),
-        fuelCapacity: _parseOptionalDouble(_fuelCapacityController.text),
-        waterCapacity: _parseOptionalDouble(_waterCapacityController.text),
-        gasCapacity: _parseOptionalDouble(_gasCapacityController.text),
-        electricRange: _parseOptionalDouble(_electricRangeController.text),
-        notes: _trimmedOrNull(_notesController.text),
+        vehicleType: _type.text.trim(),
+        brand: _brand.text.trim(),
+        model: _model.text.trim(),
+        year: int.parse(_year.text.trim()),
+        plate: _nullable(_plate.text),
+        length: parseLocaleDouble(_length.text)!,
+        width: parseLocaleDouble(_width.text)!,
+        height: parseLocaleDouble(_height.text)!,
+        weight: parseLocaleDouble(_weight.text)!,
+        maxMass: parseLocaleDouble(_maxMass.text)!,
+        seats: int.parse(_seats.text.trim()),
+        fuelType: _fuel.text.trim(),
+        mileage: parseLocaleDouble(_mileage.text)!,
+        fuelCapacity: parseLocaleDouble(_fuelCapacity.text),
+        waterCapacity: parseLocaleDouble(_waterCapacity.text),
+        gasCapacity: parseLocaleDouble(_gasCapacity.text),
+        electricRange: parseLocaleDouble(_electricRange.text),
+        notes: _nullable(_notes.text),
         updatedAt: DateTime.now(),
       ),
     );
   }
 
-  String? _requiredText(String? value, String label) {
-    if (value == null || value.trim().isEmpty) return '$label is required';
-    return null;
-  }
-
-  String? _requiredNumber(String? value, String label) {
-    if (value == null || value.trim().isEmpty) return '$label is required';
-    return double.tryParse(value.trim()) == null
-        ? 'Enter a valid number'
-        : null;
-  }
-
-  String? _requiredInt(String? value, String label) {
-    if (value == null || value.trim().isEmpty) return '$label is required';
-    return int.tryParse(value.trim()) == null ? 'Enter a valid number' : null;
-  }
-
-  String? _optionalNumber(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
-    return double.tryParse(value.trim()) == null
-        ? 'Enter a valid number'
-        : null;
-  }
-
-  double? _parseOptionalDouble(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    return double.parse(trimmed);
-  }
-
-  String? _trimmedOrNull(String value) {
+  String? _nullable(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
 
-  Widget _buildField(
+  Widget _field(
     TextEditingController controller,
     String label, {
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    int minLines = 1,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      minLines: minLines,
+      maxLines: maxLines,
       decoration: InputDecoration(labelText: label),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    const decimalKeyboard =
+        TextInputType.numberWithOptions(decimal: true, signed: false);
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
-        left: 24,
-        right: 24,
-        top: 24,
+        left: 20,
+        right: 20,
+        top: 20,
       ),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.profile == null ? 'Create profile' : 'Edit profile',
+                widget.profile == null
+                    ? 'profile_create'.tr()
+                    : 'profile_edit'.tr(),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
-              _buildField(
-                _typeController,
-                'Vehicle type',
-                validator: (value) => _requiredText(value, 'Vehicle type'),
-              ),
+              _field(_type, 'profile_vehicle_type'.tr(), validator: _requiredText),
               const SizedBox(height: 12),
-              _buildField(
-                _brandController,
-                'Brand',
-                validator: (value) => _requiredText(value, 'Brand'),
-              ),
+              _field(_brand, 'profile_brand'.tr(), validator: _requiredText),
               const SizedBox(height: 12),
-              _buildField(
-                _modelController,
-                'Model',
-                validator: (value) => _requiredText(value, 'Model'),
-              ),
+              _field(_model, 'profile_model'.tr(), validator: _requiredText),
               const SizedBox(height: 12),
-              _buildField(
-                _yearController,
-                'Year',
+              _field(
+                _year,
+                'profile_year'.tr(),
                 keyboardType: TextInputType.number,
-                validator: (value) => _requiredInt(value, 'Year'),
+                validator: _yearValidator,
               ),
               const SizedBox(height: 12),
-              _buildField(
-                _plateController,
-                'Plate (optional)',
+              _field(_plate, 'profile_plate'.tr()),
+              const SizedBox(height: 12),
+              _field(
+                _length,
+                'profile_length'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _positive,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _lengthController,
-                      'Length (m)',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredNumber(value, 'Length'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildField(
-                      _widthController,
-                      'Width (m)',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredNumber(value, 'Width'),
-                    ),
-                  ),
-                ],
+              _field(
+                _width,
+                'profile_width'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _positive,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _heightController,
-                      'Height (m)',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredNumber(value, 'Height'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildField(
-                      _weightController,
-                      'Weight (kg)',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredNumber(value, 'Weight'),
-                    ),
-                  ),
-                ],
+              _field(
+                _height,
+                'profile_height'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _positive,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _maxMassController,
-                      'Max mass (kg)',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredNumber(value, 'Max mass'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildField(
-                      _seatsController,
-                      'Seats',
-                      keyboardType: TextInputType.number,
-                      validator: (value) => _requiredInt(value, 'Seats'),
-                    ),
-                  ),
-                ],
+              _field(
+                _weight,
+                'profile_weight'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _positive,
               ),
               const SizedBox(height: 12),
-              _buildField(
-                _fuelController,
-                'Fuel type',
-                validator: (value) => _requiredText(value, 'Fuel type'),
+              _field(
+                _maxMass,
+                'profile_max_mass'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _maxMassValidator,
               ),
               const SizedBox(height: 12),
-              _buildField(
-                _mileageController,
-                'Mileage (km)',
+              _field(
+                _seats,
+                'profile_seats'.tr(),
                 keyboardType: TextInputType.number,
-                validator: (value) => _requiredNumber(value, 'Mileage'),
+                validator: _seatsValidator,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _fuelCapacityController,
-                      'Fuel tank (L)',
-                      keyboardType: TextInputType.number,
-                      validator: _optionalNumber,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildField(
-                      _waterCapacityController,
-                      'Water tank (L)',
-                      keyboardType: TextInputType.number,
-                      validator: _optionalNumber,
-                    ),
-                  ),
-                ],
+              _field(_fuel, 'profile_fuel_type'.tr(), validator: _requiredText),
+              const SizedBox(height: 12),
+              _field(
+                _mileage,
+                'profile_current_mileage'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _nonNegative,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _gasCapacityController,
-                      'Gas tank (kg)',
-                      keyboardType: TextInputType.number,
-                      validator: _optionalNumber,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildField(
-                      _electricRangeController,
-                      'Electric range (km)',
-                      keyboardType: TextInputType.number,
-                      validator: _optionalNumber,
-                    ),
-                  ),
-                ],
+              _field(
+                _fuelCapacity,
+                'profile_fuel_tank'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _optionalPositive,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesController,
+              _field(
+                _waterCapacity,
+                'profile_water_tank'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _optionalPositive,
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _gasCapacity,
+                'profile_gas_tank'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _optionalPositive,
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _electricRange,
+                'profile_electric_range'.tr(),
+                keyboardType: decimalKeyboard,
+                validator: _optionalPositive,
+              ),
+              const SizedBox(height: 12),
+              _field(
+                _notes,
+                'profile_notes'.tr(),
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Notes'),
               ),
               const SizedBox(height: 20),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: _save,
-                  child: const Text('Save'),
-                ),
+              FilledButton(
+                onPressed: _save,
+                child: Text('save'.tr()),
               ),
             ],
           ),

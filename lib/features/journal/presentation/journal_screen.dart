@@ -9,10 +9,12 @@ import '../../../shared/widgets/screen_scaffold.dart';
 class JournalScreen extends StatefulWidget {
   const JournalScreen({
     this.repository,
+    this.initialEntryId,
     super.key,
   });
 
   final JournalRepository? repository;
+  final int? initialEntryId;
 
   @override
   State<JournalScreen> createState() => _JournalScreenState();
@@ -51,6 +53,14 @@ class _JournalScreenState extends State<JournalScreen> {
     try {
       final entries = await _repository.listEntries();
       if (!mounted) return;
+      final targetId = widget.initialEntryId;
+      if (targetId != null) {
+        entries.sort((a, b) {
+          if (a.id == targetId) return -1;
+          if (b.id == targetId) return 1;
+          return _sortEntries(a, b);
+        });
+      }
       setState(() {
         _entries = entries;
         _isLoading = false;

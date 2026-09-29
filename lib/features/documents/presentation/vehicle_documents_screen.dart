@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/document_capture_service.dart';
 import '../../../core/services/document_ocr_service.dart';
 import '../../../core/services/document_services_models.dart';
+import '../../../core/services/document_storage_service.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/vehicle_document.dart';
 import '../../../data/repositories/local_vehicle_document_repository.dart';
@@ -18,6 +19,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
     this.captureService,
     this.ocrService,
     this.reminderService,
+    this.initialDocumentId,
     super.key,
   });
 
@@ -25,6 +27,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
   final DocumentCaptureService? captureService;
   final DocumentOcrService? ocrService;
   final ReminderSyncService? reminderService;
+  final int? initialDocumentId;
 
   @override
   State<VehicleDocumentsScreen> createState() => _VehicleDocumentsScreenState();
@@ -37,6 +40,8 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       widget.captureService ?? createDocumentCaptureService();
   late final DocumentOcrService _ocrService =
       widget.ocrService ?? createDocumentOcrService();
+  late final DocumentStorageService _storageService =
+      createDocumentStorageService();
   late final ReminderSyncService _reminderService =
       widget.reminderService ?? ReminderCoordinator();
 
@@ -48,6 +53,14 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
   List<VehicleDocument> get _filteredDocuments {
     return _documents.where((document) => document.matches(_query)).toList();
+  }
+
+  int get _expiredCount {
+    final now = DateTime.now();
+    return _documents.where((document) {
+      final expiry = document.expiryDate;
+      return expiry != null && !expiry.isAfter(now);
+    }).length;
   }
 
   int get _expiringCount {
@@ -74,6 +87,14 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     try {
       final documents = await _repository.listDocuments();
       if (!mounted) return;
+      final targetId = widget.initialDocumentId;
+      if (targetId != null) {
+        documents.sort((a, b) {
+          if (a.id == targetId) return -1;
+          if (b.id == targetId) return 1;
+          return 0;
+        });
+      }
       setState(() {
         _documents = documents;
         _isLoading = false;
@@ -152,10 +173,13 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
       final ocrResult = await _runOcr(captureResult.imagePaths);
       if (!mounted) return;
-      await _openEditor(
+      final saved = await _openEditor(
         captureResult: captureResult,
         ocrResult: ocrResult,
       );
+      if (!saved) {
+        await _storageService.deleteFiles(captureResult.filePaths);
+      }
     } on UnsupportedError catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
@@ -222,7 +246,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     }
   }
 
-  Future<void> _openEditor({
+  Future<bool> _openEditor({
     VehicleDocument? document,
     DocumentCaptureResult? captureResult,
     OcrResult? ocrResult,
@@ -236,12 +260,12 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
         ocrResult: ocrResult,
       ),
     );
-    if (result == null) return;
+    if (result == null) return false;
 
     try {
       final saved = await _repository.saveDocument(result);
       await _reminderService.syncDocument(saved);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         if (document == null) {
           _documents = [saved, ..._documents];
@@ -252,13 +276,39 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
           ];
         }
       });
+      return true;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _error = 'document_error_save_failed'.tr());
+      return false;
     }
   }
 
   Future<void> _deleteDocument(VehicleDocument document) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('documents_delete_confirm_title'.tr()),
+            content: Text(
+              'documents_delete_confirm_body'.tr(
+                namedArgs: {'title': document.title},
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('delete'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
     final previous = _documents;
     setState(() {
       _documents = _documents.where((item) => item.id != document.id).toList();
@@ -286,8 +336,8 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       title: 'documents_title'.tr(),
       subtitle: 'documents_subtitle'.tr(),
       children: [
-        GridView.count(
-          crossAxisCount: 3,
+        GridView.extent(
+          maxCrossAxisExtent: 190,
           childAspectRatio: 0.92,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
@@ -308,6 +358,12 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
                   .length
                   .toString(),
               detail: 'documents_metric_private'.tr(),
+            ),
+            MetricTile(
+              icon: Icons.error_outline,
+              label: 'documents_metric_expired'.tr(),
+              value: _expiredCount.toString(),
+              detail: 'documents_metric_expired_detail'.tr(),
             ),
             MetricTile(
               icon: Icons.event_busy_outlined,
@@ -349,7 +405,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
           for (final document in filtered) ...[
             _VehicleDocumentCard(
               document: document,
-              onEdit: () => _openEditor(document: document),
+              onEdit: () { _openEditor(document: document); },
               onDelete: () => _deleteDocument(document),
               onRetryOcr: () => _retryOcr(document),
             ),
@@ -374,6 +430,11 @@ class _VehicleDocumentCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRetryOcr;
+
+  bool get _isExpired {
+    final expiry = document.expiryDate;
+    return expiry != null && !expiry.isAfter(DateTime.now());
+  }
 
   bool get _isExpiring {
     final expiry = document.expiryDate;
@@ -409,14 +470,20 @@ class _VehicleDocumentCard extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
-                    if (_isExpiring)
+                    if (_isExpired)
+                      Icon(
+                        Icons.error_outline,
+                        size: 19,
+                        color: Theme.of(context).colorScheme.error,
+                      )
+                    else if (_isExpiring)
                       const Icon(Icons.warning_amber_outlined, size: 18),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   [
-                    document.category,
+                    document.category.tr(),
                     '${document.pageCount} ${'documents_pages'.tr()}',
                     _ocrLabel(document.ocrStatus),
                   ].join(' - '),

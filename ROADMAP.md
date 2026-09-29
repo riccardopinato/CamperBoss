@@ -278,13 +278,45 @@ Esito:
 
 ## STEP 16 — Release Core
 
-Stato: `CURRENT`
+Stato: `BLOCKED`
 
-- monetizzazione reale dietro entitlement, senza CTA finte;
+Obiettivi:
+
+- eliminare paywall, piani e CTA di acquisto finti;
+- mantenere un boundary di entitlement provider-agnostic, senza scegliere ora RevenueCat o altri provider;
 - privacy/backup Android e iOS verificati per documenti e dati sensibili;
 - localizzazione completa, inclusa opzione lingua Sistema/Automatico;
 - CI/release checks, AppLab/device QA e size audit;
-- hardening degli stati offline, errore e recovery.
+- hardening degli stati offline, errore e recovery;
+- deploy Web stabile per la verifica da PC.
+
+Implementato:
+
+- monetizzazione reale rinviata per decisione di prodotto; nessun SDK di billing/RevenueCat incluso nel Release Core;
+- interfaccia di entitlement neutra mantenuta dormiente per il futuro, senza piani o checkout esposti nella UI;
+- download mappe offline non bloccato da un paywall prematuro;
+- lingua Sistema/Automatico e cataloghi IT/EN/DE/FR/ES/PT allineati;
+- backup Android disabilitato per dati privati, cleartext disabilitato e data extraction rules;
+- bridge iOS per escludere i documenti privati dal backup cloud automatico;
+- deploy Web Pages stabile;
+- build gate Android/iOS/Web e audit dimensioni bundle;
+- test di parita traduzioni e comportamento monetizzazione differita;
+- stati errore offline con retry esplicito e azioni sicure;
+- recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili;
+- progetto iOS corretto con file reference esplicita per il bridge privacy;
+- workflow Release Core pubblica APK ARM64 per 1 giorno e cancella run superati;
+- vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate;
+- Step 16C Foundation Repair completato: superfici condivise theme-aware, rimozione fallback/localita simulate, Home e meteo basati solo su dati reali, setup senza profilo demo, notifiche con recovery esplicito, profilo/manutenzione/documenti hardenizzati, conferme distruttive e pulizia delle etichette debug della Mappa;
+- cataloghi IT/EN/DE/FR/ES/PT riallineati e test di parita aggiornati;
+- certificazione Step 16C: `flutter analyze` PASS, `flutter test` 108/108 PASS, APK ARM64 release PASS, Web release PASS; artifact `camperboss-step16c-arm64-release` (48,428,372 byte).
+
+Blocchi esterni di certificazione:
+
+- completare prova fisica MapLibre offline con rete disattivata;
+- completare i successivi repair funzionali 16D/16E emersi dall'audit (Mappa/offline, Viaggi, Camper, Altro);
+- completare device/AppLab QA finale sul nuovo Release Core prima di rendere la PR nuovamente Ready.
+
+Non promuovere STEP 17 finche questi gate non sono chiusi.
 
 ## STEP 17 — Local AI Micro Engine
 

@@ -1,0 +1,30 @@
+# CamperBoss Home audit for AppLab — v2.
+# Focus: first-run Home reachability and Product Truth.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Camper cockpit"
+    timeout: 20000
+
+# Flutter groups these cards into semantic content descriptions,
+# so regex selectors intentionally match the complete semantics node.
+- assertVisible:
+    text: ".*Boss Readiness.*"
+- assertVisible:
+    text: ".*Mileage.*"
+- assertVisible:
+    text: ".*Checklist.*"
+- assertVisible:
+    text: ".*Documents.*"
+- assertVisible:
+    text: ".*Maintenance.*"
+
+- takeScreenshot: "camperboss-home-initial"
+
+# Product Truth gate: a clean install must not present a simulated default place.
+# Current CamperBoss is expected to fail here until the hard-coded fallback is removed.
+- assertNotVisible:
+    text: ".*Lake Garda.*"

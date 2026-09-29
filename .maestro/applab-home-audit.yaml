@@ -1,0 +1,34 @@
+# CamperBoss Home audit for AppLab.
+# Non-destructive runtime coverage for the first-run Home surface.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible: "Camper cockpit"
+    timeout: 20000
+
+# Flutter merges several card descendants into one accessibility node.
+- assertVisible:
+    text: ".*Boss Readiness.*"
+- assertVisible:
+    text: ".*Mileage.*Vehicle not configured.*"
+- assertVisible:
+    text: ".*Checklist.*No checklist created.*"
+- assertVisible:
+    text: ".*Documents.*No documents saved.*"
+- assertVisible:
+    text: ".*Maintenance.*No service history.*"
+
+- takeScreenshot: "camperboss-home-initial"
+
+# Scroll the same Home surface to collect lower-page visual/runtime evidence.
+- scroll
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Needs attention.*"
+    timeout: 10000
+
+- takeScreenshot: "camperboss-home-scrolled"

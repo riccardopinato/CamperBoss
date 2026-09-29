@@ -29,8 +29,15 @@ class LocalVehicleProfileRepository implements VehicleProfileRepository {
   Future<VehicleProfile?> loadProfile() => _store.loadProfile();
 
   @override
-  Future<VehicleProfile> saveProfile(VehicleProfile profile) =>
-      _store.saveProfile(profile);
+  Future<VehicleProfile> saveProfile(VehicleProfile profile) {
+    final errors = profile.validationErrors();
+    if (errors.isNotEmpty) {
+      throw ArgumentError(
+        'Invalid vehicle profile fields: ${errors.join(', ')}',
+      );
+    }
+    return _store.saveProfile(profile);
+  }
 
   @override
   Future<void> deleteProfile() => _store.deleteProfile();

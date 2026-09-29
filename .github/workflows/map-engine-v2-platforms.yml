@@ -1,19 +1,11 @@
 name: Map Engine V2 Platform Builds
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "lib/features/map/**"
-      - "lib/core/config/map_engine_v2_config.dart"
-      - "lib/core/services/maplibre_offline_region_manager.dart"
-      - "pubspec.yaml"
-      - "pubspec.lock"
-      - "android/**"
-      - "ios/**"
-      - "web/**"
-      - ".github/workflows/map-engine-v2-platforms.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   android:

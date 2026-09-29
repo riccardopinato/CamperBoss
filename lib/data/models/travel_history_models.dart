@@ -247,6 +247,7 @@ class TravelHistoryStats {
     required this.placeCount,
     required this.totalCostMinor,
     required this.totalFuelLiters,
+    this.costByCurrency = const {},
     this.duration,
     this.elevationGainMeters,
     this.averageSpeedKmh,
@@ -256,8 +257,14 @@ class TravelHistoryStats {
   final double distanceMeters;
   final int trackDays;
   final int placeCount;
+  /// Backward-compatible total. It is populated only when all linked costs
+  /// share one currency; mixed currencies are never added together.
   final int totalCostMinor;
   final double totalFuelLiters;
+  final Map<String, int> costByCurrency;
+
+  bool get hasMixedCurrencies => costByCurrency.length > 1;
+
   final Duration? duration;
   final double? elevationGainMeters;
   final double? averageSpeedKmh;

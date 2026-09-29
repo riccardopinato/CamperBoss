@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_spacing.dart';
-import '../../core/theme/app_colors.dart';
 
 class ActionTile extends StatelessWidget {
   const ActionTile({
@@ -19,22 +18,27 @@ class ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Container(
+        child: Ink(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.surfaceSoft,
+            color: scheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.65),
+            ),
           ),
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: AppColors.forest,
-                child: Icon(icon, color: AppColors.text),
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(icon, color: scheme.onPrimaryContainer),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -43,22 +47,29 @@ class ActionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       subtitle,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.muted,
+                            color: scheme.onSurfaceVariant,
                           ),
                     ),
                   ],
                 ),
               ),
+              if (onTap != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              ],
             ],
           ),
         ),

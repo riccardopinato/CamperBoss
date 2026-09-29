@@ -1,19 +1,22 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
 import '../../../core/services/camper_routing_profile_resolver.dart';
+import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/routing_service.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/services/trip_deletion_service.dart';
 import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/models/vehicle_profile.dart';
+import '../../../data/repositories/local_finance_repository.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
+import '../../map/presentation/maplibre_overlay_map.dart';
+import '../../../core/services/travel_history_service.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -29,7 +32,11 @@ class TripPlannerScreen extends StatefulWidget {
     this.routingService,
     this.vehicleProfileRepository,
     this.routingProfileResolver = const CamperRoutingProfileResolver(),
+    this.geocodingService = const GeocodingService(),
+    this.deletionService,
+    this.initialTripId,
     this.isRoutingConfigured,
+    this.renderMaps = true,
     super.key,
   });
 
@@ -38,7 +45,11 @@ class TripPlannerScreen extends StatefulWidget {
   final RoutingService? routingService;
   final VehicleProfileRepository? vehicleProfileRepository;
   final CamperRoutingProfileResolver routingProfileResolver;
+  final GeocodingService geocodingService;
+  final TripDeletionService? deletionService;
+  final int? initialTripId;
   final bool? isRoutingConfigured;
+  final bool renderMaps;
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -53,6 +64,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
   late final VehicleProfileRepository _vehicleProfileRepository =
       widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
+  late final TripDeletionService _deletionService =
+      widget.deletionService ??
+          TripDeletionService(
+            tripRepository: _repository,
+            routePreviewRepository: _routePreviewRepository,
+            financeRepository:
+                widget.repository == null ? LocalFinanceRepository() : null,
+            historyService: widget.repository == null
+                ? TravelHistoryService()
+                : null,
+          );
   late final bool _isRoutingConfigured =
       widget.isRoutingConfigured ?? RoutingConfig.isOpenRouteServiceConfigured;
 
@@ -92,10 +114,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         vehicleProfile = null;
       }
       if (!mounted) return;
+      final requestedIndex = widget.initialTripId == null
+          ? -1
+          : trips.indexWhere((trip) => trip.id == widget.initialTripId);
       setState(() {
         _trips = trips;
         _vehicleProfile = vehicleProfile;
-        _selectedIndex = 0;
+        _selectedIndex = requestedIndex >= 0 ? requestedIndex : 0;
         _isLoading = false;
       });
       await _loadRoutePreviewForSelectedTrip();
@@ -112,7 +137,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final result = await showModalBottomSheet<TripPlan>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _TripEditor(trip: trip),
+      builder: (context) => _TripEditor(
+        trip: trip,
+        geocodingService: widget.geocodingService,
+      ),
     );
 
     if (result == null) return;
@@ -143,6 +171,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final id = trip?.id;
     if (trip == null || id == null) return;
 
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('trip_delete_title'.tr()),
+            content: Text(
+              'trip_delete_body'.tr(namedArgs: {'title': trip.title}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('delete'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
     final previous = _trips;
     setState(() {
       _trips = _trips.where((entry) => entry.id != id).toList();
@@ -150,8 +200,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
 
     try {
-      await _repository.deleteTrip(id);
-      await _routePreviewRepository.deleteRouteForTrip(id);
+      await _deletionService.deleteTrip(id);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -219,7 +268,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     if (trip == null || id == null) return null;
     return widget.routingProfileResolver.applyVehicleProfile(
       tripId: id,
-      waypoints: parseRouteWaypoints(trip.stages),
+      waypoints: [
+        for (final stage in trip.resolvedStages)
+          if (stage.isGeocoded)
+            RouteWaypoint(
+              name: stage.name,
+              latitude: stage.latitude!,
+              longitude: stage.longitude!,
+            ),
+      ],
       vehicle: _vehicleProfile,
     );
   }
@@ -376,6 +433,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             routeFailure: routeFailure,
             canCalculate: canCalculateRoute,
             onCalculate: _calculateRoute,
+            renderMap: widget.renderMaps,
           ),
           const SizedBox(height: 16),
           for (final stage in trip.stages) ...[
@@ -441,6 +499,7 @@ class _RoutePreviewCard extends StatelessWidget {
     required this.routeFailure,
     required this.canCalculate,
     required this.onCalculate,
+    required this.renderMap,
   });
 
   final RouteRequest? request;
@@ -452,6 +511,7 @@ class _RoutePreviewCard extends StatelessWidget {
   final RouteFailure? routeFailure;
   final bool canCalculate;
   final VoidCallback onCalculate;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +570,7 @@ class _RoutePreviewCard extends StatelessWidget {
             _RouteMap(
               geometry: route.geometry,
               waypoints: request?.waypoints ?? const [],
+              renderMap: renderMap,
             ),
             const SizedBox(height: 12),
             Row(
@@ -666,68 +727,45 @@ class _RouteMap extends StatelessWidget {
   const _RouteMap({
     required this.geometry,
     required this.waypoints,
+    required this.renderMap,
   });
 
   final List<LatLng> geometry;
   final List<RouteWaypoint> waypoints;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
-    final center = geometry.isEmpty
-        ? const LatLng(45.6049, 10.6351)
-        : geometry[geometry.length ~/ 2];
-
     return AspectRatio(
       aspectRatio: 1.7,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 9.5,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-            ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.camperboss.camperboss',
-            ),
+        child: MapLibreOverlayMap(
+          renderMap: renderMap,
+          paths: [
             if (geometry.length > 1)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: geometry,
-                    color: AppColors.gold,
-                    strokeWidth: 5,
-                  ),
-                ],
-              ),
-            MarkerLayer(
-              markers: [
-                for (final waypoint in waypoints)
-                  Marker(
-                    point: waypoint.point,
-                    width: 42,
-                    height: 42,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.surface,
-                        border: Border.all(color: AppColors.gold, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.place, color: AppColors.gold),
+              MapLibreOverlayPath(
+                id: 'route-preview',
+                points: [
+                  for (final point in geometry)
+                    MapLibreOverlayPoint(
+                      id: 'route-${point.latitude}-${point.longitude}',
+                      latitude: point.latitude,
+                      longitude: point.longitude,
                     ),
-                  ),
-              ],
-            ),
+                ],
+                colorHex: '#E6B85C',
+                width: 5,
+              ),
+          ],
+          points: [
+            for (var index = 0; index < waypoints.length; index++)
+              MapLibreOverlayPoint(
+                id: 'waypoint:$index',
+                latitude: waypoints[index].latitude,
+                longitude: waypoints[index].longitude,
+                kind: 'waypoint',
+              ),
           ],
         ),
       ),
@@ -791,9 +829,13 @@ class _TripMetrics extends StatelessWidget {
 }
 
 class _TripEditor extends StatefulWidget {
-  const _TripEditor({this.trip});
+  const _TripEditor({
+    required this.geocodingService,
+    this.trip,
+  });
 
   final TripPlan? trip;
+  final GeocodingService geocodingService;
 
   @override
   State<_TripEditor> createState() => _TripEditorState();
@@ -809,6 +851,8 @@ class _TripEditorState extends State<_TripEditor> {
   late final TextEditingController _notesController;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isResolvingStages = false;
+  String? _stageResolutionStatus;
 
   @override
   void initState() {
@@ -859,6 +903,63 @@ class _TripEditorState extends State<_TripEditor> {
     });
   }
 
+  Future<void> _resolveStages() async {
+    if (_isResolvingStages) return;
+    final lines = _stagesController.text
+        .split('\n')
+        .map((stage) => stage.trim())
+        .where((stage) => stage.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return;
+
+    setState(() {
+      _isResolvingStages = true;
+      _stageResolutionStatus = null;
+    });
+
+    final resolved = <String>[];
+    var unresolved = 0;
+    try {
+      for (final line in lines) {
+        final parsed = TripStage.fromLegacy(line);
+        if (parsed.isGeocoded) {
+          resolved.add(parsed.legacyLabel);
+          continue;
+        }
+
+        try {
+          final results = await widget.geocodingService.search(parsed.name);
+          if (results.isEmpty) {
+            unresolved++;
+            resolved.add(line);
+            continue;
+          }
+          final location = results.first;
+          resolved.add(
+            TripStage(
+              name: location.name,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            ).legacyLabel,
+          );
+        } catch (_) {
+          unresolved++;
+          resolved.add(line);
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _stagesController.text = resolved.join('\n');
+        _stageResolutionStatus = unresolved == 0
+            ? 'Tutte le tappe sono geolocalizzate e pronte per il routing.'
+            : '$unresolved tappa/e non risolte: controllale o inserisci le coordinate.';
+      });
+    } finally {
+      if (mounted) setState(() => _isResolvingStages = false);
+    }
+  }
+
   void _save() {
     final title = _titleController.text.trim();
     final destination = _destinationController.text.trim();
@@ -870,7 +971,11 @@ class _TripEditorState extends State<_TripEditor> {
         .map((stage) => stage.trim())
         .where((stage) => stage.isNotEmpty)
         .toList();
-    final cost = double.tryParse(_costController.text.trim());
+    final stageDetails =
+        stages.map(TripStage.fromLegacy).toList(growable: false);
+    final cost = double.tryParse(
+      _costController.text.trim().replaceAll(',', '.'),
+    );
     final notes = _notesController.text.trim();
     final overnightStop = _overnightController.text.trim();
     final progress = (stages.length / 6).clamp(0.0, 1.0);
@@ -885,6 +990,7 @@ class _TripEditorState extends State<_TripEditor> {
         startDate: _startDate,
         endDate: _endDate,
         stages: stages,
+        stageDetails: stageDetails,
         overnightStop: overnightStop.isEmpty ? null : overnightStop,
         estimatedCost: cost,
         notes: notes.isEmpty ? null : notes,
@@ -934,9 +1040,31 @@ class _TripEditorState extends State<_TripEditor> {
               maxLines: 5,
               decoration: const InputDecoration(
                 labelText: 'Stages',
-                hintText: 'One stop per line, e.g. Verona | 45.4384, 10.9916',
+                hintText:
+                    'Una tappa per riga. Puoi scrivere Verona oppure Verona | 45.4384, 10.9916',
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _isResolvingStages ? null : _resolveStages,
+                icon: _isResolvingStages
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.location_searching_outlined),
+                label: const Text('Geolocalizza tappe'),
+              ),
+            ),
+            if (_stageResolutionStatus != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _stageResolutionStatus!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _overnightController,

@@ -26,13 +26,13 @@ class WeatherSnapshot {
   final int weatherCode;
   final String time;
 
-  String get condition {
-    if (weatherCode == 0) return 'Clear';
-    if (weatherCode <= 3) return 'Cloudy';
-    if (weatherCode <= 67) return 'Rain risk';
-    if (weatherCode <= 77) return 'Snow risk';
-    if (weatherCode >= 95) return 'Storm risk';
-    return 'Mixed';
+  String get conditionKey {
+    if (weatherCode == 0) return 'weather_condition_clear';
+    if (weatherCode <= 3) return 'weather_condition_cloudy';
+    if (weatherCode <= 67) return 'weather_condition_rain';
+    if (weatherCode <= 77) return 'weather_condition_snow';
+    if (weatherCode >= 95) return 'weather_condition_storm';
+    return 'weather_condition_mixed';
   }
 }
 
@@ -44,10 +44,17 @@ class WeatherService {
   static const _endpoint = 'https://api.open-meteo.com/v1/forecast';
 
   Future<WeatherSnapshot> fetchCurrent({
-    double latitude = 45.6049,
-    double longitude = 10.6351,
-    String location = 'Lake Garda basecamp',
+    double? latitude,
+    double? longitude,
+    String? location,
   }) async {
+    if (latitude == null ||
+        longitude == null ||
+        location == null ||
+        location.trim().isEmpty) {
+      throw ArgumentError('A real location is required for live weather.');
+    }
+
     final client = _client ?? http.Client();
     final uri = Uri.parse(_endpoint).replace(
       queryParameters: {

@@ -57,4 +57,29 @@ void main() {
     await repository.deleteProfile();
     expect(await repository.loadProfile(), isNull);
   });
+
+  test('vehicle repository rejects invalid physical data', () async {
+    final repository =
+        LocalVehicleProfileRepository(store: MemoryVehicleProfileStore());
+
+    expect(
+      () => repository.saveProfile(
+        const VehicleProfile(
+          vehicleType: 'Motorhome',
+          brand: 'Fiat',
+          model: 'Ducato',
+          year: 2024,
+          length: 7.2,
+          width: 2.35,
+          height: 3.05,
+          weight: 3600,
+          maxMass: 3500,
+          seats: 4,
+          fuelType: 'Diesel',
+          mileage: 1000,
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
 }

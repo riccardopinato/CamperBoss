@@ -77,6 +77,7 @@ void main() {
         home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
+          renderMaps: false,
         ),
       ),
     );
@@ -116,6 +117,9 @@ void main() {
     await tester.ensureVisible(find.byTooltip('Delete trip'));
     await tester.tap(find.byTooltip('Delete trip'));
     await tester.pumpAndSettle();
+    expect(repository.trips.length, 2);
+    await tester.tap(find.text('delete'));
+    await tester.pumpAndSettle();
 
     expect(repository.trips.length, 1);
     expect(find.text('Coast weekend'), findsNothing);
@@ -146,6 +150,7 @@ void main() {
           routePreviewRepository: routeRepository,
           routingService: const FakeRoutingService(),
           isRoutingConfigured: true,
+          renderMaps: false,
         ),
       ),
     );
@@ -193,6 +198,7 @@ void main() {
           routePreviewRepository: FakeRoutePreviewRepository(),
           routingService: const FakeRoutingService(),
           isRoutingConfigured: false,
+          renderMaps: false,
         ),
       ),
     );

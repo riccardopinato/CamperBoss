@@ -39,7 +39,7 @@ class OfflineContentScreen extends ConsumerWidget {
                   );
                 },
                 icon: const Icon(Icons.menu_book_outlined),
-                label: const Text('Open guides'),
+                label: Text('offline_open_guides'.tr()),
               ),
               OutlinedButton.icon(
                 onPressed: () {
@@ -50,7 +50,7 @@ class OfflineContentScreen extends ConsumerWidget {
                   );
                 },
                 icon: const Icon(Icons.rocket_launch_outlined),
-                label: const Text('Guided setup'),
+                label: Text('offline_guided_setup'.tr()),
               ),
             ],
           ),
@@ -73,15 +73,19 @@ class OfflineContentScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Switch(value: true, onChanged: null),
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
         const SizedBox(height: 16),
         storageProjection.when(
           data: (projection) => StorageProjectionCard(projection: projection),
-          error: (error, _) => PremiumCard(
-            child: Text('${'offline_storage_error'.tr()}: $error'),
+          error: (_, __) => _OfflineRecoveryCard(
+            messageKey: 'offline_storage_error',
+            onRetry: () => ref.invalidate(storageProjectionProvider),
           ),
           loading: () => const LinearProgressIndicator(),
         ),
@@ -116,12 +120,57 @@ class OfflineContentScreen extends ConsumerWidget {
               ],
             );
           },
-          error: (error, _) => PremiumCard(
-            child: Text('${'offline_error'.tr()}: $error'),
+          error: (_, __) => _OfflineRecoveryCard(
+            messageKey: 'offline_error',
+            onRetry: () => ref.invalidate(downloadsProvider),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
         ),
       ],
+    );
+  }
+}
+
+class _OfflineRecoveryCard extends StatelessWidget {
+  const _OfflineRecoveryCard({
+    required this.messageKey,
+    required this.onRetry,
+  });
+
+  final String messageKey;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  messageKey.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('offline_recovery_help'.tr()),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: Text('offline_retry'.tr()),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -248,13 +297,19 @@ class DownloadRecordTile extends StatelessWidget {
             children: [
               if (record.status == DownloadStatus.running)
                 OutlinedButton.icon(
-                  onPressed: () => manager.pause(record.packageId),
+                  onPressed: () => _runAction(
+                    context,
+                    () => manager.pause(record.packageId),
+                  ),
                   icon: const Icon(Icons.pause),
                   label: Text('offline_pause'.tr()),
                 ),
               if (record.status == DownloadStatus.paused)
                 FilledButton.icon(
-                  onPressed: () => manager.resume(record.packageId),
+                  onPressed: () => _runAction(
+                    context,
+                    () => manager.resume(record.packageId),
+                  ),
                   icon: const Icon(Icons.play_arrow),
                   label: Text('offline_resume'.tr()),
                 ),
@@ -262,7 +317,10 @@ class DownloadRecordTile extends StatelessWidget {
                   record.status == DownloadStatus.corrupted ||
                   record.status == DownloadStatus.canceled)
                 OutlinedButton.icon(
-                  onPressed: () => manager.retry(record.packageId),
+                  onPressed: () => _runAction(
+                    context,
+                    () => manager.retry(record.packageId),
+                  ),
                   icon: const Icon(Icons.refresh),
                   label: Text('offline_retry'.tr()),
                 ),
@@ -270,12 +328,18 @@ class DownloadRecordTile extends StatelessWidget {
                   record.status == DownloadStatus.queued ||
                   record.status == DownloadStatus.paused)
                 OutlinedButton.icon(
-                  onPressed: () => manager.cancel(record.packageId),
+                  onPressed: () => _runAction(
+                    context,
+                    () => manager.cancel(record.packageId),
+                  ),
                   icon: const Icon(Icons.close),
                   label: Text('offline_cancel'.tr()),
                 ),
               OutlinedButton.icon(
-                onPressed: () => manager.delete(record.packageId),
+                onPressed: () => _runAction(
+                    context,
+                    () => manager.delete(record.packageId),
+                  ),
                 icon: const Icon(Icons.delete_outline),
                 label: Text('offline_delete'.tr()),
               ),
@@ -284,6 +348,20 @@ class DownloadRecordTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _runAction(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('offline_action_failed'.tr())),
+      );
+    }
   }
 
   IconData _iconForType(DownloadPackageType type) {
@@ -343,7 +421,7 @@ class _StatusChip extends StatelessWidget {
     };
 
     return Chip(
-      label: Text(status.name),
+      label: Text('offline_status_${status.name}'.tr()),
       backgroundColor: color.withValues(alpha: 0.18),
       side: BorderSide(color: color.withValues(alpha: 0.5)),
     );

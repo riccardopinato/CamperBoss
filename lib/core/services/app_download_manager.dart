@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../data/models/download_models.dart';
 import '../../data/repositories/download_record_repository.dart';
 import '../../data/repositories/installed_resource_repository.dart';
+import '../../data/repositories/offline_manifest_repository.dart';
 import 'download_file_verifier.dart';
 
 abstract interface class AppDownloadManager {
@@ -25,12 +26,15 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   BackgroundDownloaderManager({
     DownloadRecordRepository? repository,
     InstalledResourceRepository? installedRepository,
+    OfflineManifestRepository? manifestRepository,
     FileDownloader? downloader,
     DownloadFileVerifier verifier = const DownloadFileVerifier(),
     this.allowedHosts = const {},
   })  : _repository = repository ?? LocalDownloadRecordRepository(),
         _installedRepository =
             installedRepository ?? LocalInstalledResourceRepository(),
+        _manifestRepository =
+            manifestRepository ?? LocalOfflineManifestRepository(),
         _downloader = downloader ?? FileDownloader(),
         _verifier = verifier {
     _subscription = _downloader.updates.listen(_handleUpdate);
@@ -38,6 +42,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
 
   final DownloadRecordRepository _repository;
   final InstalledResourceRepository _installedRepository;
+  final OfflineManifestRepository _manifestRepository;
   final FileDownloader _downloader;
   final DownloadFileVerifier _verifier;
   final Set<String> allowedHosts;
@@ -170,8 +175,31 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   @override
   Future<void> retry(String id) async {
     final record = await _repository.getRecord(id);
+    if (record == null) return;
+
     final task = await _taskFor(record);
-    if (record == null || task == null) return;
+    if (task == null) {
+      DownloadManifest? cachedManifest;
+      try {
+        cachedManifest = await _manifestRepository.loadCachedManifest();
+      } catch (_) {
+        cachedManifest = null;
+      }
+
+      final package = findRetryPackage(cachedManifest, record);
+      if (package == null) {
+        await _updateRecord(
+          id,
+          status: DownloadStatus.failed,
+          lastError: 'Retry metadata is unavailable',
+        );
+        return;
+      }
+
+      await enqueue(package);
+      return;
+    }
+
     await _updateRecord(id, status: DownloadStatus.queued, lastError: null);
     final queued = await _downloader.enqueue(task);
     if (!queued) {
@@ -430,6 +458,21 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     await _subscription?.cancel();
     await _controller.close();
   }
+}
+
+DownloadablePackage? findRetryPackage(
+  DownloadManifest? manifest,
+  DownloadRecord record,
+) {
+  if (manifest == null) return null;
+  for (final package in manifest.packages) {
+    if (package.id == record.packageId &&
+        package.version == record.version &&
+        package.fileName == record.fileName) {
+      return package;
+    }
+  }
+  return null;
 }
 
 class FakeDownloadManager implements AppDownloadManager {

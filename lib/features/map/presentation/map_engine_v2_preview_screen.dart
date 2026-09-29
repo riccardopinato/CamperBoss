@@ -7,9 +7,15 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../../core/config/map_engine_v2_config.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
 import '../../../data/models/camper_place.dart';
+import '../../../data/repositories/map_view_state_repository.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../domain/maplibre_poi_clusterer.dart';
 
+/// Production MapLibre surface used by the main Map tab.
+///
+/// The historical class name is intentionally retained for source compatibility
+/// while Step 16D promotes this engine from a preview to the single user-facing
+/// map/offline implementation.
 class MapEngineV2PreviewScreen extends StatefulWidget {
   const MapEngineV2PreviewScreen({
     required this.places,
@@ -17,7 +23,9 @@ class MapEngineV2PreviewScreen extends StatefulWidget {
     required this.initialLongitude,
     this.onOpenDirections,
     this.offlineManager,
+    this.stateRepository,
     this.renderMap = true,
+    this.embedded = false,
     super.key,
   });
 
@@ -26,7 +34,9 @@ class MapEngineV2PreviewScreen extends StatefulWidget {
   final double initialLongitude;
   final Future<void> Function(CamperPlace place)? onOpenDirections;
   final MapLibreOfflineRegionManager? offlineManager;
+  final MapViewStateRepository? stateRepository;
   final bool renderMap;
+  final bool embedded;
 
   @override
   State<MapEngineV2PreviewScreen> createState() =>
@@ -38,11 +48,14 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
 
   late final MapLibreOfflineRegionManager _offlineManager =
       widget.offlineManager ?? const NativeMapLibreOfflineRegionManager();
+  late final MapViewStateRepository _stateRepository =
+      widget.stateRepository ?? MapViewStateRepository();
 
   MapLibreMapController? _mapController;
   bool _styleReady = false;
   bool _syncingPoi = false;
   bool _downloadingOffline = false;
+  bool _restoredCamera = false;
   double _zoom = MapEngineV2Config.initialZoom;
   double _offlineProgress = 0;
   String? _error;
@@ -54,6 +67,31 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   void initState() {
     super.initState();
     unawaited(_loadOfflineRegions());
+  }
+
+  @override
+  void didUpdateWidget(covariant MapEngineV2PreviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.places != widget.places ||
+        oldWidget.places.length != widget.places.length) {
+      unawaited(_syncPoiAnnotations());
+    }
+
+    if (oldWidget.initialLatitude != widget.initialLatitude ||
+        oldWidget.initialLongitude != widget.initialLongitude) {
+      _selectedPlace = null;
+      final controller = _mapController;
+      if (controller != null && !controller.isDisposed) {
+        unawaited(
+          controller.animateCamera(
+            CameraUpdate.newLatLngZoom(
+              LatLng(widget.initialLatitude, widget.initialLongitude),
+              math.max(_zoom, 11.5),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -73,6 +111,42 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _restoreCameraIfAvailable() async {
+    if (_restoredCamera) return;
+    _restoredCamera = true;
+    final controller = _mapController;
+    if (controller == null || controller.isDisposed) return;
+
+    final saved = await _stateRepository.loadCamera();
+    if (saved == null || !mounted) return;
+    _zoom = saved.zoom;
+    await controller.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(saved.latitude, saved.longitude),
+        saved.zoom,
+      ),
+    );
+  }
+
+  Future<void> _persistCamera() async {
+    final controller = _mapController;
+    if (controller == null || controller.isDisposed) return;
+    try {
+      final camera = await controller.queryCameraPosition();
+      if (camera == null) return;
+      _zoom = camera.zoom;
+      await _stateRepository.saveCamera(
+        MapViewportState(
+          latitude: camera.target.latitude,
+          longitude: camera.target.longitude,
+          zoom: camera.zoom,
+        ),
+      );
+    } catch (_) {
+      // Camera persistence is best-effort and must never break the map.
     }
   }
 
@@ -132,9 +206,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         _error = null;
       });
     } on Object catch (error) {
-      if (mounted) {
-        setState(() => _error = error.toString());
-      }
+      if (mounted) setState(() => _error = error.toString());
     } finally {
       _syncingPoi = false;
     }
@@ -199,30 +271,68 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         currentZoom: zoom,
       );
 
+      await _stateRepository.saveRegion(
+        OfflineRegionViewport(
+          id: request.id,
+          name: request.name,
+          centerLatitude: center.latitude,
+          centerLongitude: center.longitude,
+          zoom: zoom,
+          south: request.south,
+          west: request.west,
+          north: request.north,
+          east: request.east,
+        ),
+      );
+
       await for (final snapshot in _offlineManager.download(request)) {
         if (!mounted) return;
         setState(() => _offlineProgress = snapshot.progress);
       }
       await _loadOfflineRegions();
     } on Object catch (error) {
-      if (mounted) {
-        setState(() => _error = error.toString());
-      }
+      if (mounted) setState(() => _error = error.toString());
     } finally {
-      if (mounted) {
-        setState(() => _downloadingOffline = false);
-      }
+      if (mounted) setState(() => _downloadingOffline = false);
     }
+  }
+
+  Future<void> _openRegion(MapLibreOfflineRegionSnapshot region) async {
+    final saved = await _stateRepository.findRegion(region.id);
+    final controller = _mapController;
+    if (saved == null || controller == null || controller.isDisposed) {
+      if (mounted) {
+        setState(() {
+          _error =
+              'Area offline disponibile, ma il viewport storico non è stato salvato. Aprila dalla posizione corrente e risalvala se necessario.';
+        });
+      }
+      return;
+    }
+
+    _zoom = saved.zoom;
+    await controller.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(saved.centerLatitude, saved.centerLongitude),
+        saved.zoom,
+      ),
+    );
+    await _stateRepository.saveCamera(
+      MapViewportState(
+        latitude: saved.centerLatitude,
+        longitude: saved.centerLongitude,
+        zoom: saved.zoom,
+      ),
+    );
   }
 
   Future<void> _deleteRegion(MapLibreOfflineRegionSnapshot region) async {
     try {
       await _offlineManager.delete(region.id);
+      await _stateRepository.deleteRegion(region.id);
       await _loadOfflineRegions();
     } on Object catch (error) {
-      if (mounted) {
-        setState(() => _error = error.toString());
-      }
+      if (mounted) setState(() => _error = error.toString());
     }
   }
 
@@ -231,212 +341,30 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       await _offlineManager.clearAmbientCache();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('MapLibre ambient cache cleared')),
+        const SnackBar(content: Text('Cache cartografica temporanea eliminata')),
       );
     } on Object catch (error) {
-      if (mounted) {
-        setState(() => _error = error.toString());
-      }
+      if (mounted) setState(() => _error = error.toString());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final clusters = _clustersById.values.toList(growable: false);
-    final groupedPois = clusters
-        .where((cluster) => cluster.isCluster)
-        .fold<int>(0, (sum, cluster) => sum + cluster.count);
+    final body = _buildMapBody(context);
+    if (widget.embedded) return body;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map Engine V2'),
+        title: const Text('Mappa'),
         actions: [
           IconButton(
-            tooltip: 'Clear MapLibre cache',
+            tooltip: 'Pulisci cache temporanea',
             onPressed: _offlineManager.isSupported ? _clearAmbientCache : null,
             icon: const Icon(Icons.cleaning_services_outlined),
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: widget.renderMap
-                ? MapLibreMap(
-                    styleString: MapEngineV2Config.styleUrl,
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        widget.initialLatitude,
-                        widget.initialLongitude,
-                      ),
-                      zoom: MapEngineV2Config.initialZoom,
-                    ),
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      controller.onCircleTapped.add(_onCircleTapped);
-                    },
-                    onStyleLoadedCallback: () {
-                      _styleReady = true;
-                      unawaited(_syncPoiAnnotations());
-                    },
-                    onCameraMove: (position) {
-                      _zoom = position.zoom;
-                    },
-                    onCameraIdle: () {
-                      unawaited(_syncPoiAnnotations());
-                    },
-                    annotationOrder: const [AnnotationType.circle],
-                    annotationConsumeTapEvents: const [AnnotationType.circle],
-                    trackCameraPosition: true,
-                    doubleClickZoomEnabled: false,
-                    compassEnabled: true,
-                    compassViewPosition: CompassViewPosition.topRight,
-                    rotateGesturesEnabled: true,
-                    tiltGesturesEnabled: true,
-                    logoEnabled: false,
-                    attributionButtonPosition:
-                        AttributionButtonPosition.bottomRight,
-                  )
-                : ColoredBox(
-                    color: Theme.of(context).colorScheme.surfaceContainer,
-                    child: const Center(
-                      child: Icon(Icons.map_outlined, size: 72),
-                    ),
-                  ),
-          ),
-          Positioned(
-            top: 12,
-            left: 12,
-            right: 12,
-            child: PremiumCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.layers_outlined),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'MapLibre vector POC',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                      Chip(
-                        label: Text(
-                          _offlineManager.isSupported
-                              ? 'native offline'
-                              : 'online renderer',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${widget.places.length} POI - ${clusters.length} rendered groups - $groupedPois clustered',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  Text(
-                    MapEngineV2Config.attribution,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  if (_downloadingOffline) ...[
-                    const SizedBox(height: 10),
-                    LinearProgressIndicator(
-                      value: _offlineProgress > 0 ? _offlineProgress : null,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Preparing visible area offline: ${(_offlineProgress * 100).round()}%',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                  if (_offlineRegions.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final region in _offlineRegions)
-                          InputChip(
-                            label: Text(
-                              '${region.name} - ${_sizeLabel(region.downloadedBytes)}',
-                            ),
-                            avatar: Icon(
-                              region.isComplete
-                                  ? Icons.offline_pin_outlined
-                                  : Icons.downloading_outlined,
-                              size: 18,
-                            ),
-                            onDeleted: () => _deleteRegion(region),
-                          ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          if (_selectedPlace != null)
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: PremiumCard(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.place_outlined),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedPlace!.name,
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          Text(
-                            [
-                              _selectedPlace!.type,
-                              if (_selectedPlace!.city != null)
-                                _selectedPlace!.city!,
-                              if (_selectedPlace!.source != null)
-                                _selectedPlace!.source!,
-                            ].join(' - '),
-                          ),
-                          if (widget.onOpenDirections != null) ...[
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  widget.onOpenDirections!(_selectedPlace!),
-                              icon: const Icon(Icons.directions_outlined),
-                              label: const Text('Directions'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => setState(() => _selectedPlace = null),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+      body: body,
       floatingActionButton: _offlineManager.isSupported
           ? FloatingActionButton.extended(
               onPressed: _downloadingOffline || !_styleReady
@@ -449,9 +377,212 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.download_for_offline_outlined),
-              label: const Text('Offline this area'),
+              label: const Text('Salva area offline'),
             )
           : null,
+    );
+  }
+
+  Widget _buildMapBody(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: widget.renderMap
+              ? MapLibreMap(
+                  styleString: MapEngineV2Config.styleUrl,
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(
+                      widget.initialLatitude,
+                      widget.initialLongitude,
+                    ),
+                    zoom: MapEngineV2Config.initialZoom,
+                  ),
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                    controller.onCircleTapped.add(_onCircleTapped);
+                    unawaited(_restoreCameraIfAvailable());
+                  },
+                  onStyleLoadedCallback: () {
+                    _styleReady = true;
+                    unawaited(_syncPoiAnnotations());
+                  },
+                  onCameraMove: (position) {
+                    _zoom = position.zoom;
+                  },
+                  onCameraIdle: () {
+                    unawaited(_persistCamera());
+                    unawaited(_syncPoiAnnotations());
+                  },
+                  annotationOrder: const [AnnotationType.circle],
+                  annotationConsumeTapEvents: const [AnnotationType.circle],
+                  trackCameraPosition: true,
+                  doubleClickZoomEnabled: false,
+                  compassEnabled: true,
+                  compassViewPosition: CompassViewPosition.topRight,
+                  rotateGesturesEnabled: true,
+                  tiltGesturesEnabled: true,
+                  logoEnabled: false,
+                  attributionButtonPosition:
+                      AttributionButtonPosition.bottomRight,
+                )
+              : ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  child: const Center(child: Icon(Icons.map_outlined, size: 72)),
+                ),
+        ),
+        Positioned(
+          top: 12,
+          left: 12,
+          right: 12,
+          child: PremiumCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.layers_outlined),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Mappa & offline',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    Chip(
+                      label: Text(
+                        _offlineManager.isSupported
+                            ? 'Offline disponibile'
+                            : 'Solo online',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${widget.places.length} POI visibili',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Text(
+                  MapEngineV2Config.attribution,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _error!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ],
+                if (_downloadingOffline) ...[
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value: _offlineProgress > 0 ? _offlineProgress : null,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Preparazione area offline: ${(_offlineProgress * 100).round()}%',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (_offlineRegions.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final region in _offlineRegions)
+                        InputChip(
+                          label: Text(
+                            '${region.name} - ${_sizeLabel(region.downloadedBytes)}',
+                          ),
+                          avatar: Icon(
+                            region.isComplete
+                                ? Icons.offline_pin_outlined
+                                : Icons.downloading_outlined,
+                            size: 18,
+                          ),
+                          onSelected: region.isComplete
+                              ? (_) => _openRegion(region)
+                              : null,
+                          onDeleted: () => _deleteRegion(region),
+                        ),
+                    ],
+                  ),
+                ],
+                if (widget.embedded && _offlineManager.isSupported) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: _downloadingOffline || !_styleReady
+                            ? null
+                            : _prepareVisibleAreaOffline,
+                        icon: const Icon(Icons.download_for_offline_outlined),
+                        label: const Text('Salva area offline'),
+                      ),
+                      IconButton.outlined(
+                        tooltip: 'Pulisci cache temporanea',
+                        onPressed: _clearAmbientCache,
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (_selectedPlace != null)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: PremiumCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.place_outlined),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedPlace!.name,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          [
+                            _selectedPlace!.type,
+                            if (_selectedPlace!.city != null)
+                              _selectedPlace!.city!,
+                            if (_selectedPlace!.source != null)
+                              _selectedPlace!.source!,
+                          ].join(' - '),
+                        ),
+                        if (widget.onOpenDirections != null) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                widget.onOpenDirections!(_selectedPlace!),
+                            icon: const Icon(Icons.directions_outlined),
+                            label: const Text('Indicazioni'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Chiudi',
+                    onPressed: () => setState(() => _selectedPlace = null),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 

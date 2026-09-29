@@ -1,5 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:camperboss/core/services/home_cockpit_service.dart';
 import 'package:camperboss/core/services/weather_service.dart';
@@ -31,12 +33,12 @@ class FakeWeatherService extends WeatherService {
 
   @override
   Future<WeatherSnapshot> fetchCurrent({
-    double latitude = 45.6049,
-    double longitude = 10.6351,
-    String location = 'Lake Garda basecamp',
+    double? latitude,
+    double? longitude,
+    String? location,
   }) async {
-    return const WeatherSnapshot(
-      location: 'Lake Garda basecamp',
+    return WeatherSnapshot(
+      location: location ?? 'Test location',
       temperature: 22,
       apparentTemperature: 23,
       humidity: 61,
@@ -50,12 +52,32 @@ class FakeWeatherService extends WeatherService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('CamperBoss opens the home dashboard', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: HomeScreen(
-          weatherService: const FakeWeatherService(),
-          cockpitService: FakeHomeCockpitService(),
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              home: HomeScreen(
+                weatherService: const FakeWeatherService(),
+                cockpitService: FakeHomeCockpitService(),
+              ),
+            );
+          },
         ),
       ),
     );

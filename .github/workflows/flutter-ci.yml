@@ -5,9 +5,28 @@ on:
     branches:
       - main
       - maxi-product-truth-shell-v2
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
   pull_request:
     branches:
       - main
+    types: [ready_for_review]
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:

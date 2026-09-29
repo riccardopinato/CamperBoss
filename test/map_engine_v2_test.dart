@@ -54,7 +54,7 @@ void main() {
     expect(request.maxZoom, greaterThanOrEqualTo(11.0));
   });
 
-  testWidgets('Map Engine V2 preview can render without native map in tests',
+  testWidgets('offline map preview can render without native map in tests',
       (tester) async {
     const places = [
       CamperPlace(
@@ -94,10 +94,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Map Engine V2'), findsOneWidget);
-    expect(find.text('MapLibre vector POC'), findsOneWidget);
-    expect(find.textContaining('2 POI'), findsOneWidget);
-    expect(find.text('online renderer'), findsOneWidget);
+    expect(find.text('Mappa'), findsOneWidget);
+    expect(find.text('Mappa & offline'), findsOneWidget);
+    expect(find.textContaining('2 POI visibili'), findsOneWidget);
+    expect(find.text('Solo online'), findsOneWidget);
   });
 }
 

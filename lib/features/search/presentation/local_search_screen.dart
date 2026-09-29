@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,7 +36,6 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
   final _selectedTypes = <SearchDocumentType>{};
 
   late LocalSearchIndex _searchService;
-  SearchIndexSnapshot? _snapshot;
   List<SearchHit> _hits = const [];
   bool _isLoading = true;
   bool _isRebuilding = false;
@@ -64,12 +64,7 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       _error = null;
     });
     try {
-      final snapshot = await _searchService.snapshot();
-      if (snapshot.status == SearchIndexStatus.empty) {
-        await _rebuild(silent: true);
-      } else {
-        await _search();
-      }
+      await _rebuild(silent: true);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -89,7 +84,6 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _snapshot = snapshot;
         _hits = hits;
         _error = snapshot.status == SearchIndexStatus.corrupted
             ? snapshot.lastError ?? 'Search index corrupted'
@@ -125,25 +119,32 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
     _search();
   }
 
-  void _openHit(SearchHit hit) {
+  Future<void> _openHit(SearchHit hit) async {
     final callback = widget.onOpenHit;
     if (callback != null) {
       callback(hit);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _screenFor(hit.type)),
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _screenFor(hit)),
     );
+    if (mounted) await _rebuild(silent: true);
   }
 
-  Widget _screenFor(SearchDocumentType type) {
-    return switch (type) {
-      SearchDocumentType.vehicleDocument => const VehicleDocumentsScreen(),
-      SearchDocumentType.maintenance => const MaintenanceScreen(),
-      SearchDocumentType.journal => const JournalScreen(),
-      SearchDocumentType.trip => const TripPlannerScreen(),
-      SearchDocumentType.booking => const FinanceScreen(),
-      SearchDocumentType.offlineGuide => const OfflineGuidesScreen(),
+  Widget _screenFor(SearchHit hit) {
+    final sourceInt = int.tryParse(hit.sourceId);
+    return switch (hit.type) {
+      SearchDocumentType.vehicleDocument =>
+        VehicleDocumentsScreen(initialDocumentId: sourceInt),
+      SearchDocumentType.maintenance =>
+        MaintenanceScreen(initialRecordId: sourceInt),
+      SearchDocumentType.journal => JournalScreen(initialEntryId: sourceInt),
+      SearchDocumentType.trip => TripPlannerScreen(initialTripId: sourceInt),
+      SearchDocumentType.booking => FinanceScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.offlineGuide =>
+        OfflineGuidesScreen(initialSourceId: hit.sourceId),
       SearchDocumentType.vehicleNote => const ProfileScreen(),
     };
   }
@@ -154,21 +155,20 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final snapshot = _snapshot;
     return ScreenScaffold(
-      title: 'Search',
-      subtitle: 'Private local search across documents, trips and guides.',
+      title: 'search_title'.tr(),
+      subtitle: 'search_subtitle'.tr(),
       children: [
         TextField(
           controller: _controller,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            labelText: 'Search CamperBoss',
+            labelText: 'search_hint'.tr(),
             suffixIcon: _controller.text.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: 'Clear',
+                    tooltip: 'common_clear'.tr(),
                     onPressed: () {
                       _controller.clear();
                       _search();
@@ -191,27 +191,17 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        PremiumCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  snapshot == null
-                      ? 'Index status unavailable'
-                      : '${snapshot.documentCount} local items - ${snapshot.status.name}',
-                ),
-              ),
-              IconButton(
-                tooltip: 'Rebuild index',
-                onPressed: _isRebuilding ? null : _rebuild,
-                icon: _isRebuilding
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
-              ),
-            ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: _isRebuilding ? null : _rebuild,
+            icon: _isRebuilding
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+            label: Text('search_rebuild'.tr()),
           ),
         ),
         if (_error != null) ...[
@@ -219,13 +209,13 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
           PremiumCard(child: Text(_error!)),
         ],
         const SizedBox(height: 16),
-        SectionHeader(title: 'Results', action: '${_hits.length}'),
+        SectionHeader(title: 'search_results'.tr(), action: '${_hits.length}'),
         const SizedBox(height: 8),
         if (_hits.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.manage_search,
-            title: 'No local results',
-            message: 'Try another term or rebuild the private local index.',
+            title: 'search_empty'.tr(),
+            message: 'search_empty_body'.tr(),
           )
         else
           for (final hit in _groupedHits()) ...[
@@ -246,13 +236,13 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
 
   String _labelFor(SearchDocumentType type) {
     return switch (type) {
-      SearchDocumentType.vehicleDocument => 'Documents',
-      SearchDocumentType.maintenance => 'Service',
-      SearchDocumentType.journal => 'Journal',
-      SearchDocumentType.trip => 'Trips',
-      SearchDocumentType.booking => 'Bookings',
-      SearchDocumentType.offlineGuide => 'Guides',
-      SearchDocumentType.vehicleNote => 'Vehicle',
+      SearchDocumentType.vehicleDocument => 'search_filter_documents'.tr(),
+      SearchDocumentType.maintenance => 'search_filter_service'.tr(),
+      SearchDocumentType.journal => 'search_filter_journal'.tr(),
+      SearchDocumentType.trip => 'search_filter_trips'.tr(),
+      SearchDocumentType.booking => 'search_filter_bookings'.tr(),
+      SearchDocumentType.offlineGuide => 'search_filter_guides'.tr(),
+      SearchDocumentType.vehicleNote => 'search_filter_vehicle'.tr(),
     };
   }
 }
