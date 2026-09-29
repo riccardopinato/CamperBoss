@@ -35,6 +35,7 @@ class TripPlannerScreen extends StatefulWidget {
     this.routingProfileResolver = const CamperRoutingProfileResolver(),
     this.geocodingService = const GeocodingService(),
     this.deletionService,
+    this.initialTripId,
     this.isRoutingConfigured,
     super.key,
   });
@@ -46,6 +47,7 @@ class TripPlannerScreen extends StatefulWidget {
   final CamperRoutingProfileResolver routingProfileResolver;
   final GeocodingService geocodingService;
   final TripDeletionService? deletionService;
+  final int? initialTripId;
   final bool? isRoutingConfigured;
 
   @override
@@ -111,10 +113,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         vehicleProfile = null;
       }
       if (!mounted) return;
+      final requestedIndex = widget.initialTripId == null
+          ? -1
+          : trips.indexWhere((trip) => trip.id == widget.initialTripId);
       setState(() {
         _trips = trips;
         _vehicleProfile = vehicleProfile;
-        _selectedIndex = 0;
+        _selectedIndex = requestedIndex >= 0 ? requestedIndex : 0;
         _isLoading = false;
       });
       await _loadRoutePreviewForSelectedTrip();
