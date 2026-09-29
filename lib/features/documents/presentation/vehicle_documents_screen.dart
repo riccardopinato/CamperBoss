@@ -19,6 +19,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
     this.captureService,
     this.ocrService,
     this.reminderService,
+    this.initialDocumentId,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
   final DocumentCaptureService? captureService;
   final DocumentOcrService? ocrService;
   final ReminderSyncService? reminderService;
+  final int? initialDocumentId;
 
   @override
   State<VehicleDocumentsScreen> createState() => _VehicleDocumentsScreenState();
@@ -77,6 +79,14 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     try {
       final documents = await _repository.listDocuments();
       if (!mounted) return;
+      final targetId = widget.initialDocumentId;
+      if (targetId != null) {
+        documents.sort((a, b) {
+          if (a.id == targetId) return -1;
+          if (b.id == targetId) return 1;
+          return 0;
+        });
+      }
       setState(() {
         _documents = documents;
         _isLoading = false;
