@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
 import '../../../core/services/camper_routing_profile_resolver.dart';
@@ -726,7 +727,7 @@ class _RouteMap extends StatelessWidget {
     required this.renderMap,
   });
 
-  final List<dynamic> geometry;
+  final List<LatLng> geometry;
   final List<RouteWaypoint> waypoints;
   final bool renderMap;
 
@@ -746,8 +747,8 @@ class _RouteMap extends StatelessWidget {
                   for (final point in geometry)
                     MapLibreOverlayPoint(
                       id: 'route-${point.latitude}-${point.longitude}',
-                      latitude: point.latitude as double,
-                      longitude: point.longitude as double,
+                      latitude: point.latitude,
+                      longitude: point.longitude,
                     ),
                 ],
                 colorHex: '#E6B85C',
