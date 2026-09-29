@@ -488,5 +488,13 @@
   "trip_delete_title": "Eliminare il viaggio?",
   "trip_delete_body": "Eliminare “{title}”? Verranno rimossi anche i dati del percorso collegati.",
   "documents_metric_expired": "Scaduti",
-  "documents_metric_expired_detail": "Richiede attenzione"
+  "documents_metric_expired_detail": "Richiede attenzione",
+  "maintenance_attachments": "Allegati",
+  "maintenance_attachment_add": "Aggiungi file",
+  "maintenance_attachment_native_only": "Gli allegati file sono disponibili nell’app Android/iOS. Il Web mantiene la manutenzione senza fingere di salvare file locali.",
+  "maintenance_attachment_empty": "Nessun allegato aggiunto.",
+  "maintenance_attachment_pending": "Verrà copiato nello storage privato dell’app al salvataggio.",
+  "maintenance_attachment_file": "Allegato",
+  "maintenance_attachment_pick_failed": "Impossibile aprire il selettore file.",
+  "maintenance_attachment_copy_failed": "Impossibile copiare l’allegato nello storage privato dell’app."
 }
