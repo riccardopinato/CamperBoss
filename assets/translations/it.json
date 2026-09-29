@@ -486,5 +486,7 @@
   "documents_delete_confirm_title": "Eliminare il documento?",
   "documents_delete_confirm_body": "Eliminare “{title}” e i file salvati localmente?",
   "trip_delete_title": "Eliminare il viaggio?",
-  "trip_delete_body": "Eliminare “{title}”? Verranno rimossi anche i dati del percorso collegati."
+  "trip_delete_body": "Eliminare “{title}”? Verranno rimossi anche i dati del percorso collegati.",
+  "documents_metric_expired": "Scaduti",
+  "documents_metric_expired_detail": "Richiede attenzione"
 }
