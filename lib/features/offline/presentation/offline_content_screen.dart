@@ -20,6 +20,7 @@ class OfflineContentScreen extends ConsumerWidget {
     final downloads = ref.watch(downloadsProvider);
     final manager = ref.watch(downloadManagerProvider);
     final storageProjection = ref.watch(storageProjectionProvider);
+    final offlineSystem = ref.watch(offlineSystemSnapshotProvider);
 
     return ScreenScaffold(
       title: 'offline_title'.tr(),
@@ -54,6 +55,33 @@ class OfflineContentScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        offlineSystem.when(
+          data: (snapshot) => PremiumCard(
+            child: Row(
+              children: [
+                Icon(
+                  snapshot.hasOpenableOfflineContent
+                      ? Icons.offline_pin_outlined
+                      : Icons.offline_bolt_outlined,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${'offline_title'.tr()}: '
+                    '${snapshot.openableMapRegionCount} ${'offline_type_map'.tr()} · '
+                    '${snapshot.guidePackages.length} ${'offline_type_guide'.tr()}',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          error: (_, __) => _OfflineRecoveryCard(
+            messageKey: 'offline_error',
+            onRetry: () => ref.invalidate(offlineSystemSnapshotProvider),
+          ),
+          loading: () => const LinearProgressIndicator(),
         ),
         const SizedBox(height: 16),
         PremiumCard(
