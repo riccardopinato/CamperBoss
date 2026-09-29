@@ -1,12 +1,11 @@
 import 'package:camperboss/data/models/camper_place.dart';
-import 'package:camperboss/features/map/presentation/map_marker_mapper.dart';
+import 'package:camperboss/features/map/domain/maplibre_poi_clusterer.dart';
 import 'package:camperboss/features/map/presentation/map_place_filters.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
-  test('filters are applied before clustering', () {
+  test('filters are applied before MapLibre clustering', () {
     final places = [
       _place(name: 'Area Sosta Lago', category: 'sosta', latitude: 45.6),
       _place(name: 'Camping Bella Vista', category: 'camping', latitude: 45.7),
@@ -19,68 +18,16 @@ void main() {
       selectedPoint: const LatLng(45.6, 10.6),
       distance: const Distance(),
     );
+    final clusters = const MapLibrePoiClusterer().cluster(
+      places: filtered,
+      zoom: 14,
+    );
 
     expect(filtered.map((place) => place.category), ['sosta', 'gpl']);
+    expect(clusters.expand((cluster) => cluster.places), hasLength(2));
   });
 
-  test('poi mapper builds marker with stable identity and coordinates', () {
-    const mapper = MapMarkerMapper();
-    final place = _place(name: 'Area Sosta Lago', category: 'sosta');
-
-    final marker = mapper.buildPoiMarker(place, selected: false);
-
-    expect((marker.key as ValueKey).value, MapMarkerMapper.poiMarkerId(place));
-    expect(marker.point.latitude, place.latitude);
-    expect(marker.point.longitude, place.longitude);
-  });
-
-  test('selected marker is excluded from clusterable markers', () {
-    const mapper = MapMarkerMapper();
-    final selected = _place(name: 'Area Sosta Lago', category: 'sosta');
-    final markers = buildClusterablePoiMarkers(
-      places: [
-        selected,
-        _place(name: 'Camping Bella Vista', category: 'camping'),
-      ],
-      mapper: mapper,
-      selectedPlace: selected,
-      onTap: (_) {},
-    );
-
-    expect(markers, hasLength(1));
-    expect((markers.single.key as ValueKey).value,
-        isNot(MapMarkerMapper.poiMarkerId(selected)));
-  });
-
-  test('clusterable markers do not include user or route placeholders', () {
-    const mapper = MapMarkerMapper();
-    final markers = buildClusterablePoiMarkers(
-      places: [
-        _place(
-          name: 'Area Sosta Lago',
-          category: 'sosta',
-          latitude: 45.61,
-          longitude: 10.64,
-        ),
-        _place(
-          name: 'Camping Bella Vista',
-          category: 'camping',
-          latitude: 45.62,
-          longitude: 10.65,
-        ),
-      ],
-      mapper: mapper,
-      onTap: (_) {},
-    );
-
-    expect(
-        markers
-            .every((marker) => marker.point != const LatLng(45.6049, 10.6351)),
-        isTrue);
-  });
-
-  test('mapper can generate 1000 markers without duplicating ids', () {
-    const mapper = MapMarkerMapper();
+  test('MapLibre cluster identities stay stable and unique for large POI sets', () {
     final places = List.generate(
       1000,
       (index) => _place(
@@ -91,17 +38,13 @@ void main() {
       ),
     );
 
-    final markers = buildClusterablePoiMarkers(
+    final clusters = const MapLibrePoiClusterer().cluster(
       places: places,
-      mapper: mapper,
-      onTap: (_) {},
+      zoom: 17,
     );
 
-    expect(markers, hasLength(1000));
-    expect(
-      markers.map((marker) => (marker.key as ValueKey).value).toSet(),
-      hasLength(1000),
-    );
+    expect(clusters.expand((cluster) => cluster.places), hasLength(1000));
+    expect(clusters.map((cluster) => cluster.id).toSet(), hasLength(clusters.length));
   });
 }
 
