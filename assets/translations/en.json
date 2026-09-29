@@ -486,5 +486,7 @@
   "documents_delete_confirm_title": "Delete document?",
   "documents_delete_confirm_body": "Delete “{title}” and its locally stored files?",
   "trip_delete_title": "Delete trip?",
-  "trip_delete_body": "Delete “{title}”? Linked route data will also be removed."
+  "trip_delete_body": "Delete “{title}”? Linked route data will also be removed.",
+  "documents_metric_expired": "Expired",
+  "documents_metric_expired_detail": "Needs attention"
 }
