@@ -486,5 +486,7 @@
   "documents_delete_confirm_title": "Dokument löschen?",
   "documents_delete_confirm_body": "„{title}“ und die lokal gespeicherten Dateien löschen?",
   "trip_delete_title": "Reise löschen?",
-  "trip_delete_body": "„{title}“ löschen? Verknüpfte Routendaten werden ebenfalls entfernt."
+  "trip_delete_body": "„{title}“ löschen? Verknüpfte Routendaten werden ebenfalls entfernt.",
+  "documents_metric_expired": "Abgelaufen",
+  "documents_metric_expired_detail": "Handlungsbedarf"
 }
