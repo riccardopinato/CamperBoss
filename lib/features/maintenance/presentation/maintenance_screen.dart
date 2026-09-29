@@ -17,12 +17,14 @@ class MaintenanceScreen extends StatefulWidget {
     this.repository,
     this.reminderService,
     this.vehicleProfileRepository,
+    this.initialRecordId,
     super.key,
   });
 
   final MaintenanceRepository? repository;
   final ReminderSyncService? reminderService;
   final VehicleProfileRepository? vehicleProfileRepository;
+  final int? initialRecordId;
 
   @override
   State<MaintenanceScreen> createState() => _MaintenanceScreenState();
@@ -76,6 +78,14 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         profile = null;
       }
       if (!mounted) return;
+      final targetId = widget.initialRecordId;
+      if (targetId != null) {
+        records.sort((a, b) {
+          if (a.id == targetId) return -1;
+          if (b.id == targetId) return 1;
+          return _sortRecords(a, b);
+        });
+      }
       setState(() {
         _records = records;
         _currentMileage = profile?.mileage;
