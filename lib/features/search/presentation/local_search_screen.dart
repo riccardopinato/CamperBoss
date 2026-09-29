@@ -126,19 +126,25 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _screenFor(hit.type)),
+      MaterialPageRoute(builder: (_) => _screenFor(hit)),
     );
     if (mounted) await _rebuild(silent: true);
   }
 
-  Widget _screenFor(SearchDocumentType type) {
-    return switch (type) {
-      SearchDocumentType.vehicleDocument => const VehicleDocumentsScreen(),
-      SearchDocumentType.maintenance => const MaintenanceScreen(),
-      SearchDocumentType.journal => const JournalScreen(),
-      SearchDocumentType.trip => const TripPlannerScreen(),
-      SearchDocumentType.booking => const FinanceScreen(),
-      SearchDocumentType.offlineGuide => const OfflineGuidesScreen(),
+  Widget _screenFor(SearchHit hit) {
+    final sourceInt = int.tryParse(hit.sourceId);
+    return switch (hit.type) {
+      SearchDocumentType.vehicleDocument =>
+        VehicleDocumentsScreen(initialDocumentId: sourceInt),
+      SearchDocumentType.maintenance =>
+        MaintenanceScreen(initialRecordId: sourceInt),
+      SearchDocumentType.journal => JournalScreen(initialEntryId: sourceInt),
+      SearchDocumentType.trip => TripPlannerScreen(initialTripId: sourceInt),
+      SearchDocumentType.booking => FinanceScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.offlineGuide =>
+        OfflineGuidesScreen(initialSourceId: hit.sourceId),
       SearchDocumentType.vehicleNote => const ProfileScreen(),
     };
   }
