@@ -488,5 +488,13 @@
   "trip_delete_title": "¿Eliminar viaje?",
   "trip_delete_body": "¿Eliminar «{title}»? También se eliminarán los datos de ruta asociados.",
   "documents_metric_expired": "Caducados",
-  "documents_metric_expired_detail": "Requiere atención"
+  "documents_metric_expired_detail": "Requiere atención",
+  "maintenance_attachments": "Adjuntos",
+  "maintenance_attachment_add": "Añadir archivos",
+  "maintenance_attachment_native_only": "Los archivos adjuntos están disponibles en la app Android/iOS. La versión Web conserva el mantenimiento sin simular que guarda archivos locales.",
+  "maintenance_attachment_empty": "No hay adjuntos añadidos.",
+  "maintenance_attachment_pending": "Se copiará al almacenamiento privado de la app al guardar.",
+  "maintenance_attachment_file": "Adjunto",
+  "maintenance_attachment_pick_failed": "No se pudo abrir el selector de archivos.",
+  "maintenance_attachment_copy_failed": "No se pudo copiar el adjunto al almacenamiento privado de la app."
 }
