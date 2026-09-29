@@ -12,8 +12,10 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    PrivacyBackupPlugin.register(
-      with: engineBridge.pluginRegistry.registrar(forPlugin: "PrivacyBackupPlugin")
-    )
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "PrivacyBackupPlugin"
+    ) {
+      PrivacyBackupPlugin.register(with: registrar)
+    }
   }
 }
