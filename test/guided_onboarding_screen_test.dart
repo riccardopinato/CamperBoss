@@ -35,7 +35,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Guided onboarding'), findsOneWidget);
+    expect(find.text('Guided setup'), findsOneWidget);
     expect(find.text('Language and country'), findsOneWidget);
     expect(find.text('Vehicle profile'), findsOneWidget);
 

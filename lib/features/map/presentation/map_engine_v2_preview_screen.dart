@@ -325,15 +325,15 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                       Chip(
                         label: Text(
                           _offlineManager.isSupported
-                              ? 'native offline'
-                              : 'online renderer',
+                              ? 'Offline available'
+                              : 'Online only',
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${widget.places.length} POI - ${clusters.length} rendered groups - $groupedPois clustered',
+                    '${widget.places.length} places available in the current view',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   Text(
