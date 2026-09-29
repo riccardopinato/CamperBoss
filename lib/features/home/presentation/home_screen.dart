@@ -111,47 +111,66 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (snapshot != null) ...[
-            _ReadinessCard(snapshot: snapshot),
-            const SizedBox(height: 16),
-            _MetricsGrid(snapshot: snapshot),
-            const SizedBox(height: 24),
-            SelectedLocationWeatherCard(service: widget.weatherService),
-            const SizedBox(height: 24),
-            SectionHeader(title: 'home_needs_attention'.tr()),
-            const SizedBox(height: 12),
-            if (snapshot.actions.isEmpty)
-              PremiumCard(
-                child: Text('home_no_urgent'.tr()),
-              )
-            else
-              for (final action in snapshot.actions) ...[
-                ActionTile(
-                  icon: _iconFor(action.type),
-                  title: action.titleKey.tr(namedArgs: action.args),
-                  subtitle: action.detailKey.tr(namedArgs: action.args),
-                  onTap: () => _openAction(action),
-                ),
-                const SizedBox(height: 12),
-              ],
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: Icons.rocket_launch_outlined,
-              title: 'home_guided_setup'.tr(),
-              subtitle:
-                  'home_guided_setup_body'.tr(),
-              onTap: () => _push(const GuidedOnboardingScreen()),
-            ),
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: Icons.menu_book_outlined,
-              title: 'home_offline_guides'.tr(),
-              subtitle: 'home_offline_guides_body'.tr(),
-              onTap: () => _push(const OfflineGuidesScreen()),
-            ),
+            if (_isFirstRun(snapshot)) ...[
+              _FirstRunCard(
+                onStart: () => _push(const GuidedOnboardingScreen()),
+              ),
+              const SizedBox(height: 16),
+              ActionTile(
+                icon: Icons.menu_book_outlined,
+                title: 'home_offline_guides'.tr(),
+                subtitle: 'home_offline_guides_body'.tr(),
+                onTap: () => _push(const OfflineGuidesScreen()),
+              ),
+            ] else ...[
+              _ReadinessCard(snapshot: snapshot),
+              const SizedBox(height: 16),
+              _MetricsGrid(snapshot: snapshot),
+              const SizedBox(height: 24),
+              SelectedLocationWeatherCard(service: widget.weatherService),
+              const SizedBox(height: 24),
+              SectionHeader(title: 'home_needs_attention'.tr()),
+              const SizedBox(height: 12),
+              if (snapshot.actions.isEmpty)
+                PremiumCard(
+                  child: Text('home_no_urgent'.tr()),
+                )
+              else
+                for (final action in snapshot.actions) ...[
+                  ActionTile(
+                    icon: _iconFor(action.type),
+                    title: action.titleKey.tr(namedArgs: action.args),
+                    subtitle: action.detailKey.tr(namedArgs: action.args),
+                    onTap: () => _openAction(action),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              const SizedBox(height: 12),
+              ActionTile(
+                icon: Icons.rocket_launch_outlined,
+                title: 'home_guided_setup'.tr(),
+                subtitle: 'home_guided_setup_body'.tr(),
+                onTap: () => _push(const GuidedOnboardingScreen()),
+              ),
+              const SizedBox(height: 12),
+              ActionTile(
+                icon: Icons.menu_book_outlined,
+                title: 'home_offline_guides'.tr(),
+                subtitle: 'home_offline_guides_body'.tr(),
+                onTap: () => _push(const OfflineGuidesScreen()),
+              ),
+            ],
           ],
         ],
       ),
     );
+  }
+
+  bool _isFirstRun(HomeCockpitSnapshot snapshot) {
+    return snapshot.vehicle == null &&
+        snapshot.checklistTotal == 0 &&
+        snapshot.documentCount == 0 &&
+        snapshot.maintenanceCount == 0;
   }
 
   IconData _iconFor(HomeCockpitActionType type) {
@@ -162,6 +181,47 @@ class _HomeScreenState extends State<HomeScreen> {
       HomeCockpitActionType.maintenance => Icons.build_circle_outlined,
       HomeCockpitActionType.trip => Icons.route_outlined,
     };
+  }
+}
+
+class _FirstRunCard extends StatelessWidget {
+  const _FirstRunCard({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: 'home_guided_setup'.tr(),
+      child: PremiumCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.explore_outlined,
+              size: 36,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'home_guided_setup'.tr(),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text('home_guided_setup_body'.tr()),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onStart,
+              icon: const Icon(Icons.arrow_forward),
+              label: Text('home_guided_setup'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -245,8 +305,8 @@ class _MetricsGrid extends StatelessWidget {
     final maintenanceAlerts =
         snapshot.overdueMaintenance + snapshot.maintenanceDueSoon;
 
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView.extent(
+      maxCrossAxisExtent: 260,
       childAspectRatio: 1.1,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
