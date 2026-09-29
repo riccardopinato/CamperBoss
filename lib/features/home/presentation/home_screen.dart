@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Cockpit data unavailable';
+        _error = 'home_error_unavailable'.tr();
       });
     }
   }
@@ -127,8 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
               for (final action in snapshot.actions) ...[
                 ActionTile(
                   icon: _iconFor(action.type),
-                  title: action.title,
-                  subtitle: action.detail,
+                  title: action.titleKey.tr(namedArgs: action.args),
+                  subtitle: action.detailKey.tr(namedArgs: action.args),
                   onTap: () => _openAction(action),
                 ),
                 const SizedBox(height: 12),
@@ -201,21 +201,21 @@ class _ReadinessCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             score == null
-                ? 'Add enough real data before CamperBoss calculates a readiness score.'
+                ? 'home_readiness_not_enough'.tr()
                 : _scoreLabel(score),
           ),
           const SizedBox(height: 16),
           ResourceBar(
             label: 'home_data_coverage'.tr(),
             value: coverage / 100,
-            detail: '$coverage% of readiness signals are configured',
+            detail: 'home_data_coverage_detail'.tr(namedArgs: {'coverage': coverage.toString()}),
           ),
           if (score != null) ...[
             const SizedBox(height: 12),
             ResourceBar(
               label: 'home_readiness'.tr(),
               value: score / 100,
-              detail: 'Calculated only from configured local signals',
+              detail: 'home_readiness_detail'.tr(),
             ),
           ],
         ],
@@ -224,10 +224,10 @@ class _ReadinessCard extends StatelessWidget {
   }
 
   static String _scoreLabel(int score) {
-    if (score >= 90) return 'No major readiness issue is currently detected.';
-    if (score >= 70) return 'Mostly ready, with a few items still worth checking.';
-    if (score >= 50) return 'Several checks should be reviewed before departure.';
-    return 'Important readiness items need attention.';
+    if (score >= 90) return 'home_readiness_score_90'.tr();
+    if (score >= 70) return 'home_readiness_score_70'.tr();
+    if (score >= 50) return 'home_readiness_score_50'.tr();
+    return 'home_readiness_score_low'.tr();
   }
 }
 
@@ -258,33 +258,33 @@ class _MetricsGrid extends StatelessWidget {
           label: 'home_mileage'.tr(),
           value: vehicle == null ? '--' : '${vehicle.mileage.round()} km',
           detail: vehicle == null
-              ? 'Vehicle not configured'
+              ? 'home_vehicle_not_configured'.tr()
               : '${vehicle.brand} ${vehicle.model}',
         ),
         MetricTile(
           icon: Icons.checklist_outlined,
           label: 'home_checklist'.tr(),
-          value: snapshot.checklistTotal == 0 ? '--' : '$openChecks open',
+          value: snapshot.checklistTotal == 0 ? '--' : 'home_open_count'.tr(namedArgs: {'count': openChecks.toString()}),
           detail: snapshot.checklistTotal == 0
-              ? 'No checklist created'
-              : '${snapshot.checklistCompleted}/${snapshot.checklistTotal} complete',
+              ? 'home_checklist_empty'.tr()
+              : 'home_checklist_complete'.tr(namedArgs: {'completed': snapshot.checklistCompleted.toString(), 'total': snapshot.checklistTotal.toString()}),
         ),
         MetricTile(
           icon: Icons.folder_copy_outlined,
           label: 'home_documents'.tr(),
-          value: snapshot.documentCount == 0 ? '--' : '$documentAlerts alerts',
+          value: snapshot.documentCount == 0 ? '--' : 'home_alert_count'.tr(namedArgs: {'count': documentAlerts.toString()}),
           detail: snapshot.documentCount == 0
-              ? 'No documents saved'
-              : '${snapshot.documentCount} stored locally',
+              ? 'home_documents_empty'.tr()
+              : 'home_documents_stored'.tr(namedArgs: {'count': snapshot.documentCount.toString()}),
         ),
         MetricTile(
           icon: Icons.build_circle_outlined,
           label: 'home_maintenance'.tr(),
           value:
-              snapshot.maintenanceCount == 0 ? '--' : '$maintenanceAlerts alerts',
+              snapshot.maintenanceCount == 0 ? '--' : 'home_alert_count'.tr(namedArgs: {'count': maintenanceAlerts.toString()}),
           detail: snapshot.maintenanceCount == 0
-              ? 'No service history'
-              : '${snapshot.maintenanceCount} records',
+              ? 'home_maintenance_empty'.tr()
+              : 'home_maintenance_records'.tr(namedArgs: {'count': snapshot.maintenanceCount.toString()}),
         ),
       ],
     );
