@@ -10,10 +10,12 @@ import '../../../shared/widgets/section_header.dart';
 class OfflineGuidesScreen extends StatefulWidget {
   const OfflineGuidesScreen({
     this.guidesService,
+    this.initialSourceId,
     super.key,
   });
 
   final OfflineGuidesService? guidesService;
+  final String? initialSourceId;
 
   @override
   State<OfflineGuidesScreen> createState() => _OfflineGuidesScreenState();
@@ -30,6 +32,7 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
   bool _isInstalling = false;
   bool _isLoading = true;
   String? _error;
+  bool _openedInitialSource = false;
 
   @override
   void initState() {
@@ -59,6 +62,7 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         _results = results;
         _isLoading = false;
       });
+      _openInitialSourceIfNeeded();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -66,6 +70,22 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _openInitialSourceIfNeeded() {
+    if (_openedInitialSource) return;
+    final source = widget.initialSourceId;
+    if (source == null || source.isEmpty) return;
+
+    final separator = source.indexOf(':');
+    if (separator <= 0 || separator >= source.length - 1) return;
+    final packageId = source.substring(0, separator);
+    final entryId = source.substring(separator + 1);
+    _openedInitialSource = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openDocument(packageId, entryId);
+    });
   }
 
   Future<void> _installEssential() async {
