@@ -1,6 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
+import '../../../core/services/document_storage_service.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../core/utils/locale_number_parser.dart';
 import '../../../data/models/maintenance_record.dart';
@@ -35,6 +39,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       widget.repository ?? LocalMaintenanceRepository();
   late final ReminderSyncService _reminderService =
       widget.reminderService ?? ReminderCoordinator();
+  late final DocumentStorageService _storageService =
+      createDocumentStorageService();
   late final VehicleProfileRepository _vehicleProfileRepository =
       widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
 
@@ -105,7 +111,10 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => _MaintenanceEditor(record: record),
+      builder: (context) => _MaintenanceEditor(
+        record: record,
+        storageService: _storageService,
+      ),
     );
     if (result == null) return;
 
@@ -126,6 +135,10 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         _error = null;
       });
     } catch (_) {
+      final previous = (record?.attachmentPaths ?? const <String>[]).toSet();
+      await _storageService.deleteFiles(
+        result.attachmentPaths.where((path) => !previous.contains(path)),
+      );
       if (!mounted) return;
       setState(() => _error = 'maintenance_error_save'.tr());
     }
@@ -403,9 +416,13 @@ class _MaintenanceCard extends StatelessWidget {
 }
 
 class _MaintenanceEditor extends StatefulWidget {
-  const _MaintenanceEditor({this.record});
+  const _MaintenanceEditor({
+    required this.storageService,
+    this.record,
+  });
 
   final MaintenanceRecord? record;
+  final DocumentStorageService storageService;
 
   @override
   State<_MaintenanceEditor> createState() => _MaintenanceEditorState();
@@ -438,7 +455,11 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
   late final TextEditingController _nextDueKmController;
   late String _category;
   late DateTime _date;
+  late List<String> _attachmentPaths;
+  final List<String> _pendingAttachmentSources = [];
   DateTime? _nextDueDate;
+  bool _isSaving = false;
+  String? _attachmentError;
 
   @override
   void initState() {
@@ -447,6 +468,7 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
     _category = record?.category ?? _categories.first;
     _date = record?.date ?? DateTime.now();
     _nextDueDate = record?.nextDueDate;
+    _attachmentPaths = [...?record?.attachmentPaths];
     _titleController = TextEditingController(text: record?.title ?? '');
     _mileageController = TextEditingController(
       text: record?.mileage.toStringAsFixed(0) ?? '',
@@ -497,6 +519,46 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
     });
   }
 
+  Future<void> _pickAttachments() async {
+    if (kIsWeb || _isSaving) return;
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: false,
+      );
+      if (result == null || !mounted) return;
+      final sources = result.files
+          .map((file) => file.path)
+          .whereType<String>()
+          .where((path) => path.trim().isNotEmpty)
+          .toList(growable: false);
+      setState(() {
+        for (final source in sources) {
+          if (!_pendingAttachmentSources.contains(source)) {
+            _pendingAttachmentSources.add(source);
+          }
+        }
+        _attachmentError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _attachmentError = 'maintenance_attachment_pick_failed'.tr());
+    }
+  }
+
+  void _removeExistingAttachment(String path) {
+    setState(() => _attachmentPaths.remove(path));
+  }
+
+  void _removePendingAttachment(String path) {
+    setState(() => _pendingAttachmentSources.remove(path));
+  }
+
+  String _attachmentName(String path) {
+    final name = p.basename(path);
+    return name.isEmpty ? 'maintenance_attachment_file'.tr() : name;
+  }
+
   String? _requiredText(String? value) {
     if (value == null || value.trim().isEmpty) return 'form_required'.tr();
     return null;
@@ -522,8 +584,8 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
     return null;
   }
 
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _save() async {
+    if (_isSaving || !_formKey.currentState!.validate()) return;
     final mileage = parseLocaleDouble(_mileageController.text)!;
     final intervalMonths = int.tryParse(_intervalMonthsController.text.trim());
     final intervalKm = parseLocaleDouble(_intervalKmController.text);
@@ -532,32 +594,58 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
     final provider = _providerController.text.trim();
     final notes = _notesController.text.trim();
 
-    Navigator.of(context).pop(
-      MaintenanceRecord(
-        id: widget.record?.id,
-        category: _category,
-        title: _titleController.text.trim(),
-        date: _date,
-        mileage: mileage,
-        cost: parseLocaleDouble(_costController.text),
-        provider: provider.isEmpty ? null : provider,
-        notes: notes.isEmpty ? null : notes,
-        intervalMonths: intervalMonths,
-        intervalKilometers: intervalKm,
-        nextDueDate: _nextDueDate ??
-            (intervalMonths == null
-                ? null
-                : DateTime(
-                    _date.year,
-                    _date.month + intervalMonths,
-                    _date.day,
-                  )),
-        nextDueMileage: nextDueKm,
-        attachmentPaths: widget.record?.attachmentPaths ?? const [],
-        createdAt: widget.record?.createdAt ?? DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    );
+    setState(() {
+      _isSaving = true;
+      _attachmentError = null;
+    });
+
+    final copied = <String>[];
+    try {
+      for (final source in _pendingAttachmentSources) {
+        copied.add(
+          await widget.storageService.copyIntoPrivateDocuments(source),
+        );
+      }
+
+      if (!mounted) {
+        await widget.storageService.deleteFiles(copied);
+        return;
+      }
+
+      Navigator.of(context).pop(
+        MaintenanceRecord(
+          id: widget.record?.id,
+          category: _category,
+          title: _titleController.text.trim(),
+          date: _date,
+          mileage: mileage,
+          cost: parseLocaleDouble(_costController.text),
+          provider: provider.isEmpty ? null : provider,
+          notes: notes.isEmpty ? null : notes,
+          intervalMonths: intervalMonths,
+          intervalKilometers: intervalKm,
+          nextDueDate: _nextDueDate ??
+              (intervalMonths == null
+                  ? null
+                  : DateTime(
+                      _date.year,
+                      _date.month + intervalMonths,
+                      _date.day,
+                    )),
+          nextDueMileage: nextDueKm,
+          attachmentPaths: [..._attachmentPaths, ...copied],
+          createdAt: widget.record?.createdAt ?? DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } catch (_) {
+      await widget.storageService.deleteFiles(copied);
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _attachmentError = 'maintenance_attachment_copy_failed'.tr();
+      });
+    }
   }
 
   @override
@@ -678,18 +766,68 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
                 decoration:
                     InputDecoration(labelText: 'maintenance_next_due_km'.tr()),
               ),
-              if ((widget.record?.attachmentPaths ?? const []).isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'maintenance_existing_attachments'.tr(
-                    namedArgs: {
-                      'count':
-                          widget.record!.attachmentPaths.length.toString(),
-                    },
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'maintenance_attachments'.tr(),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: kIsWeb || _isSaving ? null : _pickAttachments,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text('maintenance_attachment_add'.tr()),
+                  ),
+                ],
+              ),
+              if (kIsWeb)
+                Text(
+                  'maintenance_attachment_native_only'.tr(),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],
+              if (_attachmentPaths.isEmpty &&
+                  _pendingAttachmentSources.isEmpty &&
+                  !kIsWeb)
+                Text(
+                  'maintenance_attachment_empty'.tr(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              for (final path in _attachmentPaths)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.description_outlined),
+                  title: Text(_attachmentName(path)),
+                  trailing: IconButton(
+                    tooltip: 'remove'.tr(),
+                    onPressed: _isSaving
+                        ? null
+                        : () => _removeExistingAttachment(path),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+              for (final path in _pendingAttachmentSources)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.add_circle_outline),
+                  title: Text(_attachmentName(path)),
+                  subtitle: Text('maintenance_attachment_pending'.tr()),
+                  trailing: IconButton(
+                    tooltip: 'remove'.tr(),
+                    onPressed: _isSaving
+                        ? null
+                        : () => _removePendingAttachment(path),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+              if (_attachmentError != null)
+                Text(
+                  _attachmentError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
@@ -699,8 +837,13 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
               ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: _save,
-                child: Text('save'.tr()),
+                onPressed: _isSaving ? null : _save,
+                child: _isSaving
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text('save'.tr()),
               ),
             ],
           ),
