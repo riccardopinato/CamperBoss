@@ -501,8 +501,9 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                                 : Icons.downloading_outlined,
                             size: 18,
                           ),
-                          onPressed:
-                              region.isComplete ? () => _openRegion(region) : null,
+                          onSelected: region.isComplete
+                              ? (_) => _openRegion(region)
+                              : null,
                           onDeleted: () => _deleteRegion(region),
                         ),
                     ],
