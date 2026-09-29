@@ -43,6 +43,41 @@ class VehicleProfile {
   final String? notes;
   final DateTime? updatedAt;
 
+  List<String> validationErrors({DateTime? now}) {
+    final errors = <String>[];
+    final currentYear = (now ?? DateTime.now()).year;
+
+    if (vehicleType.trim().isEmpty) errors.add('vehicleType');
+    if (brand.trim().isEmpty) errors.add('brand');
+    if (model.trim().isEmpty) errors.add('model');
+    if (year < 1900 || year > currentYear + 1) errors.add('year');
+    if (!length.isFinite || length <= 0) errors.add('length');
+    if (!width.isFinite || width <= 0) errors.add('width');
+    if (!height.isFinite || height <= 0) errors.add('height');
+    if (!weight.isFinite || weight <= 0) errors.add('weight');
+    if (!maxMass.isFinite || maxMass <= 0 || maxMass < weight) {
+      errors.add('maxMass');
+    }
+    if (seats <= 0) errors.add('seats');
+    if (fuelType.trim().isEmpty) errors.add('fuelType');
+    if (!mileage.isFinite || mileage < 0) errors.add('mileage');
+
+    for (final entry in <String, double?>{
+      'fuelCapacity': fuelCapacity,
+      'waterCapacity': waterCapacity,
+      'gasCapacity': gasCapacity,
+      'electricRange': electricRange,
+    }.entries) {
+      final value = entry.value;
+      if (value != null && (!value.isFinite || value <= 0)) {
+        errors.add(entry.key);
+      }
+    }
+    return errors;
+  }
+
+  bool get isValid => validationErrors().isEmpty;
+
   VehicleProfile copyWith({
     int? id,
     String? vehicleType,
