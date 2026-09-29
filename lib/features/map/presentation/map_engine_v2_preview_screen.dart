@@ -242,7 +242,6 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final clusters = _clustersById.values.toList(growable: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Offline map'),
