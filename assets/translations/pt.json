@@ -486,5 +486,7 @@
   "documents_delete_confirm_title": "Eliminar documento?",
   "documents_delete_confirm_body": "Eliminar «{title}» e os ficheiros guardados localmente?",
   "trip_delete_title": "Eliminar viagem?",
-  "trip_delete_body": "Eliminar «{title}»? Os dados de rota associados também serão removidos."
+  "trip_delete_body": "Eliminar «{title}»? Os dados de rota associados também serão removidos.",
+  "documents_metric_expired": "Expirados",
+  "documents_metric_expired_detail": "Requer atenção"
 }
