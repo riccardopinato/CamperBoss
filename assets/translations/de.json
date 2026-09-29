@@ -488,5 +488,13 @@
   "trip_delete_title": "Reise löschen?",
   "trip_delete_body": "„{title}“ löschen? Verknüpfte Routendaten werden ebenfalls entfernt.",
   "documents_metric_expired": "Abgelaufen",
-  "documents_metric_expired_detail": "Handlungsbedarf"
+  "documents_metric_expired_detail": "Handlungsbedarf",
+  "maintenance_attachments": "Anhänge",
+  "maintenance_attachment_add": "Dateien hinzufügen",
+  "maintenance_attachment_native_only": "Dateianhänge sind in der Android-/iOS-App verfügbar. Die Web-Version speichert den Wartungseintrag, ohne lokale Dateien vorzutäuschen.",
+  "maintenance_attachment_empty": "Keine Anhänge hinzugefügt.",
+  "maintenance_attachment_pending": "Wird beim Speichern in den privaten App-Speicher kopiert.",
+  "maintenance_attachment_file": "Anhang",
+  "maintenance_attachment_pick_failed": "Die Dateiauswahl konnte nicht geöffnet werden.",
+  "maintenance_attachment_copy_failed": "Der Anhang konnte nicht in den privaten App-Speicher kopiert werden."
 }
