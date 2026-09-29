@@ -488,5 +488,13 @@
   "trip_delete_title": "Delete trip?",
   "trip_delete_body": "Delete “{title}”? Linked route data will also be removed.",
   "documents_metric_expired": "Expired",
-  "documents_metric_expired_detail": "Needs attention"
+  "documents_metric_expired_detail": "Needs attention",
+  "maintenance_attachments": "Attachments",
+  "maintenance_attachment_add": "Add files",
+  "maintenance_attachment_native_only": "File attachments are available in the Android/iOS app. Web keeps the maintenance record without pretending to store local files.",
+  "maintenance_attachment_empty": "No attachments added.",
+  "maintenance_attachment_pending": "Will be copied to private app storage when you save.",
+  "maintenance_attachment_file": "Attachment",
+  "maintenance_attachment_pick_failed": "Could not open the file picker.",
+  "maintenance_attachment_copy_failed": "Could not copy the attachment to private app storage."
 }
