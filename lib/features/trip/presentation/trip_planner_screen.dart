@@ -1,14 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
 import '../../../core/services/camper_routing_profile_resolver.dart';
 import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/routing_service.dart';
 import '../../../core/services/trip_deletion_service.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/models/vehicle_profile.dart';
@@ -17,6 +14,7 @@ import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
+import '../../map/presentation/maplibre_overlay_map.dart';
 import '../../../core/services/travel_history_service.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
@@ -37,6 +35,7 @@ class TripPlannerScreen extends StatefulWidget {
     this.deletionService,
     this.initialTripId,
     this.isRoutingConfigured,
+    this.renderMaps = true,
     super.key,
   });
 
@@ -49,6 +48,7 @@ class TripPlannerScreen extends StatefulWidget {
   final TripDeletionService? deletionService;
   final int? initialTripId;
   final bool? isRoutingConfigured;
+  final bool renderMaps;
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -566,6 +566,7 @@ class _RoutePreviewCard extends StatelessWidget {
             _RouteMap(
               geometry: route.geometry,
               waypoints: request?.waypoints ?? const [],
+              renderMap: widget.renderMaps,
             ),
             const SizedBox(height: 12),
             Row(
@@ -722,68 +723,45 @@ class _RouteMap extends StatelessWidget {
   const _RouteMap({
     required this.geometry,
     required this.waypoints,
+    required this.renderMap,
   });
 
-  final List<LatLng> geometry;
+  final List<dynamic> geometry;
   final List<RouteWaypoint> waypoints;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
-    final center = geometry.isEmpty
-        ? const LatLng(45.6049, 10.6351)
-        : geometry[geometry.length ~/ 2];
-
     return AspectRatio(
       aspectRatio: 1.7,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 9.5,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-            ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.camperboss.camperboss',
-            ),
+        child: MapLibreOverlayMap(
+          renderMap: renderMap,
+          paths: [
             if (geometry.length > 1)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: geometry,
-                    color: AppColors.gold,
-                    strokeWidth: 5,
-                  ),
-                ],
-              ),
-            MarkerLayer(
-              markers: [
-                for (final waypoint in waypoints)
-                  Marker(
-                    point: waypoint.point,
-                    width: 42,
-                    height: 42,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.surface,
-                        border: Border.all(color: AppColors.gold, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.place, color: AppColors.gold),
+              MapLibreOverlayPath(
+                id: 'route-preview',
+                points: [
+                  for (final point in geometry)
+                    MapLibreOverlayPoint(
+                      id: 'route-${point.latitude}-${point.longitude}',
+                      latitude: point.latitude as double,
+                      longitude: point.longitude as double,
                     ),
-                  ),
-              ],
-            ),
+                ],
+                colorHex: '#E6B85C',
+                width: 5,
+              ),
+          ],
+          points: [
+            for (var index = 0; index < waypoints.length; index++)
+              MapLibreOverlayPoint(
+                id: 'waypoint:$index',
+                latitude: waypoints[index].latitude,
+                longitude: waypoints[index].longitude,
+                kind: 'waypoint',
+              ),
           ],
         ),
       ),
