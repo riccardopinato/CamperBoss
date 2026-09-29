@@ -5,15 +5,19 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
 import '../../../core/services/camper_routing_profile_resolver.dart';
+import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/routing_service.dart';
+import '../../../core/services/trip_deletion_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/models/vehicle_profile.dart';
+import '../../../data/repositories/local_finance_repository.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
+import '../../../core/services/travel_history_service.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -29,6 +33,8 @@ class TripPlannerScreen extends StatefulWidget {
     this.routingService,
     this.vehicleProfileRepository,
     this.routingProfileResolver = const CamperRoutingProfileResolver(),
+    this.geocodingService = const GeocodingService(),
+    this.deletionService,
     this.isRoutingConfigured,
     super.key,
   });
@@ -38,6 +44,8 @@ class TripPlannerScreen extends StatefulWidget {
   final RoutingService? routingService;
   final VehicleProfileRepository? vehicleProfileRepository;
   final CamperRoutingProfileResolver routingProfileResolver;
+  final GeocodingService geocodingService;
+  final TripDeletionService? deletionService;
   final bool? isRoutingConfigured;
 
   @override
@@ -53,6 +61,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
   late final VehicleProfileRepository _vehicleProfileRepository =
       widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
+  late final TripDeletionService _deletionService =
+      widget.deletionService ??
+          TripDeletionService(
+            tripRepository: _repository,
+            routePreviewRepository: _routePreviewRepository,
+            financeRepository:
+                widget.repository == null ? LocalFinanceRepository() : null,
+            historyService: widget.repository == null
+                ? TravelHistoryService()
+                : null,
+          );
   late final bool _isRoutingConfigured =
       widget.isRoutingConfigured ?? RoutingConfig.isOpenRouteServiceConfigured;
 
@@ -112,7 +131,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final result = await showModalBottomSheet<TripPlan>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _TripEditor(trip: trip),
+      builder: (context) => _TripEditor(
+        trip: trip,
+        geocodingService: widget.geocodingService,
+      ),
     );
 
     if (result == null) return;
@@ -172,8 +194,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
 
     try {
-      await _repository.deleteTrip(id);
-      await _routePreviewRepository.deleteRouteForTrip(id);
+      await _deletionService.deleteTrip(id);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -241,7 +262,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     if (trip == null || id == null) return null;
     return widget.routingProfileResolver.applyVehicleProfile(
       tripId: id,
-      waypoints: parseRouteWaypoints(trip.stages),
+      waypoints: [
+        for (final stage in trip.resolvedStages)
+          if (stage.isGeocoded)
+            RouteWaypoint(
+              name: stage.name,
+              latitude: stage.latitude!,
+              longitude: stage.longitude!,
+            ),
+      ],
       vehicle: _vehicleProfile,
     );
   }
@@ -813,9 +842,13 @@ class _TripMetrics extends StatelessWidget {
 }
 
 class _TripEditor extends StatefulWidget {
-  const _TripEditor({this.trip});
+  const _TripEditor({
+    required this.geocodingService,
+    this.trip,
+  });
 
   final TripPlan? trip;
+  final GeocodingService geocodingService;
 
   @override
   State<_TripEditor> createState() => _TripEditorState();
@@ -831,6 +864,8 @@ class _TripEditorState extends State<_TripEditor> {
   late final TextEditingController _notesController;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isResolvingStages = false;
+  String? _stageResolutionStatus;
 
   @override
   void initState() {
@@ -881,6 +916,63 @@ class _TripEditorState extends State<_TripEditor> {
     });
   }
 
+  Future<void> _resolveStages() async {
+    if (_isResolvingStages) return;
+    final lines = _stagesController.text
+        .split('\n')
+        .map((stage) => stage.trim())
+        .where((stage) => stage.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return;
+
+    setState(() {
+      _isResolvingStages = true;
+      _stageResolutionStatus = null;
+    });
+
+    final resolved = <String>[];
+    var unresolved = 0;
+    try {
+      for (final line in lines) {
+        final parsed = TripStage.fromLegacy(line);
+        if (parsed.isGeocoded) {
+          resolved.add(parsed.legacyLabel);
+          continue;
+        }
+
+        try {
+          final results = await widget.geocodingService.search(parsed.name);
+          if (results.isEmpty) {
+            unresolved++;
+            resolved.add(line);
+            continue;
+          }
+          final location = results.first;
+          resolved.add(
+            TripStage(
+              name: location.name,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            ).legacyLabel,
+          );
+        } catch (_) {
+          unresolved++;
+          resolved.add(line);
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _stagesController.text = resolved.join('\n');
+        _stageResolutionStatus = unresolved == 0
+            ? 'Tutte le tappe sono geolocalizzate e pronte per il routing.'
+            : '$unresolved tappa/e non risolte: controllale o inserisci le coordinate.';
+      });
+    } finally {
+      if (mounted) setState(() => _isResolvingStages = false);
+    }
+  }
+
   void _save() {
     final title = _titleController.text.trim();
     final destination = _destinationController.text.trim();
@@ -892,7 +984,11 @@ class _TripEditorState extends State<_TripEditor> {
         .map((stage) => stage.trim())
         .where((stage) => stage.isNotEmpty)
         .toList();
-    final cost = double.tryParse(_costController.text.trim());
+    final stageDetails =
+        stages.map(TripStage.fromLegacy).toList(growable: false);
+    final cost = double.tryParse(
+      _costController.text.trim().replaceAll(',', '.'),
+    );
     final notes = _notesController.text.trim();
     final overnightStop = _overnightController.text.trim();
     final progress = (stages.length / 6).clamp(0.0, 1.0);
@@ -907,6 +1003,7 @@ class _TripEditorState extends State<_TripEditor> {
         startDate: _startDate,
         endDate: _endDate,
         stages: stages,
+        stageDetails: stageDetails,
         overnightStop: overnightStop.isEmpty ? null : overnightStop,
         estimatedCost: cost,
         notes: notes.isEmpty ? null : notes,
@@ -956,9 +1053,31 @@ class _TripEditorState extends State<_TripEditor> {
               maxLines: 5,
               decoration: const InputDecoration(
                 labelText: 'Stages',
-                hintText: 'One stop per line, e.g. Verona | 45.4384, 10.9916',
+                hintText:
+                    'Una tappa per riga. Puoi scrivere Verona oppure Verona | 45.4384, 10.9916',
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _isResolvingStages ? null : _resolveStages,
+                icon: _isResolvingStages
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.location_searching_outlined),
+                label: const Text('Geolocalizza tappe'),
+              ),
+            ),
+            if (_stageResolutionStatus != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _stageResolutionStatus!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _overnightController,
