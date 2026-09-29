@@ -523,7 +523,7 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
     if (kIsWeb || _isSaving) return;
     try {
       final files = await FilePicker.pickFiles();
-      if (files.isEmpty || !mounted) return;
+      if (files == null || files.isEmpty || !mounted) return;
       final sources = files
           .map((file) => file.path)
           .whereType<String>()
