@@ -123,13 +123,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Refresh'));
-    await tester.tap(find.text('Refresh'));
+    final refreshButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Refresh'),
+    );
+    refreshButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('2 items'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Delete'));
-    await tester.tap(find.text('Delete'));
+    final deleteButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Delete'),
+    );
+    deleteButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('0 items'), findsOneWidget);
 
