@@ -486,5 +486,7 @@
   "documents_delete_confirm_title": "Supprimer le document ?",
   "documents_delete_confirm_body": "Supprimer « {title} » et ses fichiers stockés localement ?",
   "trip_delete_title": "Supprimer le voyage ?",
-  "trip_delete_body": "Supprimer « {title} » ? Les données d'itinéraire liées seront également supprimées."
+  "trip_delete_body": "Supprimer « {title} » ? Les données d'itinéraire liées seront également supprimées.",
+  "documents_metric_expired": "Expirés",
+  "documents_metric_expired_detail": "À vérifier"
 }
