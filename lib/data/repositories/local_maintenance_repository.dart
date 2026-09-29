@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../database/local_json_collection.dart';
 import '../models/maintenance_record.dart';
+import '../../core/services/document_storage_service.dart';
 
 abstract interface class MaintenanceRepository {
   Future<List<MaintenanceRecord>> listRecords();
@@ -15,12 +16,15 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
   LocalMaintenanceRepository({
     AppDatabase? database,
     LocalJsonCollection? webCollection,
+    DocumentStorageService? storageService,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
-            webCollection ?? LocalJsonCollection('camperboss.maintenance');
+            webCollection ?? LocalJsonCollection('camperboss.maintenance'),
+        _storageService = storageService ?? createDocumentStorageService();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
+  final DocumentStorageService _storageService;
 
   @override
   Future<List<MaintenanceRecord>> listRecords() async {
@@ -68,17 +72,29 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> deleteRecord(int id) async {
-    if (kIsWeb) {
-      await _webCollection.deleteRow(id);
-      return;
+    final records = await listRecords();
+    MaintenanceRecord? record;
+    for (final candidate in records) {
+      if (candidate.id == id) {
+        record = candidate;
+        break;
+      }
     }
 
-    final db = await _database.database;
-    await db.delete(
-      AppDatabase.maintenanceRecordsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    if (kIsWeb) {
+      await _webCollection.deleteRow(id);
+    } else {
+      final db = await _database.database;
+      await db.delete(
+        AppDatabase.maintenanceRecordsTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    if (record != null && record.attachmentPaths.isNotEmpty) {
+      await _storageService.deleteFiles(record.attachmentPaths);
+    }
   }
 
   int _sortRecords(MaintenanceRecord a, MaintenanceRecord b) {
