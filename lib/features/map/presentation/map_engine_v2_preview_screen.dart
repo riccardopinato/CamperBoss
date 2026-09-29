@@ -231,7 +231,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       await _offlineManager.clearAmbientCache();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('MapLibre ambient cache cleared')),
+        const SnackBar(content: Text('Map cache cleared')),
       );
     } on Object catch (error) {
       if (mounted) {
@@ -249,10 +249,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map Engine V2'),
+        title: const Text('Offline map'),
         actions: [
           IconButton(
-            tooltip: 'Clear MapLibre cache',
+            tooltip: 'Clear map cache',
             onPressed: _offlineManager.isSupported ? _clearAmbientCache : null,
             icon: const Icon(Icons.cleaning_services_outlined),
           ),
@@ -318,7 +318,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'MapLibre vector POC',
+                          'Map & offline area',
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
@@ -356,7 +356,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Preparing visible area offline: ${(_offlineProgress * 100).round()}%',
+                      'Preparing offline area: ${(_offlineProgress * 100).round()}%',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

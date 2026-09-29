@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_spacing.dart';
-import '../../core/theme/app_colors.dart';
 
 class PremiumCard extends StatelessWidget {
   const PremiumCard({
@@ -17,13 +16,19 @@ class PremiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = color ?? scheme.surface;
+    final border = color == null
+        ? scheme.outlineVariant.withValues(alpha: 0.72)
+        : scheme.outline.withValues(alpha: 0.30);
+
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? AppColors.surface,
+        color: background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: border),
       ),
       child: child,
     );

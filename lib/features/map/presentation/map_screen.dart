@@ -180,7 +180,7 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final snapshot = await _cacheRepository.refresh(
-        region: 'North Italy',
+        region: selectedLocationController.value?.label ?? 'Custom area',
         places: _places,
       );
       if (!mounted) return;
@@ -291,13 +291,15 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<GeoLocationResult>(
+    return ValueListenableBuilder<GeoLocationResult?>(
       valueListenable: selectedLocationController,
       builder: (context, selectedLocation, _) {
-        final selectedPoint = LatLng(
-          selectedLocation.latitude,
-          selectedLocation.longitude,
-        );
+        final selectedPoint = selectedLocation == null
+            ? const LatLng(42.5, 12.5)
+            : LatLng(
+                selectedLocation.latitude,
+                selectedLocation.longitude,
+              );
         final places = _filteredPlaces(selectedPoint);
         final selectedPlace = _selectedPlace != null &&
                 places.any(
@@ -409,7 +411,7 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                   ),
                   const SizedBox(height: 6),
-                  Text(selectedLocation.label),
+                  Text(selectedLocation?.label ?? 'No location selected'),
                   const SizedBox(height: 14),
                   AspectRatio(
                     aspectRatio: 1.4,
@@ -517,12 +519,12 @@ class _MapScreenState extends State<MapScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Map Engine V2',
+                          'Offline map',
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Isolated MapLibre vector preview. The current FlutterMap renderer stays active until V2 is validated.',
+                          'Open the map engine and prepare the visible area for offline use.',
                         ),
                       ],
                     ),
@@ -540,7 +542,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
                     icon: const Icon(Icons.science_outlined),
-                    label: const Text('Preview'),
+                    label: const Text('Open'),
                   ),
                 ],
               ),

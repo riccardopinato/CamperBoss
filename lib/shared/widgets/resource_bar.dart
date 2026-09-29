@@ -19,6 +19,8 @@ class ResourceBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -27,7 +29,10 @@ class ResourceBar extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             Text(
@@ -41,9 +46,9 @@ class ResourceBar extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         LinearProgressIndicator(
-          value: value,
+          value: value.clamp(0.0, 1.0),
           color: color,
-          backgroundColor: AppColors.surfaceSoft,
+          backgroundColor: scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(999),
           minHeight: 9,
         ),
@@ -51,7 +56,7 @@ class ResourceBar extends StatelessWidget {
         Text(
           detail,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.muted,
+                color: scheme.onSurfaceVariant,
               ),
         ),
       ],
