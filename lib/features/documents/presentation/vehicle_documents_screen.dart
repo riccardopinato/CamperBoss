@@ -76,7 +76,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
     try {
       final documents = await _repository.listDocuments();
-      if (!mounted) return false;
+      if (!mounted) return;
       setState(() {
         _documents = documents;
         _isLoading = false;
@@ -247,7 +247,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     try {
       final saved = await _repository.saveDocument(result);
       await _reminderService.syncDocument(saved);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         if (document == null) {
           _documents = [saved, ..._documents];
