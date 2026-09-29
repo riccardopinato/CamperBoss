@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../data/database/data_revision_store.dart';
 import '../../data/database/local_key_value_store.dart';
 import '../../data/models/search_models.dart';
 import '../../data/models/vehicle_profile.dart';
@@ -48,28 +49,51 @@ class LocalSearchService implements LocalSearchIndex {
   LocalSearchService({
     LocalSearchIndex? index,
     LocalSearchDocumentSource? source,
-  }) : _source = source ?? LocalSearchDocumentSource() {
+    DataRevisionStore? revisionStore,
+  })  : _source = source ?? LocalSearchDocumentSource(),
+        _revisionStore = revisionStore ?? DataRevisionStore() {
     _index =
         index ?? PersistentLocalSearchIndex(documentLoader: _source.loadAll);
   }
 
   late final LocalSearchIndex _index;
   final LocalSearchDocumentSource _source;
+  final DataRevisionStore _revisionStore;
+  int _indexedRevision = -1;
+  bool _initialRefreshDone = false;
 
   @override
-  Future<void> index(SearchDocument document) => _index.index(document);
+  Future<void> index(SearchDocument document) async {
+    await _index.index(document);
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
 
   @override
-  Future<void> remove(String id) => _index.remove(id);
+  Future<void> remove(String id) async {
+    await _index.remove(id);
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
 
   @override
-  Future<void> rebuild() => _index.rebuild();
-
-  Future<void> rebuildFromSources() async {
-    await PersistentLocalSearchIndex(
-      documentLoader: _source.loadAll,
-    ).rebuild();
+  Future<void> rebuild() async {
     await _index.rebuild();
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
+
+  Future<void> rebuildFromSources() => rebuild();
+
+  Future<void> ensureFresh({bool force = false}) async {
+    final revision = _revisionStore.current();
+    final state = await _index.snapshot();
+    if (force ||
+        !_initialRefreshDone ||
+        revision != _indexedRevision ||
+        state.status == SearchIndexStatus.corrupted) {
+      await rebuild();
+    }
   }
 
   @override
@@ -79,7 +103,8 @@ class LocalSearchService implements LocalSearchIndex {
     DateTime? updatedAfter,
     DateTime? updatedBefore,
     int limit = 50,
-  }) {
+  }) async {
+    await ensureFresh();
     return _index.search(
       query,
       types: types,
@@ -90,7 +115,10 @@ class LocalSearchService implements LocalSearchIndex {
   }
 
   @override
-  Future<SearchIndexSnapshot> snapshot() => _index.snapshot();
+  Future<SearchIndexSnapshot> snapshot() async {
+    await ensureFresh();
+    return _index.snapshot();
+  }
 }
 
 class PersistentLocalSearchIndex implements LocalSearchIndex {
