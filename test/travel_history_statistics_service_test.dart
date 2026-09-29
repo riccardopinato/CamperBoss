@@ -96,4 +96,41 @@ void main() {
     expect(stats.consumptionLitersPer100Km, 10);
     expect(stats.elevationGainMeters, 450);
   });
+
+  test('does not add incompatible currencies together', () {
+    const service = TravelHistoryStatisticsService();
+
+    final stats = service.build(
+      tracks: const [],
+      memories: const [],
+      journalEntries: const [],
+      expenses: [
+        Expense(
+          id: 'eur',
+          scope: ExpenseScope.trip,
+          tripId: 1,
+          category: ExpenseCategory.food,
+          amountMinor: 1200,
+          currencyCode: 'EUR',
+          occurredAt: DateTime(2026, 9, 1),
+        ),
+        Expense(
+          id: 'chf',
+          scope: ExpenseScope.trip,
+          tripId: 1,
+          category: ExpenseCategory.toll,
+          amountMinor: 900,
+          currencyCode: 'CHF',
+          occurredAt: DateTime(2026, 9, 1),
+        ),
+      ],
+      fuelEntries: const [],
+      bookings: const [],
+    );
+
+    expect(stats.hasMixedCurrencies, isTrue);
+    expect(stats.totalCostMinor, 0);
+    expect(stats.costByCurrency['EUR'], 1200);
+    expect(stats.costByCurrency['CHF'], 900);
+  });
 }
