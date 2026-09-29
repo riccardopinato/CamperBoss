@@ -149,7 +149,6 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final snapshot = _snapshot;
     return ScreenScaffold(
       title: 'search_title'.tr(),
       subtitle: 'search_subtitle'.tr(),
