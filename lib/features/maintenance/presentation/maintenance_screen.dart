@@ -522,12 +522,9 @@ class _MaintenanceEditorState extends State<_MaintenanceEditor> {
   Future<void> _pickAttachments() async {
     if (kIsWeb || _isSaving) return;
     try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        withData: false,
-      );
-      if (result == null || !mounted) return;
-      final sources = result.files
+      final files = await FilePicker.pickFiles();
+      if (files.isEmpty || !mounted) return;
+      final sources = files
           .map((file) => file.path)
           .whereType<String>()
           .where((path) => path.trim().isNotEmpty)
