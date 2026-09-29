@@ -117,6 +117,8 @@ void main() {
     expect(find.text('GPL'), findsWidgets);
     expect(find.text('2 visible'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Camping'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Camping'));
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
@@ -131,6 +133,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('0 items'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Camping'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Camping'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -1500));
