@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/services/document_storage_service.dart';
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../core/utils/locale_number_parser.dart';
 import '../../../data/models/maintenance_record.dart';
@@ -38,7 +39,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   late final MaintenanceRepository _repository =
       widget.repository ?? LocalMaintenanceRepository();
   late final ReminderSyncService _reminderService =
-      widget.reminderService ?? ReminderCoordinator();
+      widget.reminderService ?? AppSystemServices.instance.reminders;
   late final DocumentStorageService _storageService =
       createDocumentStorageService();
   late final VehicleProfileRepository _vehicleProfileRepository =
