@@ -94,10 +94,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Offline map'), findsOneWidget);
-    expect(find.text('Map & offline area'), findsOneWidget);
-    expect(find.textContaining('2 places available'), findsOneWidget);
-    expect(find.text('Online only'), findsOneWidget);
+    expect(find.text('Mappa'), findsOneWidget);
+    expect(find.text('Mappa & offline'), findsOneWidget);
+    expect(find.textContaining('2 POI visibili'), findsOneWidget);
+    expect(find.text('Solo online'), findsOneWidget);
   });
 }
 
