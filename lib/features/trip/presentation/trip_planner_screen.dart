@@ -963,8 +963,11 @@ class _TripEditorState extends State<_TripEditor> {
   void _save() {
     final title = _titleController.text.trim();
     final destination = _destinationController.text.trim();
-    final summary = _summaryController.text.trim();
-    if (title.isEmpty || summary.isEmpty) return;
+    final rawSummary = _summaryController.text.trim();
+    if (title.isEmpty) return;
+    final summary = rawSummary.isNotEmpty
+        ? rawSummary
+        : (destination.isNotEmpty ? destination : title);
 
     final stages = _stagesController.text
         .split('\n')
@@ -1029,54 +1032,6 @@ class _TripEditorState extends State<_TripEditor> {
               decoration: const InputDecoration(labelText: 'Destination'),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _summaryController,
-              decoration: const InputDecoration(labelText: 'Summary'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _stagesController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Stages',
-                hintText:
-                    'Una tappa per riga. Puoi scrivere Verona oppure Verona | 45.4384, 10.9916',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _isResolvingStages ? null : _resolveStages,
-                icon: _isResolvingStages
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.location_searching_outlined),
-                label: const Text('Geolocalizza tappe'),
-              ),
-            ),
-            if (_stageResolutionStatus != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _stageResolutionStatus!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 12),
-            TextField(
-              controller: _overnightController,
-              decoration: const InputDecoration(labelText: 'Overnight stop'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _costController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Estimated cost'),
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -1096,12 +1051,74 @@ class _TripEditorState extends State<_TripEditor> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _notesController,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Notes'),
+            const SizedBox(height: 8),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              initiallyExpanded: widget.trip != null,
+              title: Text(
+                'trip_hub_planner'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('trip_hub_planner_body'.tr()),
+              children: [
+                TextField(
+                  controller: _summaryController,
+                  decoration: const InputDecoration(labelText: 'Summary'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _stagesController,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Stages',
+                    hintText:
+                        'Una tappa per riga. Puoi scrivere Verona oppure Verona | 45.4384, 10.9916',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _isResolvingStages ? null : _resolveStages,
+                    icon: _isResolvingStages
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.location_searching_outlined),
+                    label: const Text('Geolocalizza tappe'),
+                  ),
+                ),
+                if (_stageResolutionStatus != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _stageResolutionStatus!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _overnightController,
+                  decoration:
+                      const InputDecoration(labelText: 'Overnight stop'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _costController,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      const InputDecoration(labelText: 'Estimated cost'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notesController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Notes'),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
             const SizedBox(height: 20),
             Align(
