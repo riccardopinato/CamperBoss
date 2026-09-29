@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/finance_models.dart';
 
@@ -30,6 +31,7 @@ class LocalFinanceRepository implements FinanceRepository {
     LocalJsonCollection? fuelCollection,
     LocalJsonCollection? budgetsCollection,
     LocalJsonCollection? bookingsCollection,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _expensesCollection =
             expensesCollection ?? LocalJsonCollection('camperboss.expenses'),
@@ -38,13 +40,15 @@ class LocalFinanceRepository implements FinanceRepository {
         _budgetsCollection =
             budgetsCollection ?? LocalJsonCollection('camperboss.trip_budgets'),
         _bookingsCollection =
-            bookingsCollection ?? LocalJsonCollection('camperboss.bookings');
+            bookingsCollection ?? LocalJsonCollection('camperboss.bookings'),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _expensesCollection;
   final LocalJsonCollection _fuelCollection;
   final LocalJsonCollection _budgetsCollection;
   final LocalJsonCollection _bookingsCollection;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<Expense>> listExpenses() async {
@@ -66,6 +70,7 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<Expense> saveExpense(Expense expense) async {
     if (kIsWeb) {
       final saved = await _expensesCollection.saveRow(expense.toMap());
+      _revisionStore.bump();
       return Expense.fromMap(saved);
     }
 
@@ -75,6 +80,7 @@ class LocalFinanceRepository implements FinanceRepository {
       expense.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
     return expense;
   }
 
@@ -82,11 +88,13 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<void> deleteExpense(String id) async {
     if (kIsWeb) {
       await _expensesCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
     final db = await _database.database;
     await db.delete(AppDatabase.expensesTable, where: 'id = ?', whereArgs: [id]);
+    _revisionStore.bump();
   }
 
   @override
@@ -109,6 +117,7 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<FuelEntry> saveFuelEntry(FuelEntry entry) async {
     if (kIsWeb) {
       final saved = await _fuelCollection.saveRow(entry.toMap());
+      _revisionStore.bump();
       return FuelEntry.fromMap(saved);
     }
 
@@ -118,6 +127,7 @@ class LocalFinanceRepository implements FinanceRepository {
       entry.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
     return entry;
   }
 
@@ -125,6 +135,7 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<void> deleteFuelEntry(String id) async {
     if (kIsWeb) {
       await _fuelCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
@@ -134,6 +145,7 @@ class LocalFinanceRepository implements FinanceRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
   }
 
   @override
@@ -163,6 +175,7 @@ class LocalFinanceRepository implements FinanceRepository {
         ...budget.toMap(),
         'id': budget.tripId,
       });
+      _revisionStore.bump();
       return;
     }
 
@@ -172,12 +185,14 @@ class LocalFinanceRepository implements FinanceRepository {
       budget.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
   }
 
   @override
   Future<void> deleteTripBudget(int tripId) async {
     if (kIsWeb) {
       await _budgetsCollection.deleteRow(tripId);
+      _revisionStore.bump();
       return;
     }
 
@@ -187,6 +202,7 @@ class LocalFinanceRepository implements FinanceRepository {
       where: 'trip_id = ?',
       whereArgs: [tripId],
     );
+    _revisionStore.bump();
   }
 
   @override
@@ -213,6 +229,7 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<TripBooking> saveBooking(TripBooking booking) async {
     if (kIsWeb) {
       final saved = await _bookingsCollection.saveRow(booking.toMap());
+      _revisionStore.bump();
       return TripBooking.fromMap(saved);
     }
 
@@ -222,6 +239,7 @@ class LocalFinanceRepository implements FinanceRepository {
       booking.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
     return booking;
   }
 
@@ -229,6 +247,7 @@ class LocalFinanceRepository implements FinanceRepository {
   Future<void> deleteBooking(String id) async {
     if (kIsWeb) {
       await _bookingsCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
@@ -238,5 +257,6 @@ class LocalFinanceRepository implements FinanceRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
   }
 }
