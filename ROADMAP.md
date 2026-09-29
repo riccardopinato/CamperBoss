@@ -305,13 +305,16 @@ Implementato:
 - recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili;
 - progetto iOS corretto con file reference esplicita per il bridge privacy;
 - workflow Release Core pubblica APK ARM64 per 1 giorno e cancella run superati;
-- vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate.
+- vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate;
+- Step 16C Foundation Repair completato: superfici condivise theme-aware, rimozione fallback/localita simulate, Home e meteo basati solo su dati reali, setup senza profilo demo, notifiche con recovery esplicito, profilo/manutenzione/documenti hardenizzati, conferme distruttive e pulizia delle etichette debug della Mappa;
+- cataloghi IT/EN/DE/FR/ES/PT riallineati e test di parita aggiornati;
+- certificazione Step 16C: `flutter analyze` PASS, `flutter test` 108/108 PASS, APK ARM64 release PASS, Web release PASS; artifact `camperboss-step16c-arm64-release` (48,428,372 byte).
 
 Blocchi esterni di certificazione:
 
 - completare prova fisica MapLibre offline con rete disattivata;
-- completare device/AppLab QA finale;
-- GitHub Actions fallisce prima dell'assegnazione runner (nessuno step avviato), quindi analyze/test/build finali non sono certificabili finche l'account Actions non torna operativo.
+- completare i successivi repair funzionali 16D/16E emersi dall'audit (Mappa/offline, Viaggi, Camper, Altro);
+- completare device/AppLab QA finale sul nuovo Release Core prima di rendere la PR nuovamente Ready.
 
 Non promuovere STEP 17 finche questi gate non sono chiusi.
 
