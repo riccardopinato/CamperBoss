@@ -36,7 +36,6 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
   final _selectedTypes = <SearchDocumentType>{};
 
   late LocalSearchIndex _searchService;
-  SearchIndexSnapshot? _snapshot;
   List<SearchHit> _hits = const [];
   bool _isLoading = true;
   bool _isRebuilding = false;
@@ -85,7 +84,6 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _snapshot = snapshot;
         _hits = hits;
         _error = snapshot.status == SearchIndexStatus.corrupted
             ? snapshot.lastError ?? 'Search index corrupted'

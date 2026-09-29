@@ -76,7 +76,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
 
     try {
       final documents = await _repository.listDocuments();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _documents = documents;
         _isLoading = false;

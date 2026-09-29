@@ -1,7 +1,6 @@
 import '../../data/database/local_key_value_store.dart';
 import '../../data/models/checklist_item.dart';
 import '../../data/models/guide_models.dart';
-import '../../data/models/vehicle_profile.dart';
 import '../../data/repositories/local_checklist_repository.dart';
 import '../../data/repositories/local_vehicle_profile_repository.dart';
 import 'location_service.dart';

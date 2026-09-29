@@ -33,12 +33,12 @@ class FakeWeatherService extends WeatherService {
 
   @override
   Future<WeatherSnapshot> fetchCurrent({
-    double latitude = 45.6049,
-    double longitude = 10.6351,
-    String location = 'Lake Garda basecamp',
+    double? latitude,
+    double? longitude,
+    String? location,
   }) async {
-    return const WeatherSnapshot(
-      location: 'Lake Garda basecamp',
+    return WeatherSnapshot(
+      location: location ?? 'Test location',
       temperature: 22,
       apparentTemperature: 23,
       humidity: 61,
