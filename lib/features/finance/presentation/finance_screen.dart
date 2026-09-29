@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/finance_summary_service.dart';
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/finance_models.dart';
 import '../../../data/models/route_preview.dart';
@@ -54,7 +55,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
   late final VehicleDocumentRepository _documentRepository =
       widget.documentRepository ?? LocalVehicleDocumentRepository();
   late final ReminderSyncService _reminderService =
-      widget.reminderService ?? ReminderCoordinator();
+      widget.reminderService ?? AppSystemServices.instance.reminders;
   final _summaryService = const FinanceSummaryService();
 
   VehicleProfile? _profile;
