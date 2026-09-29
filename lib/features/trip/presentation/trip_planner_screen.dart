@@ -433,6 +433,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             routeFailure: routeFailure,
             canCalculate: canCalculateRoute,
             onCalculate: _calculateRoute,
+            renderMap: renderMap,
           ),
           const SizedBox(height: 16),
           for (final stage in trip.stages) ...[
@@ -498,6 +499,7 @@ class _RoutePreviewCard extends StatelessWidget {
     required this.routeFailure,
     required this.canCalculate,
     required this.onCalculate,
+    required this.renderMap,
   });
 
   final RouteRequest? request;
@@ -509,6 +511,7 @@ class _RoutePreviewCard extends StatelessWidget {
   final RouteFailure? routeFailure;
   final bool canCalculate;
   final VoidCallback onCalculate;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
