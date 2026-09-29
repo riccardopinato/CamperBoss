@@ -77,6 +77,7 @@ void main() {
         home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
+          renderMaps: false,
         ),
       ),
     );
@@ -149,6 +150,7 @@ void main() {
           routePreviewRepository: routeRepository,
           routingService: const FakeRoutingService(),
           isRoutingConfigured: true,
+          renderMaps: false,
         ),
       ),
     );
@@ -196,6 +198,7 @@ void main() {
           routePreviewRepository: FakeRoutePreviewRepository(),
           routingService: const FakeRoutingService(),
           isRoutingConfigured: false,
+          renderMaps: false,
         ),
       ),
     );
