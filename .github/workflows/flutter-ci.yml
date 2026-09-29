@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - maxi-product-truth-shell-v2
+      - "step-16*"
     paths:
       - "lib/**"
       - "test/**"
