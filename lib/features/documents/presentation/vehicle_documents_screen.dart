@@ -55,6 +55,14 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     return _documents.where((document) => document.matches(_query)).toList();
   }
 
+  int get _expiredCount {
+    final now = DateTime.now();
+    return _documents.where((document) {
+      final expiry = document.expiryDate;
+      return expiry != null && !expiry.isAfter(now);
+    }).length;
+  }
+
   int get _expiringCount {
     final now = DateTime.now();
     final limit = now.add(const Duration(days: 45));
@@ -328,8 +336,8 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       title: 'documents_title'.tr(),
       subtitle: 'documents_subtitle'.tr(),
       children: [
-        GridView.count(
-          crossAxisCount: 3,
+        GridView.extent(
+          maxCrossAxisExtent: 190,
           childAspectRatio: 0.92,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
@@ -350,6 +358,12 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
                   .length
                   .toString(),
               detail: 'documents_metric_private'.tr(),
+            ),
+            MetricTile(
+              icon: Icons.error_outline,
+              label: 'documents_metric_expired'.tr(),
+              value: _expiredCount.toString(),
+              detail: 'documents_metric_expired_detail'.tr(),
             ),
             MetricTile(
               icon: Icons.event_busy_outlined,
