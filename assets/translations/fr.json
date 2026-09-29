@@ -488,5 +488,13 @@
   "trip_delete_title": "Supprimer le voyage ?",
   "trip_delete_body": "Supprimer « {title} » ? Les données d'itinéraire liées seront également supprimées.",
   "documents_metric_expired": "Expirés",
-  "documents_metric_expired_detail": "À vérifier"
+  "documents_metric_expired_detail": "À vérifier",
+  "maintenance_attachments": "Pièces jointes",
+  "maintenance_attachment_add": "Ajouter des fichiers",
+  "maintenance_attachment_native_only": "Les pièces jointes sont disponibles dans l’app Android/iOS. Le Web conserve l’entretien sans simuler le stockage de fichiers locaux.",
+  "maintenance_attachment_empty": "Aucune pièce jointe ajoutée.",
+  "maintenance_attachment_pending": "Sera copié dans le stockage privé de l’app lors de l’enregistrement.",
+  "maintenance_attachment_file": "Pièce jointe",
+  "maintenance_attachment_pick_failed": "Impossible d’ouvrir le sélecteur de fichiers.",
+  "maintenance_attachment_copy_failed": "Impossible de copier la pièce jointe dans le stockage privé de l’app."
 }
