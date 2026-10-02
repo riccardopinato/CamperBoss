@@ -475,6 +475,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 for (final entry in mapFilterLabels.entries)
                   FilterChip(
+                    key: ValueKey('map-filter-${entry.key}'),
                     label: Text(entry.value),
                     selected: _activeFilters.contains(entry.key),
                     onSelected: (_) => _toggleFilter(entry.key),
