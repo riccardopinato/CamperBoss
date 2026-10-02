@@ -307,16 +307,21 @@ Implementato:
 - workflow Release Core pubblica APK ARM64 per 1 giorno e cancella run superati;
 - vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate;
 - Step 16C Foundation Repair completato: superfici condivise theme-aware, rimozione fallback/localita simulate, Home e meteo basati solo su dati reali, setup senza profilo demo, notifiche con recovery esplicito, profilo/manutenzione/documenti hardenizzati, conferme distruttive e pulizia delle etichette debug della Mappa;
+- Step 16D Core Functional Repair completato: MapLibre unificato, persistenza viewport/offline, planner e storico su MapLibre, tappe strutturate/geocodificate, cancellazione viaggio a cascata, statistiche multicurrency corrette, allegati manutenzione reali, deep-link ricerca locale;
+- Step 16E Offline & System Integration completato: service graph condiviso, verita offline basata su regione completa + viewport persistito, verifica pacchetti guide, reminder centralizzati, indice ricerca auto-refresh e audit integrita cross-domain;
+- Step 16F UX & Product Polish completato: Home first-run, Smart Map map-first, editor Camper/Viaggio progressivi, griglie responsive e rimozione duplicazioni di navigazione;
 - cataloghi IT/EN/DE/FR/ES/PT riallineati e test di parita aggiornati;
-- certificazione Step 16C: `flutter analyze` PASS, `flutter test` 108/108 PASS, APK ARM64 release PASS, Web release PASS; artifact `camperboss-step16c-arm64-release` (48,428,372 byte).
+- Step 16G automated certification completata sul commit app `e88d586fc41e31c5175050f7934a383e5e480c1d`: `flutter analyze` PASS, `flutter test` 113/113 PASS, Android ARM64 release PASS, iOS release no-codesign PASS, Web release PASS, privacy assertions PASS;
+- artifact Android `camperboss-arm64-release-apk`, ID `11229115224`, APK `48,029,264` byte (~45.8 MiB), sotto la soglia warning 80 MiB;
+- iOS `Runner.app` ~82 MiB (`flutter` report 85.3 MB); Web release ~43 MiB;
+- evidence bundle: `docs/release/step-16g-evidence.md`.
 
 Blocchi esterni di certificazione:
 
-- completare prova fisica MapLibre offline con rete disattivata;
-- completare i successivi repair funzionali 16D/16E emersi dall'audit (Mappa/offline, Viaggi, Camper, Altro);
-- completare device/AppLab QA finale sul nuovo Release Core prima di rendere la PR nuovamente Ready.
+- completare prova fisica MapLibre offline: scaricare una regione, riavviare l'app, disattivare la rete e verificare riapertura della regione;
+- completare device/AppLab QA finale su Android/iPhone/Web secondo `docs/release/release-core-checklist.md`.
 
-Non promuovere STEP 17 finche questi gate non sono chiusi.
+Step 16 resta `BLOCKED` esclusivamente sui gate manuali sopra. Non promuovere STEP 17 finche questi gate non sono chiusi.
 
 ## STEP 17 — Local AI Micro Engine
 
