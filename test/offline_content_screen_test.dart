@@ -33,6 +33,12 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('offline_empty_title'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('offline_empty_title'), findsOneWidget);
     expect(find.text('offline_wifi_only'), findsOneWidget);
@@ -82,6 +88,12 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Manuale prova'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('Manuale prova'), findsOneWidget);
     expect(find.textContaining('50%'), findsOneWidget);
