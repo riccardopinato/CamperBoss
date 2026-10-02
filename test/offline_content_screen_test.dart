@@ -1,5 +1,6 @@
 import 'package:camperboss/core/providers/download_manager_provider.dart';
 import 'package:camperboss/core/services/app_download_manager.dart';
+import 'package:camperboss/core/services/offline_system_coordinator.dart';
 import 'package:camperboss/core/services/storage_inspector.dart';
 import 'package:camperboss/data/models/download_models.dart';
 import 'package:camperboss/features/offline/presentation/offline_content_screen.dart';
@@ -13,12 +14,29 @@ void main() {
       ProviderScope(
         overrides: [
           downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
+          downloadsProvider.overrideWithValue(
+            const AsyncData<List<DownloadRecord>>([]),
+          ),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          offlineSystemSnapshotProvider.overrideWithValue(
+            const AsyncData<OfflineSystemSnapshot>(
+              OfflineSystemSnapshot(
+                mapRegions: [],
+                guidePackages: [],
+              ),
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('offline_empty_title'),
+      260,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
@@ -28,36 +46,52 @@ void main() {
 
   testWidgets('download row shows progress and actions', (tester) async {
     final now = DateTime(2026);
-    final manager = FakeDownloadManager([
-      DownloadRecord(
-        packageId: 'manual-1',
-        taskId: 'manual-1-2026',
-        type: DownloadPackageType.manual,
-        title: 'Manuale prova',
-        version: '2026.06',
-        fileName: 'manual.pdf',
-        localPath: '/tmp/manual.pdf',
-        status: DownloadStatus.running,
-        downloadedBytes: 50,
-        totalBytes: 100,
-        expectedSha256: '',
-        installedSha256: '',
-        createdAt: now,
-        updatedAt: now,
-        progress: 0.5,
-      ),
-    ]);
+    final record = DownloadRecord(
+      packageId: 'manual-1',
+      taskId: 'manual-1-2026',
+      type: DownloadPackageType.manual,
+      title: 'Manuale prova',
+      version: '2026.06',
+      fileName: 'manual.pdf',
+      localPath: '/tmp/manual.pdf',
+      status: DownloadStatus.running,
+      downloadedBytes: 50,
+      totalBytes: 100,
+      expectedSha256: '',
+      installedSha256: '',
+      createdAt: now,
+      updatedAt: now,
+      progress: 0.5,
+    );
+    final manager = FakeDownloadManager([record]);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           downloadManagerProvider.overrideWithValue(manager),
+          downloadsProvider.overrideWithValue(
+            AsyncData<List<DownloadRecord>>([record]),
+          ),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          offlineSystemSnapshotProvider.overrideWithValue(
+            const AsyncData<OfflineSystemSnapshot>(
+              OfflineSystemSnapshot(
+                mapRegions: [],
+                guidePackages: [],
+              ),
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Manuale prova'),
+      260,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
@@ -73,14 +107,26 @@ void main() {
       ProviderScope(
         overrides: [
           downloadManagerProvider.overrideWithValue(FakeDownloadManager()),
+          downloadsProvider.overrideWithValue(
+            const AsyncData<List<DownloadRecord>>([]),
+          ),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          offlineSystemSnapshotProvider.overrideWithValue(
+            const AsyncData<OfflineSystemSnapshot>(
+              OfflineSystemSnapshot(
+                mapRegions: [],
+                guidePackages: [],
+              ),
+            ),
           ),
         ],
         child: const MaterialApp(home: Scaffold(body: OfflineContentScreen())),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(find.text('offline_storage_title'), findsOneWidget);
     expect(find.textContaining('1.0 MB'), findsOneWidget);

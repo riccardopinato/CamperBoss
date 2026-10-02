@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/maintenance_record.dart';
 import '../../core/services/document_storage_service.dart';
@@ -17,14 +18,17 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     AppDatabase? database,
     LocalJsonCollection? webCollection,
     DocumentStorageService? storageService,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
             webCollection ?? LocalJsonCollection('camperboss.maintenance'),
-        _storageService = storageService ?? createDocumentStorageService();
+        _storageService = storageService ?? createDocumentStorageService(),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
   final DocumentStorageService _storageService;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<MaintenanceRecord>> listRecords() async {
@@ -66,6 +70,8 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
           : await _updateRecord(db, record.id!, values);
       savedRecord = record.copyWith(id: id, updatedAt: DateTime.now());
     }
+
+    _revisionStore.bump();
 
     final previousPaths = previous?.attachmentPaths ?? const <String>[];
     if (previousPaths.isNotEmpty) {
@@ -113,6 +119,8 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
         whereArgs: [id],
       );
     }
+
+    _revisionStore.bump();
 
     if (record != null && record.attachmentPaths.isNotEmpty) {
       await _storageService.deleteFiles(record.attachmentPaths);

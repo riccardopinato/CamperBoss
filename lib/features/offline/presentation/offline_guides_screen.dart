@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/offline_guides_service.dart';
 import '../../../data/models/guide_models.dart';
 import '../../../shared/widgets/premium_card.dart';
@@ -23,7 +24,7 @@ class OfflineGuidesScreen extends StatefulWidget {
 
 class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
   late final OfflineGuidesService _guidesService =
-      widget.guidesService ?? LocalOfflineGuidesService();
+      widget.guidesService ?? AppSystemServices.instance.guides;
   final _searchController = TextEditingController();
 
   List<GuidePackage> _packages = const [];

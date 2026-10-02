@@ -5,6 +5,7 @@ import '../../../core/services/document_capture_service.dart';
 import '../../../core/services/document_ocr_service.dart';
 import '../../../core/services/document_services_models.dart';
 import '../../../core/services/document_storage_service.dart';
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/vehicle_document.dart';
 import '../../../data/repositories/local_vehicle_document_repository.dart';
@@ -43,7 +44,7 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
   late final DocumentStorageService _storageService =
       createDocumentStorageService();
   late final ReminderSyncService _reminderService =
-      widget.reminderService ?? ReminderCoordinator();
+      widget.reminderService ?? AppSystemServices.instance.reminders;
 
   List<VehicleDocument> _documents = const [];
   bool _isLoading = true;

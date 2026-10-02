@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/vehicle_document.dart';
 import '../../core/services/document_storage_service.dart';
@@ -17,14 +18,17 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
     AppDatabase? database,
     LocalJsonCollection? webCollection,
     DocumentStorageService? storageService,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
             webCollection ?? LocalJsonCollection('camperboss.vehicle_docs'),
-        _storageService = storageService ?? createDocumentStorageService();
+        _storageService = storageService ?? createDocumentStorageService(),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
   final DocumentStorageService _storageService;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<VehicleDocument>> listDocuments() async {
@@ -45,6 +49,7 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
   Future<VehicleDocument> saveDocument(VehicleDocument document) async {
     if (kIsWeb) {
       final saved = await _webCollection.saveRow(document.toMap());
+      _revisionStore.bump();
       return VehicleDocument.fromMap(saved);
     }
 
@@ -53,6 +58,7 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
     final id = document.id == null
         ? await db.insert(AppDatabase.vehicleDocumentsTable, values)
         : await _updateDocument(db, document.id!, values);
+    _revisionStore.bump();
     return document.copyWith(id: id, updatedAt: DateTime.now());
   }
 
@@ -77,6 +83,7 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
+      _revisionStore.bump();
       await _storageService.deleteFiles(document.filePaths);
       return;
     }
@@ -87,6 +94,7 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
     await _storageService.deleteFiles(document.filePaths);
   }
 

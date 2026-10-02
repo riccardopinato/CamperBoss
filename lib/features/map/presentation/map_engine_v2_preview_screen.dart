@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../../core/config/map_engine_v2_config.dart';
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
 import '../../../data/models/camper_place.dart';
 import '../../../data/repositories/map_view_state_repository.dart';
@@ -47,9 +48,9 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   final MapLibrePoiClusterer _clusterer = const MapLibrePoiClusterer();
 
   late final MapLibreOfflineRegionManager _offlineManager =
-      widget.offlineManager ?? const NativeMapLibreOfflineRegionManager();
+      widget.offlineManager ?? AppSystemServices.instance.mapOfflineManager;
   late final MapViewStateRepository _stateRepository =
-      widget.stateRepository ?? MapViewStateRepository();
+      widget.stateRepository ?? AppSystemServices.instance.mapViewStateRepository;
 
   MapLibreMapController? _mapController;
   bool _styleReady = false;
@@ -61,6 +62,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   String? _error;
   CamperPlace? _selectedPlace;
   List<MapLibreOfflineRegionSnapshot> _offlineRegions = const [];
+  Set<String> _openableOfflineRegionIds = const {};
   Map<String, MapLibrePoiCluster> _clustersById = const {};
 
   @override
@@ -103,9 +105,17 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   Future<void> _loadOfflineRegions() async {
     try {
       final regions = await _offlineManager.listRegions();
+      final openable = <String>{};
+      for (final region in regions) {
+        if (!region.isComplete) continue;
+        if (await _stateRepository.findRegion(region.id) != null) {
+          openable.add(region.id);
+        }
+      }
       if (!mounted) return;
       setState(() {
         _offlineRegions = regions;
+        _openableOfflineRegionIds = Set.unmodifiable(openable);
         _error = null;
       });
     } on Object catch (error) {
@@ -450,9 +460,11 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                     ),
                     Chip(
                       label: Text(
-                        _offlineManager.isSupported
-                            ? 'Offline disponibile'
-                            : 'Solo online',
+                        !_offlineManager.isSupported
+                            ? 'Solo online'
+                            : _openableOfflineRegionIds.isNotEmpty
+                                ? 'Offline pronto'
+                                : 'Offline da preparare',
                       ),
                     ),
                   ],
@@ -501,9 +513,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                                 : Icons.downloading_outlined,
                             size: 18,
                           ),
-                          onSelected: region.isComplete
-                              ? (_) => _openRegion(region)
-                              : null,
+                          onSelected:
+                              _openableOfflineRegionIds.contains(region.id)
+                                  ? (_) => _openRegion(region)
+                                  : null,
                           onDeleted: () => _deleteRegion(region),
                         ),
                     ],

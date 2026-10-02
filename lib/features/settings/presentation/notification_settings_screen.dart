@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../data/models/app_reminder.dart';
@@ -24,7 +25,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
   late final ReminderCoordinator _coordinator =
-      widget.coordinator ?? ReminderCoordinator();
+      widget.coordinator ?? AppSystemServices.instance.reminders;
 
   ReminderSettings _settings = const ReminderSettings();
   NotificationPermissionState _permission =

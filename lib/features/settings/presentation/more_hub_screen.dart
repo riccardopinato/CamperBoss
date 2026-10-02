@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/reminder_coordinator.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
@@ -15,7 +16,8 @@ class MoreHubScreen extends StatelessWidget {
   MoreHubScreen({
     ReminderCoordinator? reminderCoordinator,
     super.key,
-  }) : _reminderCoordinator = reminderCoordinator ?? ReminderCoordinator();
+  }) : _reminderCoordinator =
+            reminderCoordinator ?? AppSystemServices.instance.reminders;
 
   final ReminderCoordinator _reminderCoordinator;
 

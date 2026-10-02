@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/vehicle_profile.dart';
 
@@ -20,10 +21,13 @@ abstract interface class VehicleProfileStore {
 class LocalVehicleProfileRepository implements VehicleProfileRepository {
   LocalVehicleProfileRepository({
     VehicleProfileStore? store,
-  }) : _store = store ??
-            (kIsWeb ? _JsonVehicleProfileStore() : _SqlVehicleProfileStore());
+    DataRevisionStore? revisionStore,
+  })  : _store = store ??
+            (kIsWeb ? _JsonVehicleProfileStore() : _SqlVehicleProfileStore()),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final VehicleProfileStore _store;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<VehicleProfile?> loadProfile() => _store.loadProfile();
@@ -36,11 +40,17 @@ class LocalVehicleProfileRepository implements VehicleProfileRepository {
         'Invalid vehicle profile fields: ${errors.join(', ')}',
       );
     }
-    return _store.saveProfile(profile);
+    return _store.saveProfile(profile).then((saved) {
+      _revisionStore.bump();
+      return saved;
+    });
   }
 
   @override
-  Future<void> deleteProfile() => _store.deleteProfile();
+  Future<void> deleteProfile() async {
+    await _store.deleteProfile();
+    _revisionStore.bump();
+  }
 }
 
 class _JsonVehicleProfileStore implements VehicleProfileStore {

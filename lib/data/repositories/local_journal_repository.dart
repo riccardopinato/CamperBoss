@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/journal_entry.dart';
 
@@ -15,12 +16,15 @@ class LocalJournalRepository implements JournalRepository {
   LocalJournalRepository({
     AppDatabase? database,
     LocalJsonCollection? webCollection,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
-            webCollection ?? LocalJsonCollection('camperboss.journal');
+            webCollection ?? LocalJsonCollection('camperboss.journal'),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<JournalEntry>> listEntries() async {
@@ -42,6 +46,7 @@ class LocalJournalRepository implements JournalRepository {
     if (kIsWeb) {
       final values = entry.toMap();
       final saved = await _webCollection.saveRow(values);
+      _revisionStore.bump();
       return JournalEntry.fromMap(saved);
     }
 
@@ -52,6 +57,7 @@ class LocalJournalRepository implements JournalRepository {
         ? await db.insert(AppDatabase.journalTable, values)
         : await _updateEntry(db, entry.id!, values);
 
+    _revisionStore.bump();
     return entry.copyWith(id: id);
   }
 
@@ -73,11 +79,13 @@ class LocalJournalRepository implements JournalRepository {
   Future<void> deleteEntry(int id) async {
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
     final db = await _database.database;
     await db.delete(AppDatabase.journalTable, where: 'id = ?', whereArgs: [id]);
+    _revisionStore.bump();
   }
 
   int _sortEntries(JournalEntry a, JournalEntry b) {

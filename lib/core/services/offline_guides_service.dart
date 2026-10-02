@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../data/database/data_revision_store.dart';
 import '../../data/database/local_key_value_store.dart';
 import '../../data/models/download_models.dart';
 import '../../data/models/guide_models.dart';
@@ -48,13 +49,15 @@ class LocalOfflineGuidesService implements OfflineGuidesService {
     Future<String> Function(String assetPath)? assetTextLoader,
     Future<ByteData> Function(String assetPath)? assetByteLoader,
     Future<Directory> Function()? appDirectoryProvider,
+    DataRevisionStore? revisionStore,
   })  : _installedRepository =
             installedRepository ?? LocalInstalledResourceRepository(),
         _store = store ?? createLocalKeyValueStore(),
         _assetTextLoader = assetTextLoader ?? rootBundle.loadString,
         _assetByteLoader = assetByteLoader ?? rootBundle.load,
         _appDirectoryProvider =
-            appDirectoryProvider ?? getApplicationSupportDirectory;
+            appDirectoryProvider ?? getApplicationSupportDirectory,
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   static const bundledPackageId = 'camperboss-essential';
   static const bundledManifestAsset =
@@ -67,12 +70,12 @@ class LocalOfflineGuidesService implements OfflineGuidesService {
   final Future<String> Function(String assetPath) _assetTextLoader;
   final Future<ByteData> Function(String assetPath) _assetByteLoader;
   final Future<Directory> Function() _appDirectoryProvider;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<bool> isBundledPackageInstalled() async {
-    final resource =
-        await _installedRepository.findByPackageId(bundledPackageId);
-    return resource?.status == InstalledResourceStatus.installed;
+    final packages = await listInstalledPackages();
+    return packages.any((item) => item.id == bundledPackageId);
   }
 
   @override
@@ -112,6 +115,7 @@ class LocalOfflineGuidesService implements OfflineGuidesService {
         lastVerifiedAt: DateTime.now(),
       ),
     );
+    _revisionStore.bump();
   }
 
   @override
@@ -125,18 +129,56 @@ class LocalOfflineGuidesService implements OfflineGuidesService {
         continue;
       }
       final file = File(resource.localPath);
-      if (!await file.exists()) continue;
-      final manifest = GuidePackage.fromMap(
-        Map<String, Object?>.from(
-          jsonDecode(await file.readAsString()) as Map,
-        ),
-      );
-      packages.add(
-        GuidePackage.fromMap({
-          ...manifest.toMap(),
-          'localRootPath': file.parent.path,
-        }),
-      );
+      if (!await file.exists()) {
+        await _installedRepository.upsert(
+          resource.copyWith(
+            status: InstalledResourceStatus.missing,
+            lastVerifiedAt: DateTime.now(),
+            lastError: 'Guide manifest is missing',
+          ),
+        );
+        continue;
+      }
+
+      try {
+        final manifest = GuidePackage.fromMap(
+          Map<String, Object?>.from(
+            jsonDecode(await file.readAsString()) as Map,
+          ),
+        );
+        final root = file.parent;
+        var openable = true;
+        for (final entry in manifest.entries) {
+          if (!await File(p.join(root.path, entry.relativePath)).exists()) {
+            openable = false;
+            break;
+          }
+        }
+        if (!openable) {
+          await _installedRepository.upsert(
+            resource.copyWith(
+              status: InstalledResourceStatus.corrupted,
+              lastVerifiedAt: DateTime.now(),
+              lastError: 'Guide package has missing entry files',
+            ),
+          );
+          continue;
+        }
+        packages.add(
+          GuidePackage.fromMap({
+            ...manifest.toMap(),
+            'localRootPath': root.path,
+          }),
+        );
+      } catch (_) {
+        await _installedRepository.upsert(
+          resource.copyWith(
+            status: InstalledResourceStatus.corrupted,
+            lastVerifiedAt: DateTime.now(),
+            lastError: 'Guide manifest is invalid',
+          ),
+        );
+      }
     }
     packages.sort((a, b) => a.title.compareTo(b.title));
     return packages;
