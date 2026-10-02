@@ -181,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           GridView.extent(
             maxCrossAxisExtent: 260,
-            childAspectRatio: 1.05,
+            childAspectRatio: 0.85,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             shrinkWrap: true,
