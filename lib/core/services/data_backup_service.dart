@@ -384,8 +384,6 @@ class DataBackupService implements BackupService {
         createdAt: DateTime.now(),
       ),
     );
-    final before = await _loadSnapshot();
-
     _MaterializedRestore? materialized;
     try {
       final archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
@@ -405,11 +403,36 @@ class DataBackupService implements BackupService {
         conflicts: result.conflicts,
         automaticBackupPath: automaticBackup.path,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (materialized != null) {
         await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        try {
+          await _restoreSafetySnapshot(automaticBackup);
+        } catch (rollbackError) {
+          throw StateError(
+            'Restore failed and automatic rollback failed. '
+            'Safety backup: ${automaticBackup.path}. '
+            'Rollback error: $rollbackError',
+          );
+        }
       }
-      await _replaceAll(before);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<void> _restoreSafetySnapshot(BackupResult backup) async {
+    final archive =
+        ZipDecoder().decodeBytes(await File(backup.path).readAsBytes());
+    final snapshot = _snapshotFromArchive(archive);
+    final materialized = await _materializeSnapshotFiles(
+      archive,
+      backup.manifest,
+      snapshot,
+    );
+    try {
+      await _replaceAll(materialized.snapshot);
+    } catch (_) {
+      await _fileStorageService.deleteFiles(materialized.copiedPaths);
       rethrow;
     }
   }

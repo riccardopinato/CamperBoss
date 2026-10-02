@@ -196,6 +196,67 @@ void main() {
     expect(File(restoredPath).readAsStringSync(), 'invoice-from-backup');
   });
 
+  test('failed replace restore rebuilds deleted files from the safety backup',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_restore_rollback_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _memoryState(
+      trips: [
+        const TripPlan(
+          id: 99,
+          title: 'Force restore failure',
+          summary: 'Incoming',
+          progress: 0,
+        ),
+      ],
+    );
+    final incomingBackup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final oldFile = File('${privateDir.path}/old_invoice.pdf')
+      ..writeAsStringSync('old-private-file');
+    final target = _memoryState(
+      documents: [
+        VehicleDocument(
+          id: 7,
+          category: 'invoice',
+          title: 'Old invoice',
+          localFilePath: oldFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final storage = _TestFileStorageService(privateDir);
+    final service = _serviceFrom(
+      target,
+      fileStorageService: storage,
+      tripRepository: _FailOnceTripRepository(target),
+      documentRepository:
+          _DeletingMemoryDocumentRepository(target, storage),
+    );
+
+    await expectLater(
+      service.restoreBackup(
+        incomingBackup.path,
+        RestoreStrategy.replaceAll,
+      ),
+      throwsStateError,
+    );
+
+    expect(oldFile.existsSync(), isFalse);
+    expect(target.trips, isEmpty);
+    expect(target.documents, hasLength(1));
+    final rolledBackPath = target.documents.single.localFilePath;
+    expect(rolledBackPath, isNot(oldFile.path));
+    expect(File(rolledBackPath).existsSync(), isTrue);
+    expect(File(rolledBackPath).readAsStringSync(), 'old-private-file');
+  });
+
   test('merge keeps newer local conflicts and restores new records', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss_merge_test');
     addTearDown(() => temp.delete(recursive: true));
@@ -328,14 +389,17 @@ DataBackupService _service({
 DataBackupService _serviceFrom(
   _MemoryState state, {
   DocumentStorageService? fileStorageService,
+  TripRepository? tripRepository,
+  VehicleDocumentRepository? documentRepository,
 }) {
   return DataBackupService(
     profileRepository: _MemoryProfileRepository(state),
-    tripRepository: _MemoryTripRepository(state),
+    tripRepository: tripRepository ?? _MemoryTripRepository(state),
     checklistRepository: _MemoryChecklistRepository(state),
     journalRepository: _MemoryJournalRepository(state),
     maintenanceRepository: _MemoryMaintenanceRepository(state),
-    documentRepository: _MemoryDocumentRepository(state),
+    documentRepository:
+        documentRepository ?? _MemoryDocumentRepository(state),
     financeRepository: _MemoryFinanceRepository(state),
     travelHistoryRepository: _MemoryTravelHistoryRepository(state),
     fileStorageService: fileStorageService,
@@ -471,6 +535,34 @@ class _MemoryTripRepository implements TripRepository {
       state.trips[index] = trip;
     }
     return trip;
+  }
+}
+
+class _FailOnceTripRepository extends _MemoryTripRepository {
+  _FailOnceTripRepository(super.state);
+
+  bool _shouldFail = true;
+
+  @override
+  Future<TripPlan> saveTrip(TripPlan trip) async {
+    if (_shouldFail) {
+      _shouldFail = false;
+      throw StateError('forced restore failure');
+    }
+    return super.saveTrip(trip);
+  }
+}
+
+class _DeletingMemoryDocumentRepository
+    extends _MemoryDocumentRepository {
+  _DeletingMemoryDocumentRepository(super.state, this.storage);
+
+  final DocumentStorageService storage;
+
+  @override
+  Future<void> deleteDocument(VehicleDocument document) async {
+    await super.deleteDocument(document);
+    await storage.deleteFiles(document.filePaths);
   }
 }
 
