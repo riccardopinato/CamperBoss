@@ -39,33 +39,45 @@ Before production certification, run at least:
 2. Android offline: download a map region, relaunch, disable network and verify the downloaded region opens.
 3. iPhone physical device: repeat document import, notifications, routing and offline-map lifecycle checks.
 4. Web: verify navigation, persistence, language, route graceful degradation and Pages deep refresh.
-5. AppLab or equivalent emulator pass for launch, persistence, lifecycle and no-network recovery when GitHub Actions runners are available.
+5. AppLab or equivalent emulator pass for launch, persistence, lifecycle and no-network recovery when available.
 
 ## Production blockers
 
 Do not mark Step 16 DONE until:
 
 - physical offline-map reopen test passes;
-- final device/AppLab QA passes;
-- release analyze/test/build gates are green again after GitHub Actions runner availability is restored.
+- final device/AppLab QA passes.
 
+The automated release gates are green as of Step 16G and are not the current blocker.
 
 ## Quota-aware CI
 
 - Flutter analyze/test runs automatically only for Dart, tests, assets, dependency or analyzer changes.
-- Android release build runs once when the Step 16 PR is marked Ready for review; iOS/Web remain manual release gates after the workflow reaches `main`.
-- The Android release gate publishes a 1-day ARM64 APK artifact.
-- iOS and Web are opt-in during manual release runs to avoid unnecessary private-repository runner usage.
+- Step 16 branches are eligible for quality CI.
+- Android release build publishes a 1-day ARM64 APK artifact.
 - The historical Map Engine V2 platform workflow remains manual-only.
 
+## STEP 16G automated certification result
 
-## CI certification result
+Certified app commit: `e88d586fc41e31c5175050f7934a383e5e480c1d`
 
+- Flutter CI run `37012499351`: SUCCESS
 - Flutter analyze: PASS
-- Flutter test: PASS
+- Flutter test: PASS — 113/113
+- Release Core Platform Builds run `37012499216`: SUCCESS
 - Android ARM64 release build: PASS
 - Android privacy backup assertions: PASS
-- APK artifact: `app-arm64-v8a-release.apk`
-- APK size: 48,412,208 bytes (~46.2 MiB)
+- Android cleartext assertion: PASS
+- APK artifact: `camperboss-arm64-release-apk`
+- Artifact ID: `11229115224`
+- APK file: `app-arm64-v8a-release.apk`
+- APK size: `48,029,264` bytes (~45.8 MiB)
 - Artifact retention: 1 day
-- Remaining gate: physical device QA, including MapLibre offline reopen with network disabled.
+- iOS release build without codesign: PASS
+- iOS Runner.app size: ~82 MiB (`flutter` report 85.3 MB)
+- Web release build: PASS
+- Web bundle size: ~43 MiB
+- Automated verdict: **CERTIFIED**
+- Production verdict: **BLOCKED** only by the physical/device QA gates listed above.
+
+Detailed evidence: `docs/release/step-16g-evidence.md`
