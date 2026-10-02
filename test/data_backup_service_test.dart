@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:camperboss/core/services/data_backup_service.dart';
 import 'package:camperboss/core/services/document_services_models.dart';
+import 'package:camperboss/core/services/document_storage_service.dart';
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
@@ -155,6 +156,46 @@ void main() {
     expect(File(result.automaticBackupPath).existsSync(), isTrue);
   });
 
+  test('restore materializes archived files instead of keeping stale source paths',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_restore_files_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sourceFile = File('${temp.path}/invoice.pdf')
+      ..writeAsStringSync('invoice-from-backup');
+    final source = _memoryState(
+      documents: [
+        VehicleDocument(
+          id: 9,
+          category: 'invoice',
+          title: 'Portable invoice',
+          localFilePath: sourceFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final backup = await _serviceFrom(source).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    sourceFile.deleteSync();
+
+    final target = _memoryState();
+    final storage = _TestFileStorageService(privateDir);
+    await _serviceFrom(
+      target,
+      fileStorageService: storage,
+    ).restoreBackup(backup.path, RestoreStrategy.replaceAll);
+
+    expect(target.documents, hasLength(1));
+    final restoredPath = target.documents.single.localFilePath;
+    expect(restoredPath, isNot(sourceFile.path));
+    expect(File(restoredPath).existsSync(), isTrue);
+    expect(File(restoredPath).readAsStringSync(), 'invoice-from-backup');
+  });
+
   test('merge keeps newer local conflicts and restores new records', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss_merge_test');
     addTearDown(() => temp.delete(recursive: true));
@@ -284,7 +325,10 @@ DataBackupService _service({
   );
 }
 
-DataBackupService _serviceFrom(_MemoryState state) {
+DataBackupService _serviceFrom(
+  _MemoryState state, {
+  DocumentStorageService? fileStorageService,
+}) {
   return DataBackupService(
     profileRepository: _MemoryProfileRepository(state),
     tripRepository: _MemoryTripRepository(state),
@@ -294,7 +338,37 @@ DataBackupService _serviceFrom(_MemoryState state) {
     documentRepository: _MemoryDocumentRepository(state),
     financeRepository: _MemoryFinanceRepository(state),
     travelHistoryRepository: _MemoryTravelHistoryRepository(state),
+    fileStorageService: fileStorageService,
   );
+}
+
+class _TestFileStorageService implements DocumentStorageService {
+  _TestFileStorageService(this.directory);
+
+  final Directory directory;
+  int _counter = 0;
+
+  @override
+  Future<String> copyIntoPrivateDocuments(String pathOrUri) async {
+    final source = File(pathOrUri);
+    final name = source.uri.pathSegments.last;
+    final target = File(
+      '${directory.path}/restored_${_counter++}_$name',
+    );
+    await source.copy(target.path);
+    return target.path;
+  }
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {
+    for (final path in paths) {
+      if (path == null || path.isEmpty) continue;
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+  }
 }
 
 _MemoryState _memoryState({

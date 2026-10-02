@@ -1,0 +1,26 @@
+default_platform(:android)
+
+platform :android do
+  desc "Upload one already-built AAB to Google Play Internal Testing"
+  lane :internal do |options|
+    aab_path = options[:aab_path] || ENV["AAB_PATH"]
+    UI.user_error!("aab_path is required") if aab_path.to_s.empty?
+    UI.user_error!("AAB does not exist: #{aab_path}") unless File.exist?(aab_path)
+
+    json_key = ENV["PLAY_SERVICE_ACCOUNT_JSON"]
+    UI.user_error!("PLAY_SERVICE_ACCOUNT_JSON is required") if json_key.to_s.empty?
+
+    release_status = ENV.fetch("PLAY_RELEASE_STATUS", "draft")
+
+    upload_to_play_store(
+      package_name: ENV.fetch("PLAY_PACKAGE_NAME", "com.camperboss.camperboss"),
+      track: "internal",
+      aab: aab_path,
+      json_key_data: json_key,
+      release_status: release_status,
+      skip_upload_metadata: ENV.fetch("FASTLANE_UPLOAD_METADATA", "false") != "true",
+      skip_upload_images: ENV.fetch("FASTLANE_UPLOAD_IMAGES", "false") != "true",
+      skip_upload_screenshots: ENV.fetch("FASTLANE_UPLOAD_SCREENSHOTS", "false") != "true"
+    )
+  end
+end

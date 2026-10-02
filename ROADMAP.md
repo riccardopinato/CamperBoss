@@ -323,6 +323,33 @@ Blocchi esterni di certificazione:
 
 Step 16 resta `BLOCKED` esclusivamente sui gate manuali sopra. Non promuovere STEP 17 finche questi gate non sono chiusi.
 
+## STEP 16H — Master v20 Factory Hardening
+
+Stato: CURRENT
+
+Obiettivo:
+
+- allineare CamperBoss alla gerarchia Master Prompt v20 senza riscrivere il core già certificato;
+- registrare provenienza e riuso di Golden/donor/OSS;
+- introdurre configurazione CodeRabbit Flutter per review PR;
+- predisporre Fastlane con pipeline Android build-once verso Play Internal Testing;
+- correggere il restore dei file fisici nel backup, mantenendo safety snapshot e rollback;
+- estendere l'Evidence Bundle senza anticipare STEP 17.
+
+Vincoli:
+
+- nessun merge della catena STEP 16 finché i gate manuali Release Core restano aperti;
+- nessuna chiave o service-account nel repository;
+- Play delivery attivabile solo con signing key e service account configurati;
+- CodeRabbit e Fastlane restano integrazioni verificabili, non sostituti di analyze/test/build;
+- nessuna ricerca OSS retroattiva artificiale quando esiste già un donor interno appropriato.
+
+Esito provvisorio:
+
+- implementazione candidata in step-16h-master-v20-hardening;
+- verifica CI e platform build richiesta prima di passare a DONE;
+- Play Internal Testing resta un gate esterno finché non sono configurati i secret di delivery.
+
 ## STEP 17 — Local AI Micro Engine
 
 Stato: `TODO` — non anticipare prima del Release Core.
