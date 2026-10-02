@@ -1054,6 +1054,7 @@ class _TripEditorState extends State<_TripEditor> {
             const SizedBox(height: 8),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
+              maintainState: true,
               initiallyExpanded: widget.trip != null,
               title: Text(
                 'trip_hub_planner'.tr(),
