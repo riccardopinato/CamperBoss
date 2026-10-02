@@ -550,6 +550,7 @@ class _VehicleProfileEditorState extends State<_VehicleProfileEditor> {
               const SizedBox(height: 8),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
+                maintainState: true,
                 initiallyExpanded: widget.profile == null,
                 title: Text(
                   'profile_dimensions'.tr(),
@@ -595,6 +596,7 @@ class _VehicleProfileEditorState extends State<_VehicleProfileEditor> {
               ),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
+                maintainState: true,
                 title: Text(
                   'profile_tanks'.tr(),
                   style: const TextStyle(fontWeight: FontWeight.w800),
