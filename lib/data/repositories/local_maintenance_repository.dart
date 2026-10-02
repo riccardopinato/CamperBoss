@@ -75,10 +75,7 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
 
     final previousPaths = previous?.attachmentPaths ?? const <String>[];
     if (previousPaths.isNotEmpty) {
-      final retained = savedRecord.attachmentPaths.toSet();
-      await _storageService.deleteFiles(
-        previousPaths.where((path) => !retained.contains(path)),
-      );
+      await _deleteUnreferencedFiles(previousPaths);
     }
 
     return savedRecord;
@@ -123,7 +120,21 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     _revisionStore.bump();
 
     if (record != null && record.attachmentPaths.isNotEmpty) {
-      await _storageService.deleteFiles(record.attachmentPaths);
+      await _deleteUnreferencedFiles(record.attachmentPaths);
+    }
+  }
+
+  Future<void> _deleteUnreferencedFiles(Iterable<String> paths) async {
+    final candidates = paths.where((path) => path.isNotEmpty).toSet();
+    if (candidates.isEmpty) return;
+
+    final remaining = await listRecords();
+    final referenced = <String>{
+      for (final record in remaining) ...record.attachmentPaths,
+    };
+    candidates.removeAll(referenced);
+    if (candidates.isNotEmpty) {
+      await _storageService.deleteFiles(candidates);
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'document_storage_service.dart';
+import 'travel_history_service.dart';
 import '../../data/models/checklist_item.dart';
 import '../../data/models/finance_models.dart';
 import '../../data/models/journal_entry.dart';
@@ -186,6 +187,7 @@ class DataBackupService implements BackupService {
     VehicleDocumentRepository? documentRepository,
     FinanceRepository? financeRepository,
     TravelHistoryRepository? travelHistoryRepository,
+    TravelHistoryService? travelHistoryService,
     DocumentStorageService? fileStorageService,
     String appVersion = '0.1.0',
   })  : _profileRepository =
@@ -201,6 +203,11 @@ class DataBackupService implements BackupService {
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _travelHistoryRepository =
             travelHistoryRepository ?? LocalTravelHistoryRepository(),
+        _travelHistoryService = travelHistoryService ??
+            TravelHistoryService(
+              repository:
+                  travelHistoryRepository ?? LocalTravelHistoryRepository(),
+            ),
         _fileStorageService =
             fileStorageService ?? createDocumentStorageService(),
         _appVersion = appVersion;
@@ -217,6 +224,7 @@ class DataBackupService implements BackupService {
   final VehicleDocumentRepository _documentRepository;
   final FinanceRepository _financeRepository;
   final TravelHistoryRepository _travelHistoryRepository;
+  final TravelHistoryService _travelHistoryService;
   final DocumentStorageService _fileStorageService;
   final String _appVersion;
 
@@ -854,10 +862,10 @@ class DataBackupService implements BackupService {
       if (id != null) await _tripRepository.deleteTrip(id);
     }
     for (final item in current.memories) {
-      await _travelHistoryRepository.deleteMemory(item.id);
+      await _travelHistoryService.deleteMemory(item);
     }
     for (final item in current.tracks) {
-      await _travelHistoryRepository.deleteTrack(item.id);
+      await _travelHistoryService.deleteTrack(item);
     }
     await _profileRepository.deleteProfile();
     return _saveAll(snapshot);
@@ -943,7 +951,7 @@ class DataBackupService implements BackupService {
       current: current.tracks,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
-      save: _travelHistoryRepository.saveTrack,
+      save: _travelHistoryService.saveTrack,
       counters: counters,
     );
     await _mergeString(
@@ -951,7 +959,7 @@ class DataBackupService implements BackupService {
       current: current.memories,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
-      save: _travelHistoryRepository.saveMemory,
+      save: _travelHistoryService.saveMemory,
       counters: counters,
     );
     return counters;
@@ -1000,11 +1008,11 @@ class DataBackupService implements BackupService {
       counters.restored++;
     }
     for (final item in snapshot.tracks) {
-      await _travelHistoryRepository.saveTrack(item);
+      await _travelHistoryService.saveTrack(item);
       counters.restored++;
     }
     for (final item in snapshot.memories) {
-      await _travelHistoryRepository.saveMemory(item);
+      await _travelHistoryService.saveMemory(item);
       counters.restored++;
     }
     return counters;

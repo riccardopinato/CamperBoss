@@ -47,19 +47,37 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
   @override
   Future<VehicleDocument> saveDocument(VehicleDocument document) async {
-    if (kIsWeb) {
-      final saved = await _webCollection.saveRow(document.toMap());
-      _revisionStore.bump();
-      return VehicleDocument.fromMap(saved);
+    VehicleDocument? previous;
+    final existingId = document.id;
+    if (existingId != null) {
+      final existing = await listDocuments();
+      for (final candidate in existing) {
+        if (candidate.id == existingId) {
+          previous = candidate;
+          break;
+        }
+      }
     }
 
-    final db = await _database.database;
-    final values = document.toMap()..remove('id');
-    final id = document.id == null
-        ? await db.insert(AppDatabase.vehicleDocumentsTable, values)
-        : await _updateDocument(db, document.id!, values);
+    late final VehicleDocument savedDocument;
+    if (kIsWeb) {
+      final saved = await _webCollection.saveRow(document.toMap());
+      savedDocument = VehicleDocument.fromMap(saved);
+    } else {
+      final db = await _database.database;
+      final values = document.toMap()..remove('id');
+      final id = document.id == null
+          ? await db.insert(AppDatabase.vehicleDocumentsTable, values)
+          : await _updateDocument(db, document.id!, values);
+      savedDocument =
+          document.copyWith(id: id, updatedAt: DateTime.now());
+    }
+
     _revisionStore.bump();
-    return document.copyWith(id: id, updatedAt: DateTime.now());
+    if (previous != null) {
+      await _deleteUnreferencedFiles(previous.filePaths);
+    }
+    return savedDocument;
   }
 
   Future<int> _updateDocument(
@@ -83,19 +101,30 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
-      _revisionStore.bump();
-      await _storageService.deleteFiles(document.filePaths);
-      return;
+    } else {
+      final db = await _database.database;
+      await db.delete(
+        AppDatabase.vehicleDocumentsTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
-
-    final db = await _database.database;
-    await db.delete(
-      AppDatabase.vehicleDocumentsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
     _revisionStore.bump();
-    await _storageService.deleteFiles(document.filePaths);
+    await _deleteUnreferencedFiles(document.filePaths);
+  }
+
+  Future<void> _deleteUnreferencedFiles(Iterable<String> paths) async {
+    final candidates = paths.where((path) => path.isNotEmpty).toSet();
+    if (candidates.isEmpty) return;
+
+    final remaining = await listDocuments();
+    final referenced = <String>{
+      for (final document in remaining) ...document.filePaths,
+    };
+    candidates.removeAll(referenced);
+    if (candidates.isNotEmpty) {
+      await _storageService.deleteFiles(candidates);
+    }
   }
 
   int _sortDocuments(VehicleDocument a, VehicleDocument b) {

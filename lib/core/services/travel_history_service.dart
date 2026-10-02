@@ -82,8 +82,7 @@ class TravelHistoryService {
       fallbackName: imported.fileName,
     );
     for (final track in parsed.tracks) {
-      await _repository
-          .saveTrack(track.copyWith(localFilePath: imported.localPath));
+      await saveTrack(track.copyWith(localFilePath: imported.localPath));
     }
     for (final memory in parsed.memories) {
       await _repository.saveMemory(memory);
@@ -122,18 +121,88 @@ class TravelHistoryService {
 
   Future<PhotoLocationCandidate?> importPhoto() => _mediaService.importPhoto();
 
-  Future<TravelMemory> saveMemory(TravelMemory memory) {
-    return _repository.saveMemory(memory);
+  Future<TravelMemory> saveMemory(TravelMemory memory) async {
+    final previous = await _memoryById(memory.id);
+    final saved = await _repository.saveMemory(memory);
+    if (previous != null && previous.localPhotoPaths.isNotEmpty) {
+      await _deleteUnreferencedMemoryFiles(previous.localPhotoPaths);
+    }
+    return saved;
+  }
+
+  Future<GpxTrack> saveTrack(GpxTrack track) async {
+    final previous = await _trackById(track.id);
+    final saved = await _repository.saveTrack(track);
+    if (previous?.localFilePath != null) {
+      await _deleteUnreferencedTrackFiles([previous!.localFilePath]);
+    }
+    return saved;
   }
 
   Future<void> deleteMemory(TravelMemory memory) async {
     await _repository.deleteMemory(memory.id);
-    await _mediaService.deleteFiles(memory.localPhotoPaths);
+    await _deleteUnreferencedMemoryFiles(memory.localPhotoPaths);
   }
 
   Future<void> deleteTrack(GpxTrack track) async {
     await _repository.deleteTrack(track.id);
-    await _mediaService.deleteFiles([track.localFilePath]);
+    await _deleteUnreferencedTrackFiles([track.localFilePath]);
+  }
+
+  Future<TravelMemory?> _memoryById(String id) async {
+    final memories = await _repository.listMemories();
+    for (final memory in memories) {
+      if (memory.id == id) return memory;
+    }
+    return null;
+  }
+
+  Future<GpxTrack?> _trackById(String id) async {
+    final tracks = await _repository.listTracks();
+    for (final track in tracks) {
+      if (track.id == id) return track;
+    }
+    return null;
+  }
+
+  Future<void> _deleteUnreferencedMemoryFiles(
+    Iterable<String?> paths,
+  ) async {
+    final candidates = paths
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    if (candidates.isEmpty) return;
+
+    final remaining = await _repository.listMemories();
+    final referenced = <String>{
+      for (final memory in remaining) ...memory.localPhotoPaths,
+    };
+    candidates.removeAll(referenced);
+    if (candidates.isNotEmpty) {
+      await _mediaService.deleteFiles(candidates);
+    }
+  }
+
+  Future<void> _deleteUnreferencedTrackFiles(
+    Iterable<String?> paths,
+  ) async {
+    final candidates = paths
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    if (candidates.isEmpty) return;
+
+    final remaining = await _repository.listTracks();
+    final referenced = <String>{
+      for (final track in remaining)
+        if (track.localFilePath != null && track.localFilePath!.isNotEmpty)
+          track.localFilePath!,
+    };
+    candidates.removeAll(referenced);
+    if (candidates.isNotEmpty) {
+      await _mediaService.deleteFiles(candidates);
+    }
   }
 
   List<JournalEntry> _filterJournal(List<JournalEntry> entries, int? tripId) {
