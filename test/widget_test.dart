@@ -85,7 +85,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Camper cockpit'), findsOneWidget);
-    expect(find.text('Boss Readiness'), findsOneWidget);
+    expect(find.text('Guided setup'), findsWidgets);
+    expect(find.text('Boss Readiness'), findsNothing);
     expect(find.text('Fresh water'), findsNothing);
   });
 }

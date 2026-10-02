@@ -103,6 +103,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Coast weekend');
     await tester.enterText(find.byType(TextField).at(1), 'Liguria');
+    await tester.tap(find.byType(ExpansionTile).last);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'Two nights');
     await tester.enterText(find.byType(TextField).at(3), 'Beach stop');
     await tester.ensureVisible(find.text('Save'));

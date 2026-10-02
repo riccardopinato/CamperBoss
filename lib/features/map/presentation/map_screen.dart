@@ -262,6 +262,61 @@ class _MapScreenState extends State<MapScreen> {
           subtitle:
               'MapLibre, POI e aree offline usano ora un solo motore cartografico.',
           children: [
+            Semantics(
+              container: true,
+              label: 'Interactive camper map',
+              child: PremiumCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selectedLocation?.label ?? 'Map',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                          ),
+                        ),
+                        IconButton.outlined(
+                          tooltip: 'Offline contents',
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const OfflineContentScreen(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.cloud_download_outlined),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height:
+                          MediaQuery.sizeOf(context).height < 720 ? 420 : 520,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: MapEngineV2PreviewScreen(
+                          key: const ValueKey('primary-maplibre-map'),
+                          places: places,
+                          initialLatitude: selectedPoint.latitude,
+                          initialLongitude: selectedPoint.longitude,
+                          onOpenDirections: _openDirections,
+                          offlineManager: widget.mapLibreOfflineManager,
+                          stateRepository: widget.mapViewStateRepository,
+                          renderMap: widget.renderMap,
+                          embedded: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             PremiumCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,18 +355,22 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _isLocating ? null : _useCurrentLocation,
-                    icon: _isLocating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.my_location),
-                    label:
-                        Text(_isLocating ? 'Locating...' : 'Use my location'),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _isLocating ? null : _useCurrentLocation,
+                      icon: _isLocating
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.my_location),
+                      label:
+                          Text(_isLocating ? 'Locating...' : 'Use my location'),
+                    ),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -333,40 +392,6 @@ class _MapScreenState extends State<MapScreen> {
                         onTap: () => _selectLocation(result),
                       ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            PremiumCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Selected location',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(selectedLocation?.label ?? 'No location selected'),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 520,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: MapEngineV2PreviewScreen(
-                        key: const ValueKey('primary-maplibre-map'),
-                        places: places,
-                        initialLatitude: selectedPoint.latitude,
-                        initialLongitude: selectedPoint.longitude,
-                        onOpenDirections: _openDirections,
-                        offlineManager: widget.mapLibreOfflineManager,
-                        stateRepository: widget.mapViewStateRepository,
-                        renderMap: widget.renderMap,
-                        embedded: true,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -450,6 +475,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 for (final entry in mapFilterLabels.entries)
                   FilterChip(
+                    key: ValueKey('map-filter-${entry.key}'),
                     label: Text(entry.value),
                     selected: _activeFilters.contains(entry.key),
                     onSelected: (_) => _toggleFilter(entry.key),
