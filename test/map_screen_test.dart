@@ -111,15 +111,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1300));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
-    expect(find.text('Camping'), findsWidgets);
-    expect(find.text('GPL'), findsWidgets);
+    expect(find.byKey(const ValueKey('map-filter-camping')), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-filter-gpl')), findsOneWidget);
     expect(find.text('2 visible'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Camping'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Camping'));
+    await tester.tap(find.byKey(const ValueKey('map-filter-camping')));
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
 
@@ -137,11 +143,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('0 items'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Camping'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Camping'));
+    await tester.tap(find.byKey(const ValueKey('map-filter-camping')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -1500));
+    await tester.scrollUntilVisible(
+      find.text('Camping Bella Vista'),
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Camping Bella Vista'), findsOneWidget);
     expect(find.text('GPL Service Ovest'), findsOneWidget);
