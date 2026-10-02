@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "step-16h-*"
+      - "step-16i-*"
     paths:
       - "lib/**"
       - "test/**"

@@ -350,6 +350,30 @@ Esito provvisorio:
 - verifica CI e platform build richiesta prima di passare a DONE;
 - Play Internal Testing resta un gate esterno finché non sono configurati i secret di delivery.
 
+## STEP 16I — Lifecycle & Media Safety
+
+Stato: CURRENT
+
+Obiettivo:
+
+- applicare il Batch Data Safety audit ai file locali realmente posseduti dall'app;
+- impedire cancellazioni premature quando più entità condividono lo stesso file;
+- rimuovere file orfani quando un documento, una manutenzione, una memoria o una traccia sostituisce/rimuove un allegato;
+- far passare anche restore/merge backup attraverso i boundary di lifecycle dei media;
+- formalizzare una policy entity-by-entity per hard delete, archive, trash e purge senza introdurre soft-delete indiscriminato.
+
+Scope:
+
+- Vehicle Documents: cleanup reference-safe su update/delete;
+- Maintenance: cleanup reference-safe su update/delete;
+- Travel History: cleanup reference-safe di foto e GPX condivisi;
+- Backup/Restore: lifecycle dei media coordinato tramite TravelHistoryService;
+- regression tests dedicati per shared GPX e foto condivise.
+
+Vincolo:
+
+- non viene dichiarato un Universal Trash implementato; il cestino resta una scelta di prodotto da applicare solo alle entità per cui restore/undo crea valore reale.
+
 ## STEP 17 — Local AI Micro Engine
 
 Stato: `TODO` — non anticipare prima del Release Core.
