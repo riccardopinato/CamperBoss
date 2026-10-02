@@ -1,6 +1,16 @@
 name: Release Core Platform Builds
 
 on:
+  push:
+    branches:
+      - "step-16h-*"
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/release-core-platforms.yml"
   pull_request:
     branches: [main]
     types: [ready_for_review]
@@ -28,7 +38,7 @@ concurrency:
 
 jobs:
   android:
-    if: ${{ github.event_name == 'pull_request' || inputs.android }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.android }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -81,7 +91,7 @@ jobs:
           test -s android/app/src/main/res/xml/data_extraction_rules.xml
 
   ios:
-    if: ${{ github.event_name == 'pull_request' || inputs.ios }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.ios }}
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -105,7 +115,7 @@ jobs:
           du -sh build/ios/iphoneos/Runner.app
 
   web:
-    if: ${{ github.event_name == 'pull_request' || inputs.web }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.web }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

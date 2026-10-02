@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'document_storage_service.dart';
 import '../../data/models/checklist_item.dart';
 import '../../data/models/finance_models.dart';
 import '../../data/models/journal_entry.dart';
@@ -137,17 +138,20 @@ class BackupManifestFile {
     required this.path,
     required this.sha256,
     required this.size,
+    this.sourcePath,
   });
 
   final String path;
   final String sha256;
   final int size;
+  final String? sourcePath;
 
   Map<String, Object?> toMap() {
     return {
       'path': path,
       'sha256': sha256,
       'size': size,
+      if (sourcePath != null) 'sourcePath': sourcePath,
     };
   }
 
@@ -156,6 +160,7 @@ class BackupManifestFile {
       path: map['path'] as String,
       sha256: map['sha256'] as String,
       size: (map['size'] as num?)?.toInt() ?? 0,
+      sourcePath: map['sourcePath'] as String?,
     );
   }
 }
@@ -181,6 +186,7 @@ class DataBackupService implements BackupService {
     VehicleDocumentRepository? documentRepository,
     FinanceRepository? financeRepository,
     TravelHistoryRepository? travelHistoryRepository,
+    DocumentStorageService? fileStorageService,
     String appVersion = '0.1.0',
   })  : _profileRepository =
             profileRepository ?? LocalVehicleProfileRepository(),
@@ -195,10 +201,13 @@ class DataBackupService implements BackupService {
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _travelHistoryRepository =
             travelHistoryRepository ?? LocalTravelHistoryRepository(),
+        _fileStorageService =
+            fileStorageService ?? createDocumentStorageService(),
         _appVersion = appVersion;
 
   static const format = 'camperboss-backup';
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
+  static const _supportedSchemaVersions = {1, 2};
 
   final VehicleProfileRepository _profileRepository;
   final TripRepository _tripRepository;
@@ -208,6 +217,7 @@ class DataBackupService implements BackupService {
   final VehicleDocumentRepository _documentRepository;
   final FinanceRepository _financeRepository;
   final TravelHistoryRepository _travelHistoryRepository;
+  final DocumentStorageService _fileStorageService;
   final String _appVersion;
 
   @override
@@ -227,7 +237,12 @@ class DataBackupService implements BackupService {
     final missingFiles = <String>[];
     var fileCount = 0;
     if (options.includeFiles) {
-      for (final filePath in _collectFilePaths(snapshot)) {
+      final sourcePaths = _collectFilePaths(snapshot)
+          .where((path) => path.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      for (final filePath in sourcePaths) {
         final file = File(filePath);
         if (!await file.exists()) {
           missingFiles.add(filePath);
@@ -236,7 +251,9 @@ class DataBackupService implements BackupService {
         final bytes = await file.readAsBytes();
         final backupPath = _backupPathForFile(filePath);
         archive.addFile(ArchiveFile(backupPath, bytes.length, bytes));
-        manifestFiles.add(_manifestFile(backupPath, bytes));
+        manifestFiles.add(
+          _manifestFile(backupPath, bytes, sourcePath: filePath),
+        );
         fileCount++;
       }
     }
@@ -307,7 +324,7 @@ class DataBackupService implements BackupService {
 
     if (manifest != null) {
       if (manifest.format != format) errors.add('Unsupported backup format');
-      if (manifest.schemaVersion != schemaVersion) {
+      if (!_supportedSchemaVersions.contains(manifest.schemaVersion)) {
         errors.add('Unsupported schema version');
       }
       for (final entry in manifest.files) {
@@ -367,14 +384,18 @@ class DataBackupService implements BackupService {
         createdAt: DateTime.now(),
       ),
     );
-    final before = await _loadSnapshot();
-
+    _MaterializedRestore? materialized;
     try {
       final archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
       final snapshot = _snapshotFromArchive(archive);
+      materialized = await _materializeSnapshotFiles(
+        archive,
+        inspection.manifest!,
+        snapshot,
+      );
       final result = strategy == RestoreStrategy.replaceAll
-          ? await _replaceAll(snapshot)
-          : await _merge(snapshot);
+          ? await _replaceAll(materialized.snapshot)
+          : await _merge(materialized.snapshot);
       return RestoreResult(
         strategy: strategy,
         restoredRecords: result.restored,
@@ -382,8 +403,36 @@ class DataBackupService implements BackupService {
         conflicts: result.conflicts,
         automaticBackupPath: automaticBackup.path,
       );
+    } catch (error, stackTrace) {
+      if (materialized != null) {
+        await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        try {
+          await _restoreSafetySnapshot(automaticBackup);
+        } catch (rollbackError) {
+          throw StateError(
+            'Restore failed and automatic rollback failed. '
+            'Safety backup: ${automaticBackup.path}. '
+            'Rollback error: $rollbackError',
+          );
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<void> _restoreSafetySnapshot(BackupResult backup) async {
+    final archive =
+        ZipDecoder().decodeBytes(await File(backup.path).readAsBytes());
+    final snapshot = _snapshotFromArchive(archive);
+    final materialized = await _materializeSnapshotFiles(
+      archive,
+      backup.manifest,
+      snapshot,
+    );
+    try {
+      await _replaceAll(materialized.snapshot);
     } catch (_) {
-      await _replaceAll(before);
+      await _fileStorageService.deleteFiles(materialized.copiedPaths);
       rethrow;
     }
   }
@@ -652,6 +701,125 @@ class DataBackupService implements BackupService {
     );
   }
 
+  Future<_MaterializedRestore> _materializeSnapshotFiles(
+    Archive archive,
+    BackupManifest manifest,
+    _BackupSnapshot snapshot,
+  ) async {
+    final sourceToArchive = <String, String>{
+      for (final entry in manifest.files)
+        if (entry.sourcePath != null && entry.sourcePath!.isNotEmpty)
+          entry.sourcePath!: entry.path,
+    };
+    final legacyByBasename = <String, List<String>>{};
+    if (manifest.schemaVersion == 1) {
+      for (final entry in manifest.files.where(
+        (entry) => entry.path.startsWith('files/'),
+      )) {
+        legacyByBasename
+            .putIfAbsent(p.basename(entry.path), () => <String>[])
+            .add(entry.path);
+      }
+    }
+
+    final copiedPaths = <String>[];
+    final remap = <String, String>{};
+    final stage =
+        await Directory.systemTemp.createTemp('camperboss_restore_stage_');
+    try {
+      final referencedPaths = _collectFilePaths(snapshot)
+          .where((path) => path.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      for (final originalPath in referencedPaths) {
+        var archivePath = sourceToArchive[originalPath];
+        if (archivePath == null && manifest.schemaVersion == 1) {
+          final candidates = legacyByBasename[p.basename(originalPath)];
+          if (candidates != null && candidates.length == 1) {
+            archivePath = candidates.single;
+          }
+        }
+        if (archivePath == null) continue;
+
+        final archived = archive.findFile(archivePath);
+        if (archived == null) {
+          throw StateError('Backup file missing during restore: $archivePath');
+        }
+        final staged = File(
+          p.join(
+            stage.path,
+            '${remap.length}_${_safeFileName(p.basename(originalPath))}',
+          ),
+        );
+        await staged.writeAsBytes(_bytes(archived), flush: true);
+        final privatePath =
+            await _fileStorageService.copyIntoPrivateDocuments(staged.path);
+        remap[originalPath] = privatePath;
+        copiedPaths.add(privatePath);
+      }
+
+      return _MaterializedRestore(
+        snapshot: _remapSnapshotPaths(snapshot, remap),
+        copiedPaths: copiedPaths,
+      );
+    } catch (_) {
+      await _fileStorageService.deleteFiles(copiedPaths);
+      rethrow;
+    } finally {
+      if (stage.existsSync()) {
+        await stage.delete(recursive: true);
+      }
+    }
+  }
+
+  _BackupSnapshot _remapSnapshotPaths(
+    _BackupSnapshot snapshot,
+    Map<String, String> remap,
+  ) {
+    String mapPath(String value) => remap[value] ?? value;
+    String? mapOptionalPath(String? value) =>
+        value == null ? null : mapPath(value);
+
+    return _BackupSnapshot(
+      profile: snapshot.profile,
+      trips: snapshot.trips,
+      checklist: snapshot.checklist,
+      journal: snapshot.journal,
+      maintenance: [
+        for (final item in snapshot.maintenance)
+          item.copyWith(
+            attachmentPaths:
+                item.attachmentPaths.map(mapPath).toList(growable: false),
+          ),
+      ],
+      documents: [
+        for (final item in snapshot.documents)
+          item.copyWith(
+            localFilePath: mapPath(item.localFilePath),
+            thumbnailPath: mapOptionalPath(item.thumbnailPath),
+            pagePaths: item.pagePaths.map(mapPath).toList(growable: false),
+            pdfPath: mapOptionalPath(item.pdfPath),
+          ),
+      ],
+      expenses: snapshot.expenses,
+      fuelEntries: snapshot.fuelEntries,
+      budgets: snapshot.budgets,
+      bookings: snapshot.bookings,
+      tracks: [
+        for (final item in snapshot.tracks)
+          item.copyWith(localFilePath: mapOptionalPath(item.localFilePath)),
+      ],
+      memories: [
+        for (final item in snapshot.memories)
+          item.copyWith(
+            localPhotoPaths:
+                item.localPhotoPaths.map(mapPath).toList(growable: false),
+          ),
+      ],
+    );
+  }
+
   Future<_RestoreCounters> _replaceAll(_BackupSnapshot snapshot) async {
     final current = await _loadSnapshot();
     for (final item in current.bookings) {
@@ -917,14 +1085,21 @@ class DataBackupService implements BackupService {
     final name = p.basename(filePath);
     final directory =
         filePath.toLowerCase().contains('thumb') ? 'thumbnails' : 'documents';
-    return 'files/$directory/${_safeFileName(name)}';
+    final digest =
+        sha256.convert(utf8.encode(filePath)).toString().substring(0, 16);
+    return 'files/$directory/${digest}_${_safeFileName(name)}';
   }
 
-  BackupManifestFile _manifestFile(String path, List<int> bytes) {
+  BackupManifestFile _manifestFile(
+    String path,
+    List<int> bytes, {
+    String? sourcePath,
+  }) {
     return BackupManifestFile(
       path: path,
       sha256: sha256.convert(bytes).toString(),
       size: bytes.length,
+      sourcePath: sourcePath,
     );
   }
 
@@ -1006,6 +1181,16 @@ class DataBackupService implements BackupService {
   String _safeFileName(String input) {
     return input.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
   }
+}
+
+class _MaterializedRestore {
+  const _MaterializedRestore({
+    required this.snapshot,
+    required this.copiedPaths,
+  });
+
+  final _BackupSnapshot snapshot;
+  final List<String> copiedPaths;
 }
 
 class _BackupSnapshot {
