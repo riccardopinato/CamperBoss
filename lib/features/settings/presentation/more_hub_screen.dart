@@ -8,7 +8,6 @@ import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../offline/presentation/offline_content_screen.dart';
-import '../../offline/presentation/offline_guides_screen.dart';
 import '../../onboarding/presentation/guided_onboarding_screen.dart';
 import '../../search/presentation/local_search_screen.dart';
 import '../../settings/presentation/language_settings_screen.dart';
@@ -47,13 +46,6 @@ class MoreHubScreen extends StatelessWidget {
           title: 'more_offline'.tr(),
           subtitle: 'more_offline_body'.tr(),
           onTap: () => _open(context, const OfflineContentScreen()),
-        ),
-        const SizedBox(height: 12),
-        ActionTile(
-          icon: Icons.menu_book_outlined,
-          title: 'more_guides'.tr(),
-          subtitle: 'more_guides_body'.tr(),
-          onTap: () => _open(context, const OfflineGuidesScreen()),
         ),
         const SizedBox(height: 24),
         SectionHeader(title: 'more_title'.tr()),
