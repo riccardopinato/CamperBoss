@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:camperboss/core/services/data_backup_service.dart';
+import 'package:camperboss/core/services/user_state_backup_service.dart';
 import 'package:camperboss/core/services/document_services_models.dart';
 import 'package:camperboss/core/services/document_storage_service.dart';
+import 'package:camperboss/data/database/local_key_value_store_stub.dart';
+import 'package:camperboss/data/models/app_reminder.dart';
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
@@ -16,6 +19,7 @@ import 'package:camperboss/data/repositories/local_checklist_repository.dart';
 import 'package:camperboss/data/repositories/local_finance_repository.dart';
 import 'package:camperboss/data/repositories/local_journal_repository.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
+import 'package:camperboss/data/repositories/local_reminder_repository.dart';
 import 'package:camperboss/data/repositories/local_travel_history_repository.dart';
 import 'package:camperboss/data/repositories/local_trip_repository.dart';
 import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
@@ -392,16 +396,28 @@ DataBackupService _serviceFrom(
   TripRepository? tripRepository,
   VehicleDocumentRepository? documentRepository,
 }) {
+  final profile = _MemoryProfileRepository(state);
+  final trips = tripRepository ?? _MemoryTripRepository(state);
+  final checklist = _MemoryChecklistRepository(state);
+  final journal = _MemoryJournalRepository(state);
+  final maintenance = _MemoryMaintenanceRepository(state);
+  final documents = documentRepository ?? _MemoryDocumentRepository(state);
+  final finance = _MemoryFinanceRepository(state);
+  final history = _MemoryTravelHistoryRepository(state);
+  final reminders = _MemoryReminderRepository();
+
   return DataBackupService(
-    profileRepository: _MemoryProfileRepository(state),
-    tripRepository: tripRepository ?? _MemoryTripRepository(state),
-    checklistRepository: _MemoryChecklistRepository(state),
-    journalRepository: _MemoryJournalRepository(state),
-    maintenanceRepository: _MemoryMaintenanceRepository(state),
-    documentRepository:
-        documentRepository ?? _MemoryDocumentRepository(state),
-    financeRepository: _MemoryFinanceRepository(state),
-    travelHistoryRepository: _MemoryTravelHistoryRepository(state),
+    profileRepository: profile,
+    tripRepository: trips,
+    checklistRepository: checklist,
+    journalRepository: journal,
+    maintenanceRepository: maintenance,
+    documentRepository: documents,
+    financeRepository: finance,
+    travelHistoryRepository: history,
+    reminderRepository: reminders,
+    userStateBackupService:
+        UserStateBackupService(store: MemoryKeyValueStore()),
     fileStorageService: fileStorageService,
   );
 }
@@ -802,6 +818,50 @@ class _MemoryTravelHistoryRepository implements TravelHistoryRepository {
       state.tracks[index] = track;
     }
     return track;
+  }
+}
+
+
+class _MemoryReminderRepository implements ReminderRepository {
+  ReminderSettings settings = const ReminderSettings();
+  final List<AppReminder> reminders = [];
+
+  @override
+  Future<void> deleteSourceReminders(
+    ReminderSourceType sourceType,
+    String sourceId,
+  ) async {
+    reminders.removeWhere(
+      (item) => item.sourceType == sourceType && item.sourceId == sourceId,
+    );
+  }
+
+  @override
+  Future<List<AppReminder>> listReminders() async => [...reminders];
+
+  @override
+  Future<ReminderSettings> loadSettings() async => settings;
+
+  @override
+  Future<void> replaceAllReminders(List<AppReminder> next) async {
+    reminders
+      ..clear()
+      ..addAll(next);
+  }
+
+  @override
+  Future<void> replaceSourceReminders(
+    ReminderSourceType sourceType,
+    String sourceId,
+    List<AppReminder> next,
+  ) async {
+    await deleteSourceReminders(sourceType, sourceId);
+    reminders.addAll(next);
+  }
+
+  @override
+  Future<void> saveSettings(ReminderSettings settings) async {
+    this.settings = settings;
   }
 }
 
