@@ -50,6 +50,16 @@ class LocalJsonCollection {
     });
   }
 
+  Future<void> replaceRows(List<Map<String, Object?>> rows) {
+    return _serializedMutation(() async {
+      await _writeRows(
+        rows
+            .map((row) => Map<String, Object?>.from(row))
+            .toList(growable: false),
+      );
+    });
+  }
+
   Future<T> _serializedMutation<T>(Future<T> Function() mutation) async {
     final previous = _writeTails[key] ?? Future<void>.value();
     final gate = Completer<void>();
