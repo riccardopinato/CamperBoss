@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -1311,19 +1310,6 @@ class DataBackupService implements BackupService {
     final digest =
         sha256.convert(utf8.encode(filePath)).toString().substring(0, 16);
     return 'files/$directory/${digest}_${_safeFileName(name)}';
-  }
-
-  BackupManifestFile _manifestFile(
-    String path,
-    List<int> bytes, {
-    String? sourcePath,
-  }) {
-    return BackupManifestFile(
-      path: path,
-      sha256: sha256.convert(bytes).toString(),
-      size: bytes.length,
-      sourcePath: sourcePath,
-    );
   }
 
   Future<BackupManifestFile> _manifestFileFromDisk(
