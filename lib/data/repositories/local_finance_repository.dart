@@ -148,6 +148,20 @@ class LocalFinanceRepository implements FinanceRepository {
     _revisionStore.bump();
   }
 
+  Future<List<TripBudget>> listTripBudgets() async {
+    if (kIsWeb) {
+      final rows = await _budgetsCollection.listRows();
+      return rows.map(TripBudget.fromMap).toList(growable: false);
+    }
+
+    final db = await _database.database;
+    final rows = await db.query(
+      AppDatabase.tripBudgetsTable,
+      orderBy: 'trip_id ASC',
+    );
+    return rows.map(TripBudget.fromMap).toList(growable: false);
+  }
+
   @override
   Future<TripBudget?> loadTripBudget(int tripId) async {
     if (kIsWeb) {

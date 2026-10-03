@@ -21,6 +21,21 @@ class LocalRoutePreviewRepository implements RoutePreviewRepository {
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
 
+  Future<List<RouteResult>> listRoutes() async {
+    if (kIsWeb) {
+      final rows = await _webCollection.listRows();
+      return rows.map(RouteResult.fromMap).toList(growable: false)
+        ..sort((a, b) => b.calculatedAt.compareTo(a.calculatedAt));
+    }
+
+    final db = await _database.database;
+    final rows = await db.query(
+      AppDatabase.routePreviewsTable,
+      orderBy: 'calculated_at DESC',
+    );
+    return rows.map(RouteResult.fromMap).toList(growable: false);
+  }
+
   @override
   Future<RouteResult?> loadRouteForTrip(int tripId) async {
     if (kIsWeb) {

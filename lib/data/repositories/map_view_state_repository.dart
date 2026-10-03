@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../database/local_key_value_store.dart';
@@ -82,6 +83,8 @@ class MapViewStateRepository {
   MapViewStateRepository({LocalKeyValueStore? store})
       : _store = store ?? createLocalKeyValueStore();
 
+  static Future<void> _regionMutationTail = Future<void>.value();
+
   static const _cameraKey = 'camperboss.map.camera.v2';
   static const _offlineRegionsKey = 'camperboss.map.offline_regions.v2';
 
@@ -131,29 +134,51 @@ class MapViewStateRepository {
     return null;
   }
 
-  Future<void> saveRegion(OfflineRegionViewport region) async {
-    final regions = await listRegionViewports();
-    final updated = [
-      for (final current in regions)
-        if (current.id != region.id) current,
-      region,
-    ];
-    await _store.write(
-      _offlineRegionsKey,
-      jsonEncode(updated.map((item) => item.toMap()).toList()),
-    );
+  Future<void> saveRegion(OfflineRegionViewport region) {
+    return _serializeRegionMutation(() async {
+      final regions = await listRegionViewports();
+      final updated = [
+        for (final current in regions)
+          if (current.id != region.id) current,
+        region,
+      ];
+      await _store.write(
+        _offlineRegionsKey,
+        jsonEncode(updated.map((item) => item.toMap()).toList()),
+      );
+    });
   }
 
-  Future<void> deleteRegion(String id) async {
-    final regions = await listRegionViewports();
-    final updated = regions.where((item) => item.id != id).toList();
-    if (updated.isEmpty) {
-      await _store.remove(_offlineRegionsKey);
-      return;
-    }
-    await _store.write(
-      _offlineRegionsKey,
-      jsonEncode(updated.map((item) => item.toMap()).toList()),
-    );
+  Future<void> deleteRegion(String id) {
+    return _serializeRegionMutation(() async {
+      final regions = await listRegionViewports();
+      final updated = regions.where((item) => item.id != id).toList();
+      if (updated.isEmpty) {
+        await _store.remove(_offlineRegionsKey);
+        return;
+      }
+      await _store.write(
+        _offlineRegionsKey,
+        jsonEncode(updated.map((item) => item.toMap()).toList()),
+      );
+    });
+  }
+
+  Future<void> _serializeRegionMutation(Future<void> Function() mutation) {
+    final previous = _regionMutationTail;
+    final completer = Completer<void>();
+    _regionMutationTail = completer.future;
+    return () async {
+      try {
+        try {
+          await previous;
+        } catch (_) {
+          // A failed previous write must not poison the mutation queue.
+        }
+        await mutation();
+      } finally {
+        completer.complete();
+      }
+    }();
   }
 }

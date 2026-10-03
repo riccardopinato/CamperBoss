@@ -3,9 +3,11 @@ import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_journal_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
 import '../../data/repositories/local_reminder_repository.dart';
+import '../../data/repositories/local_route_preview_repository.dart';
 import '../../data/repositories/local_travel_history_repository.dart';
 import '../../data/repositories/local_trip_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
+import 'local_file_probe.dart';
 
 class DataIntegrityIssue {
   const DataIntegrityIssue({
@@ -37,6 +39,8 @@ class DataIntegrityService {
     MaintenanceRepository? maintenanceRepository,
     TravelHistoryRepository? travelHistoryRepository,
     ReminderRepository? reminderRepository,
+    RoutePreviewRepository? routeRepository,
+    LocalFileProbe fileProbe = const LocalFileProbe(),
   })  : _tripRepository = tripRepository ?? LocalTripRepository(),
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _journalRepository = journalRepository ?? LocalJournalRepository(),
@@ -46,7 +50,9 @@ class DataIntegrityService {
             maintenanceRepository ?? LocalMaintenanceRepository(),
         _travelHistoryRepository =
             travelHistoryRepository ?? LocalTravelHistoryRepository(),
-        _reminderRepository = reminderRepository ?? LocalReminderRepository();
+        _reminderRepository = reminderRepository ?? LocalReminderRepository(),
+        _routeRepository = routeRepository ?? LocalRoutePreviewRepository(),
+        _fileProbe = fileProbe;
 
   final TripRepository _tripRepository;
   final FinanceRepository _financeRepository;
@@ -55,18 +61,26 @@ class DataIntegrityService {
   final MaintenanceRepository _maintenanceRepository;
   final TravelHistoryRepository _travelHistoryRepository;
   final ReminderRepository _reminderRepository;
+  final RoutePreviewRepository _routeRepository;
+  final LocalFileProbe _fileProbe;
 
   Future<DataIntegrityReport> audit() async {
     final trips = await _tripRepository.listTrips();
     final expenses = await _financeRepository.listExpenses();
     final fuel = await _financeRepository.listFuelEntries();
     final bookings = await _financeRepository.listBookings();
+    final budgets = _financeRepository is LocalFinanceRepository
+        ? await (_financeRepository as LocalFinanceRepository).listTripBudgets()
+        : const [];
     final journal = await _journalRepository.listEntries();
     final documents = await _documentRepository.listDocuments();
     final maintenance = await _maintenanceRepository.listRecords();
     final tracks = await _travelHistoryRepository.listTracks();
     final memories = await _travelHistoryRepository.listMemories();
     final reminders = await _reminderRepository.listReminders();
+    final routes = _routeRepository is LocalRoutePreviewRepository
+        ? await (_routeRepository as LocalRoutePreviewRepository).listRoutes()
+        : const [];
 
     final issues = <DataIntegrityIssue>[];
     final tripIds = trips.map((item) => item.id).whereType<int>().toSet();
@@ -112,11 +126,17 @@ class DataIntegrityService {
       checkTripRef('booking', item.id, item.tripId);
       checkDocumentRef('booking', item.id, item.documentId);
     }
+    for (final item in budgets) {
+      checkTripRef('budget', item.tripId.toString(), item.tripId);
+    }
     for (final item in tracks) {
       checkTripRef('gpx', item.id, item.tripId);
     }
     for (final item in memories) {
       checkTripRef('memory', item.id, item.tripId);
+    }
+    for (final route in routes) {
+      checkTripRef('route', route.tripId.toString(), route.tripId);
     }
     for (final reminder in reminders) {
       final sourceId = int.tryParse(reminder.sourceId);
@@ -137,6 +157,30 @@ class DataIntegrityService {
                 'References missing ${reminder.sourceType.storageValue} ${reminder.sourceId}',
           ),
         );
+      }
+    }
+
+    if (_fileProbe.isSupported) {
+      for (final document in documents) {
+        for (final path in document.filePaths.where((item) => item.isNotEmpty)) {
+          await _checkPath(issues, 'document', document.id?.toString() ?? document.title, path);
+        }
+      }
+      for (final record in maintenance) {
+        for (final path in record.attachmentPaths.where((item) => item.isNotEmpty)) {
+          await _checkPath(issues, 'maintenance', record.id?.toString() ?? record.title, path);
+        }
+      }
+      for (final track in tracks) {
+        final path = track.localFilePath;
+        if (path != null && path.isNotEmpty) {
+          await _checkPath(issues, 'gpx', track.id, path);
+        }
+      }
+      for (final memory in memories) {
+        for (final path in memory.localPhotoPaths.where((item) => item.isNotEmpty)) {
+          await _checkPath(issues, 'memory', memory.id, path);
+        }
       }
     }
 
@@ -162,8 +206,30 @@ class DataIntegrityService {
     _checkDuplicateIds(issues, 'gpx', tracks.map((item) => item.id));
     _checkDuplicateIds(issues, 'memory', memories.map((item) => item.id));
     _checkDuplicateIds(issues, 'reminder', reminders.map((item) => item.id));
+    _checkDuplicateIds(
+      issues,
+      'route',
+      routes.map((item) => item.tripId.toString()),
+    );
 
     return DataIntegrityReport(List.unmodifiable(issues));
+  }
+
+  Future<void> _checkPath(
+    List<DataIntegrityIssue> issues,
+    String kind,
+    String id,
+    String path,
+  ) async {
+    if (!await _fileProbe.exists(path)) {
+      issues.add(
+        DataIntegrityIssue(
+          code: 'missing_media_file',
+          entityId: '$kind:$id',
+          message: 'Referenced local file is missing: $path',
+        ),
+      );
+    }
   }
 
   void _checkDuplicateIds(
