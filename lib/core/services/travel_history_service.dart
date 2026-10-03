@@ -139,14 +139,32 @@ class TravelHistoryService {
     return saved;
   }
 
-  Future<void> deleteMemory(TravelMemory memory) async {
+  Future<void> deleteMemory(
+    TravelMemory memory, {
+    bool deleteMedia = true,
+  }) async {
     await _repository.deleteMemory(memory.id);
-    await _deleteUnreferencedMemoryFiles(memory.localPhotoPaths);
+    if (deleteMedia) {
+      await cleanupUnreferencedMemoryFiles(memory.localPhotoPaths);
+    }
   }
 
-  Future<void> deleteTrack(GpxTrack track) async {
+  Future<void> deleteTrack(
+    GpxTrack track, {
+    bool deleteMedia = true,
+  }) async {
     await _repository.deleteTrack(track.id);
-    await _deleteUnreferencedTrackFiles([track.localFilePath]);
+    if (deleteMedia) {
+      await cleanupUnreferencedTrackFiles([track.localFilePath]);
+    }
+  }
+
+  Future<void> cleanupUnreferencedMemoryFiles(Iterable<String?> paths) {
+    return _deleteUnreferencedMemoryFiles(paths);
+  }
+
+  Future<void> cleanupUnreferencedTrackFiles(Iterable<String?> paths) {
+    return _deleteUnreferencedTrackFiles(paths);
   }
 
   Future<TravelMemory?> _memoryById(String id) async {
