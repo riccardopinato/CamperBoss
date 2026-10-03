@@ -14,6 +14,7 @@ import 'poi_catalog_service.dart';
 import 'poi_package_installer.dart';
 import 'reminder_coordinator.dart';
 import 'remote_manifest_loader.dart';
+import 'storage_inspector.dart';
 
 /// Process-wide service container for cross-feature infrastructure.
 class AppSystemServices {
@@ -37,6 +38,14 @@ class AppSystemServices {
   late final PoiPackageStateRepository poiPackageStates =
       LocalPoiPackageStateRepository();
 
+  late final MapLibreOfflineRegionManager mapOfflineManager =
+      const NativeMapLibreOfflineRegionManager();
+
+  late final StorageInspector storageInspector = LocalStorageInspector(
+    repository: installedResources,
+    mapManager: mapOfflineManager,
+  );
+
   late final PoiPackageInstaller poiPackageInstaller = PoiPackageInstaller(
     poiRepository: poiRepository,
     stateRepository: poiPackageStates,
@@ -48,6 +57,7 @@ class AppSystemServices {
     installedRepository: installedResources,
     manifestRepository: offlineManifestRepository,
     packageInstaller: poiPackageInstaller,
+    storageInspector: storageInspector,
     allowedHosts: OfflineContentConfig.allowedHosts,
   );
 
@@ -58,8 +68,6 @@ class AppSystemServices {
     remoteConfigured: OfflineContentConfig.isRemoteCatalogConfigured,
   );
 
-  late final MapLibreOfflineRegionManager mapOfflineManager =
-      const NativeMapLibreOfflineRegionManager();
   late final MapViewStateRepository mapViewStateRepository =
       MapViewStateRepository();
   late final OfflineGuidesService guides = LocalOfflineGuidesService(

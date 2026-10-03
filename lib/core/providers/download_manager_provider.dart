@@ -49,9 +49,7 @@ final installedResourcesProvider =
 });
 
 final storageInspectorProvider = Provider<StorageInspector>((ref) {
-  return LocalStorageInspector(
-    repository: ref.watch(installedResourceRepositoryProvider),
-  );
+  return AppSystemServices.instance.storageInspector;
 });
 
 final storageProjectionProvider = FutureProvider<StorageProjection>((ref) {

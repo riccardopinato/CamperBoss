@@ -11,6 +11,7 @@ import '../../data/repositories/installed_resource_repository.dart';
 import '../../data/repositories/offline_manifest_repository.dart';
 import 'download_file_verifier.dart';
 import 'offline_package_installer.dart';
+import 'storage_inspector.dart';
 
 abstract interface class AppDownloadManager {
   Stream<List<DownloadRecord>> watchDownloads();
@@ -32,6 +33,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     DownloadFileVerifier verifier = const DownloadFileVerifier(),
     OfflinePackageInstaller packageInstaller =
         const NoopOfflinePackageInstaller(),
+    StorageInspector? storageInspector,
     this.allowedHosts = const {},
   })  : _repository = repository ?? LocalDownloadRecordRepository(),
         _installedRepository =
@@ -40,7 +42,8 @@ class BackgroundDownloaderManager implements AppDownloadManager {
             manifestRepository ?? LocalOfflineManifestRepository(),
         _downloader = downloader ?? FileDownloader(),
         _verifier = verifier,
-        _packageInstaller = packageInstaller {
+        _packageInstaller = packageInstaller,
+        _storageInspector = storageInspector {
     _subscription = _downloader.updates.listen(_handleUpdate);
   }
 
@@ -50,6 +53,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   final FileDownloader _downloader;
   final DownloadFileVerifier _verifier;
   final OfflinePackageInstaller _packageInstaller;
+  final StorageInspector? _storageInspector;
   final Set<String> allowedHosts;
   late final _controller = StreamController<List<DownloadRecord>>.broadcast(
     onListen: () {
@@ -77,6 +81,19 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     _validateFileName(package.fileName);
     if (package.fileSizeBytes < 0) {
       throw ArgumentError('Package size cannot be negative');
+    }
+
+    final storageInspector = _storageInspector;
+    if (storageInspector != null) {
+      final projection =
+          await storageInspector.projectInstallation([package]);
+      if (!projection.canInstall) {
+        throw InsufficientStorageException(
+          requiredBytes:
+              package.fileSizeBytes + projection.safetyMarginBytes,
+          availableBytes: projection.availableBytes,
+        );
+      }
     }
 
     final now = DateTime.now();
@@ -388,35 +405,59 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     }
 
     await target.parent.create(recursive: true);
-    if (candidate.path != target.path) {
-      if (await target.exists()) {
+    final previous = File(target.path + '.previous');
+    var previousMoved = false;
+    var promotedNewCandidate = false;
+
+    try {
+      if (candidate.path != target.path) {
+        if (await previous.exists()) {
+          await previous.delete();
+        }
+        if (await target.exists()) {
+          await target.rename(previous.path);
+          previousMoved = true;
+        }
+        await candidate.rename(target.path);
+        promotedNewCandidate = true;
+      }
+
+      await _packageInstaller.install(record, target);
+
+      if (previousMoved && await previous.exists()) {
+        await previous.delete();
+      }
+    } catch (error) {
+      if (promotedNewCandidate && await target.exists()) {
         await target.delete();
       }
-      await candidate.rename(target.path);
-    }
-    try {
-      await _packageInstaller.install(record, target);
-    } catch (error) {
-      final activationError =
-          'Package activation failed: ' + error.toString();
+      if (previousMoved && await previous.exists()) {
+        await previous.rename(target.path);
+      }
+
+      final prefix = _isNoSpaceError(error)
+          ? 'Package activation failed: insufficient device storage'
+          : 'Package activation failed: ' + error.toString();
       await _updateRecord(
         record.packageId,
         status: DownloadStatus.failed,
         installedSha256: verification.actualSha256 ?? record.expectedSha256,
-        lastError: activationError,
+        lastError: prefix,
       );
+      final failedSize =
+          await target.exists() ? await target.length() : record.totalBytes;
       await _installedRepository.upsert(
         InstalledResource(
           packageId: record.packageId,
           type: record.type,
           version: record.version,
           localPath: target.path,
-          fileSizeBytes: await target.length(),
+          fileSizeBytes: failedSize,
           installedSha256:
               verification.actualSha256 ?? record.expectedSha256,
           status: InstalledResourceStatus.failed,
           lastVerifiedAt: DateTime.now(),
-          lastError: activationError,
+          lastError: prefix,
         ),
       );
       return;
@@ -448,6 +489,15 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       ),
     );
     await _publish();
+  }
+
+  bool _isNoSpaceError(Object error) {
+    if (error is! FileSystemException) return false;
+    final code = error.osError?.errorCode;
+    final message = error.osError?.message.toLowerCase() ?? '';
+    return code == 28 ||
+        message.contains('no space') ||
+        message.contains('disk full');
   }
 
   Future<void> _deletePartial(DownloadRecord record) async {
