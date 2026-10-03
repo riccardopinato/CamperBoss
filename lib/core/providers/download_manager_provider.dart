@@ -9,6 +9,7 @@ import '../../data/repositories/offline_poi_repository.dart';
 import '../services/app_download_manager.dart';
 import '../services/app_system_services.dart';
 import '../services/offline_system_coordinator.dart';
+import '../services/poi_catalog_service.dart';
 import '../services/storage_inspector.dart';
 
 final downloadManagerProvider = Provider<AppDownloadManager>((ref) {
@@ -70,5 +71,13 @@ final installedMapRegionsProvider =
 });
 
 final offlinePoiRepositoryProvider = Provider<PoiRepository>((ref) {
-  return LocalOfflinePoiRepository();
+  return AppSystemServices.instance.poiRepository;
+});
+
+final poiCatalogProvider = Provider<PoiCatalogService>((ref) {
+  return AppSystemServices.instance.poiCatalog;
+});
+
+final poiCatalogSnapshotProvider = FutureProvider((ref) {
+  return ref.watch(poiCatalogProvider).snapshot();
 });

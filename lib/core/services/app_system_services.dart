@@ -1,13 +1,19 @@
+import '../config/offline_content_config.dart';
 import '../../data/repositories/installed_resource_repository.dart';
 import '../../data/repositories/map_view_state_repository.dart';
 import '../../data/repositories/offline_manifest_repository.dart';
+import '../../data/repositories/offline_poi_repository.dart';
+import '../../data/repositories/poi_package_state_repository.dart';
 import 'app_download_manager.dart';
 import 'data_integrity_service.dart';
 import 'local_search_service.dart';
 import 'maplibre_offline_region_manager.dart';
 import 'offline_guides_service.dart';
 import 'offline_system_coordinator.dart';
+import 'poi_catalog_service.dart';
+import 'poi_package_installer.dart';
 import 'reminder_coordinator.dart';
+import 'remote_manifest_loader.dart';
 
 /// Process-wide service container for cross-feature infrastructure.
 class AppSystemServices {
@@ -17,12 +23,41 @@ class AppSystemServices {
 
   late final InstalledResourceRepository installedResources =
       LocalInstalledResourceRepository();
+
+  late final RemoteManifestLoader? _remoteManifestLoader =
+      OfflineContentConfig.manifestUri case final uri?
+          ? RemoteManifestLoader(uri: uri)
+          : null;
+
   late final OfflineManifestRepository offlineManifestRepository =
-      LocalOfflineManifestRepository();
+      LocalOfflineManifestRepository(
+    remoteLoader: _remoteManifestLoader?.load,
+    allowedHosts: OfflineContentConfig.allowedHosts,
+  );
+
+  late final PoiRepository poiRepository = LocalOfflinePoiRepository();
+  late final PoiPackageStateRepository poiPackageStates =
+      LocalPoiPackageStateRepository();
+
+  late final PoiPackageInstaller poiPackageInstaller = PoiPackageInstaller(
+    poiRepository: poiRepository,
+    stateRepository: poiPackageStates,
+    manifestRepository: offlineManifestRepository,
+    installedRepository: installedResources,
+  );
 
   late final AppDownloadManager downloads = BackgroundDownloaderManager(
     installedRepository: installedResources,
     manifestRepository: offlineManifestRepository,
+    packageInstaller: poiPackageInstaller,
+    allowedHosts: OfflineContentConfig.allowedHosts,
+  );
+
+  late final PoiCatalogService poiCatalog = PoiCatalogService(
+    manifestRepository: offlineManifestRepository,
+    downloadManager: downloads,
+    stateRepository: poiPackageStates,
+    remoteConfigured: OfflineContentConfig.isRemoteCatalogConfigured,
   );
 
   late final MapLibreOfflineRegionManager mapOfflineManager =

@@ -10,6 +10,7 @@ import '../../data/repositories/download_record_repository.dart';
 import '../../data/repositories/installed_resource_repository.dart';
 import '../../data/repositories/offline_manifest_repository.dart';
 import 'download_file_verifier.dart';
+import 'offline_package_installer.dart';
 
 abstract interface class AppDownloadManager {
   Stream<List<DownloadRecord>> watchDownloads();
@@ -29,6 +30,8 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     OfflineManifestRepository? manifestRepository,
     FileDownloader? downloader,
     DownloadFileVerifier verifier = const DownloadFileVerifier(),
+    OfflinePackageInstaller packageInstaller =
+        const NoopOfflinePackageInstaller(),
     this.allowedHosts = const {},
   })  : _repository = repository ?? LocalDownloadRecordRepository(),
         _installedRepository =
@@ -36,7 +39,8 @@ class BackgroundDownloaderManager implements AppDownloadManager {
         _manifestRepository =
             manifestRepository ?? LocalOfflineManifestRepository(),
         _downloader = downloader ?? FileDownloader(),
-        _verifier = verifier {
+        _verifier = verifier,
+        _packageInstaller = packageInstaller {
     _subscription = _downloader.updates.listen(_handleUpdate);
   }
 
@@ -45,6 +49,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   final OfflineManifestRepository _manifestRepository;
   final FileDownloader _downloader;
   final DownloadFileVerifier _verifier;
+  final OfflinePackageInstaller _packageInstaller;
   final Set<String> allowedHosts;
   late final _controller = StreamController<List<DownloadRecord>>.broadcast(
     onListen: () {
@@ -217,6 +222,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     if (record == null) return;
     await _downloader.cancelTaskWithId(record.taskId);
     await _deletePartial(record);
+    await _packageInstaller.uninstall(record);
     final installed = File(record.localPath);
     if (await installed.exists()) {
       await installed.delete();
@@ -258,6 +264,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       }
     }
     await _installedRepository.reconcile();
+    await _packageInstaller.reconcile();
     await _publish();
   }
 
@@ -387,6 +394,34 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       }
       await candidate.rename(target.path);
     }
+    try {
+      await _packageInstaller.install(record, target);
+    } catch (error) {
+      final activationError =
+          'Package activation failed: ' + error.toString();
+      await _updateRecord(
+        record.packageId,
+        status: DownloadStatus.failed,
+        installedSha256: verification.actualSha256 ?? record.expectedSha256,
+        lastError: activationError,
+      );
+      await _installedRepository.upsert(
+        InstalledResource(
+          packageId: record.packageId,
+          type: record.type,
+          version: record.version,
+          localPath: target.path,
+          fileSizeBytes: await target.length(),
+          installedSha256:
+              verification.actualSha256 ?? record.expectedSha256,
+          status: InstalledResourceStatus.failed,
+          lastVerifiedAt: DateTime.now(),
+          lastError: activationError,
+        ),
+      );
+      return;
+    }
+
     await _repository.saveRecord(
       record.copyWith(
         status: DownloadStatus.completed,
