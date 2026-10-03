@@ -9,6 +9,7 @@ abstract interface class ReminderRepository {
   Future<ReminderSettings> loadSettings();
   Future<void> saveSettings(ReminderSettings settings);
   Future<List<AppReminder>> listReminders();
+  Future<void> replaceAllReminders(List<AppReminder> reminders);
   Future<void> replaceSourceReminders(
     ReminderSourceType sourceType,
     String sourceId,
@@ -77,6 +78,32 @@ class LocalReminderRepository implements ReminderRepository {
       orderBy: 'scheduled_at ASC',
     );
     return rows.map(AppReminder.fromMap).toList();
+  }
+
+  @override
+  Future<void> replaceAllReminders(List<AppReminder> reminders) async {
+    if (kIsWeb) {
+      final existing = await _reminderCollection.listRows();
+      for (final row in existing) {
+        await _reminderCollection.deleteRow(row['id'] as Object);
+      }
+      for (final reminder in reminders) {
+        await _reminderCollection.saveRow(reminder.toMap());
+      }
+      return;
+    }
+
+    final db = await _database.database;
+    await db.transaction((txn) async {
+      await txn.delete(AppDatabase.remindersTable);
+      for (final reminder in reminders) {
+        await txn.insert(
+          AppDatabase.remindersTable,
+          reminder.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/document_capture_service.dart';
+import '../../../core/services/document_deletion_service.dart';
 import '../../../core/services/document_ocr_service.dart';
 import '../../../core/services/document_services_models.dart';
 import '../../../core/services/document_storage_service.dart';
@@ -20,6 +21,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
     this.captureService,
     this.ocrService,
     this.reminderService,
+    this.deletionService,
     this.initialDocumentId,
     super.key,
   });
@@ -28,6 +30,7 @@ class VehicleDocumentsScreen extends StatefulWidget {
   final DocumentCaptureService? captureService;
   final DocumentOcrService? ocrService;
   final ReminderSyncService? reminderService;
+  final DocumentDeletionService? deletionService;
   final int? initialDocumentId;
 
   @override
@@ -45,6 +48,9 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
       createDocumentStorageService();
   late final ReminderSyncService _reminderService =
       widget.reminderService ?? AppSystemServices.instance.reminders;
+  late final DocumentDeletionService _deletionService =
+      widget.deletionService ??
+          DocumentDeletionService(documentRepository: _repository);
 
   List<VehicleDocument> _documents = const [];
   bool _isLoading = true;
@@ -316,10 +322,18 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     });
 
     try {
-      await _repository.deleteDocument(document);
+      await _deletionService.deleteDocument(document);
       if (document.id != null) {
         await _reminderService.deleteDocumentReminders(document.id.toString());
       }
+    } on DocumentInUseException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _documents = previous;
+        _error = 'document_error_in_use'.tr(
+          namedArgs: {'count': error.referenceCount.toString()},
+        );
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {

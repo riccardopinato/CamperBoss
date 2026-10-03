@@ -413,7 +413,7 @@ Esito 2026-10-03:
 
 ## STEP 16K — Backup Recovery v2 + atomicità + lifecycle dati
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Problemi da risolvere tutti:
 
@@ -437,27 +437,56 @@ Criterio di uscita:
 
 - nessuna perdita o orphan silenzioso in restore/merge/delete, recovery testata anche su failure injection e dataset grandi.
 
+Esito:
+
+- Backup Recovery v3: remap file rigoroso, safety snapshot/rollback, cleanup orfani, state backup, integrity audit post-restore, streaming/progress/cancel e guard dimensionale; cascade viaggio recuperabile, document delete protetto da riferimenti, reminder canonici e write locali serializzate.
+- Test: Flutter CI `37115776142` PASS sul commit `cffb9aa37f5f49ffa2b87e2817d65e45bf1a17af`; regression dedicate a concorrenza, stale reminders, rollback cascade e document references.
+- PR: #12 `STEP 16K: Data Safety & Recovery v2`; nessun merge eseguito.
+
+## Sequenza consigliata per chiudere il Release Core
+
+1. **16L — Map/POI/Offline:** correggere prima le capability che l'utente usa direttamente e che oggi hanno ancora Product Truth incompleta.
+2. **16M — Delivery:** rendere CI/build/versioning deterministici prima di produrre altri candidate artifact.
+3. **16N — UX/platform parity:** localizzazione, accessibilità, iOS/Web e branding dopo che i flussi core sono stabili.
+4. **16O — Trust boundaries:** chiudere provider, privacy, licenze e routing production boundary senza aggiungere account/cloud obbligatori.
+5. **16P — Performance:** misurare la baseline finale con AppLab e stress test; eventuali regressioni tornano allo step proprietario.
+6. **16Q — Certification:** una sola matrice completa AppLab/device/Web, release PR canonica verso `main`, Pages e verdetto finale.
+
+Regola operativa: correggere automaticamente i problemi software riproducibili; lasciare `BLOCKED` solo ciò che richiede hardware, credenziali/store o verifica legale esterna. Non avviare STEP 17 AI finché 16Q non chiude il Release Core.
+
 ## STEP 16L — Map / POI / Offline Product Truth
 
-Stato: `TODO`
+Stato: `CURRENT`
 
-Problemi da risolvere tutti:
+Priorità: chiudere prima la verità del prodotto cartografico, poi certificare offline/storage. Non aggiungere nuove feature mappa finché questa base non è affidabile.
 
-- una fresh install non ha una sorgente POI reale: il repository locale importa pacchetti, ma non esiste un catalog/provider produttivo collegato e il manifest remoto di default non è configurato;
-- i filtri POI funzionano tecnicamente su dataset già presenti, ma non basta a dichiarare “POI reali disponibili”;
-- definire provider/catalogo POI approvato, licenza, attribution, update, import/install e fallback offline senza reintrodurre demo;
-- rimuovere o confinare `mock_camper_repository.dart` alle fixture di test per evitare regressioni demo;
-- quando non esiste una posizione reale, non calcolare/mostrare distanze a partire dal centro tecnico `42.5, 12.5`;
-- sostituire la “storage projection” fissa da 5 GiB con spazio libero reale del device e accounting unificato di MapLibre native regions, pacchetti offline e media; il budget app può restare una policy separata;
-- aggiungere preflight spazio prima dei download pesanti e recovery per ENOSPC/interruzione;
-- verificare formalmente condizioni d'uso/licenze/attribution del provider stile/tile e del caching offline MapLibre/OpenFreeMap;
-- chiudere la prova fisica: download regione → restart → rete off/airplane → reopen/zoom/pan;
-- riscrivere gli script Maestro/AppLab obsoleti che cercano `Lake Garda` e il vecchio entry point `Preview`;
-- verificare POI/filter/cache/map/offline su zoom, lifecycle, process death e device low-storage.
+### 16L-A — POI production supply
+
+- una fresh install deve avere un percorso reale e documentato per ottenere POI, oppure la UI deve dichiarare chiaramente che nessun catalogo è installato;
+- introdurre un adapter provider-neutral per catalogo POI, manifest/versione, attribution, update e import atomico;
+- scegliere la sorgente produttiva solo dopo verifica di licenza/caching/distribuzione nello STEP 16O;
+- nessun dataset demo o fixture nel runtime; `mock_camper_repository.dart` va rimosso dal release source o confinato ai test;
+- mantenere filtri e repository locale/offline già esistenti come boundary stabile.
+
+### 16L-B — Storage/offline truth
+
+- sostituire il budget fisso da 5 GiB con spazio libero reale del device quando la piattaforma lo consente; il budget applicativo resta una policy separata e visibile;
+- unificare accounting di pacchetti offline, regioni native MapLibre e media gestiti dall'app;
+- preflight prima dei download pesanti, blocco sicuro su spazio insufficiente, handling ENOSPC/interruzione e riconciliazione al riavvio;
+- nessuna regione deve risultare pronta senza stato MapLibre completo + viewport persistito;
+- mantenere separati cache temporanea, contenuti installati e file utente.
+
+### 16L-C — Map semantics + runtime harness
+
+- eliminare distanza fittizia dal centro tecnico `42.5, 12.5`: senza posizione reale la UI mostra POI senza distanza oppure richiede un punto esplicito;
+- aggiornare i flow Maestro/AppLab eliminando Lake Garda, vecchio entry point Preview e tap a coordinate fragili;
+- usare AppLab `riccardopinato/AppLab` come donor/harness, baseline `6774654ba8cdf589872e11f54019b557e4ec45f0`, riusando solo i moduli necessari;
+- smoke runtime mirato in questo step: launch, map load, filtri, install/cache POI, restart e recovery; la certificazione completa resta nello STEP 16Q;
+- preparare il critical path offline: download regione → restart → rete off → reopen/zoom/pan, senza dichiararlo PASS finché il runtime non lo dimostra.
 
 Criterio di uscita:
 
-- mappa e POI non dipendono da dati iniettati/demo e le capacità offline mostrate in UI sono dimostrate su runtime reale.
+- fresh install senza demo; POI/provider truth esplicita; storage reale o fallback dichiarato; nessuna distanza inventata; flow AppLab aggiornati e smoke map/offline ripetibile.
 
 ## STEP 16M — Supply chain, CI/CD, Fastlane e release identity
 
@@ -534,6 +563,7 @@ Stato: `TODO`
 
 Problemi da risolvere tutti:
 
+- usare AppLab come harness principale per persistence/restart, network-offline, storage/data-integrity, resource-pressure/process-death e performance; non duplicare i suoi runner dentro CamperBoss;
 - benchmark cold/warm start, jank/FPS MapLibre, memoria, CPU e battery impact su device medio e alto;
 - stress backup/restore con molti record e allegati grandi, OCR multipagina e photo export;
 - stress GPX con molte migliaia di punti e Memories con molte foto;
@@ -544,7 +574,7 @@ Problemi da risolvere tutti:
 
 Criterio di uscita:
 
-- Evidence Bundle con soglie, device di riferimento, risultati e regressioni ripetibili.
+- Evidence Bundle con soglie, device di riferimento, risultati e regressioni ripetibili; baseline non-AI congelata per il confronto futuro con STEP 17.
 
 ## STEP 16Q — AppLab / device / Web certification finale
 
@@ -552,15 +582,17 @@ Stato: `TODO`
 
 Gate obbligatori:
 
-- riscrivere i flow Maestro/AppLab sulla UI corrente e renderli non dipendenti da coordinate fragili o dati demo;
+- eseguire i flow Maestro/AppLab preparati negli step precedenti sulla UI corrente; niente coordinate fragili, dati demo o assertion su testi non localizzati;
 - Android release: first launch, locale, CRUD, document import/OCR, reminder permission, routing, backup/restore, MapLibre, process death e recovery;
 - offline critical path: scarica regione, relaunch, rete disabilitata, riapri regione e usa zoom/pan senza rete;
 - iPhone reale/simulatore compatibile: import documenti, OCR, notifiche, routing, lifecycle offline e privacy backup;
 - Web/Pages sul commit canonico: navigazione, local persistence, locale, responsive desktop, refresh/back, graceful degradation native-only;
 - permission denied/denied-forever, no network, provider quota/error, corrupt backup, low storage e retry;
 - destructive flows e recovery: trip cascade, document references, Trash/Restore/Purge dove previsto;
+- creare una sola release-candidate PR finale dal head STEP 16Q verso `main`, verificare che il diff comprenda l'intera catena 16D→16Q e chiudere come superseded le PR stacked intermedie solo dopo il confronto;
 - eseguire CodeRabbit e tutti i required checks sulla PR finale verso `main`;
-- dopo merge controllato, rilanciare certification su `main`, deployare Pages e verificare che SHA Web, release evidence e artifact appartengano alla stessa baseline;
+- dopo merge controllato, rilanciare certification su `main`, deployare Pages e verificare che SHA Web, release evidence, APK/AAB e artifact appartengano alla stessa baseline;
+- evitare una full AppLab certification a ogni micro-commit: smoke mirati negli step 16L–16P, matrice completa soltanto qui;
 - produrre verdetto finale `CERTIFIED` / `NOT CERTIFIED` / `BLOCKED` senza trasformare un build PASS in runtime PASS.
 
 Criterio di uscita:

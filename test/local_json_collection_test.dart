@@ -27,4 +27,20 @@ void main() {
     await collection.deleteRow(1);
     expect(await reread.listRows(), isEmpty);
   });
+
+  test('serializes concurrent read-modify-write mutations across instances',
+      () async {
+    final store = MemoryKeyValueStore();
+    final a = LocalJsonCollection('test.concurrent', store: store);
+    final b = LocalJsonCollection('test.concurrent', store: store);
+
+    await Future.wait([
+      for (var index = 0; index < 20; index++)
+        (index.isEven ? a : b).saveRow({'value': index}),
+    ]);
+
+    final rows = await a.listRows();
+    expect(rows, hasLength(20));
+    expect(rows.map((row) => row['id']).toSet(), hasLength(20));
+  });
 }

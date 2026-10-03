@@ -7,6 +7,7 @@ import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/camper_hub_screen.dart';
 import '../../features/settings/presentation/more_hub_screen.dart';
 import '../../features/trip/presentation/trip_hub_screen.dart';
+import '../services/app_system_services.dart';
 import '../services/reminder_coordinator.dart';
 
 class AppShell extends StatefulWidget {
@@ -18,7 +19,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
-  final ReminderCoordinator _reminderCoordinator = ReminderCoordinator();
+  final ReminderCoordinator _reminderCoordinator =
+      AppSystemServices.instance.reminders;
 
   late final List<Widget> _screens = [
     const HomeScreen(),

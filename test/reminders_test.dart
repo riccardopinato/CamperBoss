@@ -38,6 +38,13 @@ class MemoryReminderRepository implements ReminderRepository {
   Future<ReminderSettings> loadSettings() async => settings;
 
   @override
+  Future<void> replaceAllReminders(List<AppReminder> next) async {
+    reminders
+      ..clear()
+      ..addAll(next);
+  }
+
+  @override
   Future<void> replaceSourceReminders(
     ReminderSourceType sourceType,
     String sourceId,
@@ -278,6 +285,31 @@ void main() {
 
     expect(granted, isTrue);
     expect((await coordinator.loadSettings()).advanceDays, [14, 0]);
+  });
+
+  test('reconciliation removes stale reminders from deleted sources', () async {
+    final repository = MemoryReminderRepository();
+    repository.reminders.add(
+      AppReminder(
+        id: 'document:999:0',
+        sourceType: ReminderSourceType.document,
+        sourceId: '999',
+        title: 'Stale',
+        body: 'Stale',
+        scheduledAt: DateTime(2027, 1, 1),
+      ),
+    );
+    final coordinator = ReminderCoordinator(
+      reminderRepository: repository,
+      documentRepository: MemoryDocumentRepository(const []),
+      maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
+      notificationService: FakeLocalNotificationService(),
+    );
+
+    await coordinator.reconcile(now: DateTime(2026, 7, 1));
+
+    expect(repository.reminders, isEmpty);
   });
 
   test('reconciliation is idempotent', () async {
