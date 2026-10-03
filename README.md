@@ -1,100 +1,70 @@
 # CamperBoss
 
-CamperBoss is a Flutter app for camper, vanlife and motorhome owners. The
-product is local-first: core vehicle, trip, document, maintenance, journal,
-finance and offline data remain useful without requiring an account or cloud
-connection.
+CamperBoss is a Flutter Android/iOS/Web application for camper, vanlife and motorhome owners. The core is local-first: vehicle, trips, documents, maintenance, journal, finance, search and offline resources remain usable without a mandatory account or cloud service.
 
-## Product direction
+## Product areas
 
-CamperBoss is being developed as a personal camper operating system rather than
-only a campsite finder.
+- **Home** — readiness and actions derived only from real local data.
+- **Map** — MapLibre map, local/offline POI, routing and native offline map regions.
+- **Trips** — planner, checklists, journal, budget, bookings, GPX and memories.
+- **Camper** — vehicle profile, private documents and maintenance.
+- **More** — local search, offline content, notifications, language and guided setup.
 
-Primary areas:
+No demo trips, journal entries, checklist items or POI are inserted silently into user data.
 
-- Home: real readiness and actions derived from local data.
-- Map: POI, routing and future verified offline cartography.
-- Trips: planner, checklists, journal, budgets, bookings, GPX and memories.
-- Camper: vehicle profile, private documents and maintenance.
-- More: local search, downloads, guides, notifications and setup.
+## Current release-candidate capabilities
 
-The primary navigation is intentionally limited to five destinations. Secondary
-tools live inside their product context instead of occupying a permanent tab.
+The active STEP 16 release-candidate stack contains:
 
-## Current capabilities
+- Flutter targets for Android, iOS and Web.
+- Material 3 light/dark themes.
+- Runtime locales IT/EN/DE/FR/ES/PT.
+- SQLite persistence on mobile and local key/value JSON persistence on Web.
+- Private vehicle documents, Android document scanning, image/PDF import and mobile OCR where supported.
+- Maintenance history and local reminders.
+- MapLibre as the production renderer; native offline regions on Android/iOS.
+- Local POI package repository and filtering. A production POI catalog/provider is still a release gate.
+- Open-Meteo weather/geocoding.
+- OpenRouteService routing abstraction with camper-aware HGV restrictions when a valid vehicle profile is available. Production credential architecture is still a release gate.
+- Offline download/guide infrastructure.
+- Local search.
+- GPX, travel memories and statistics.
+- Versioned backup/export/restore services with ongoing STEP 16K data-safety hardening.
+- Dormant provider-neutral Pro entitlement boundary; no active billing SDK or fake checkout.
 
-- Flutter Android, iOS and Web targets.
-- Material 3 light/dark themes following the system setting.
-- Runtime localization assets for IT, EN, DE, FR, ES and PT.
-- Local persistence for trips, checklists, journal, vehicle profile, documents,
-  maintenance, reminders, route previews, finance and travel history.
-- Private vehicle document archive with import/scanning/OCR flows where
-  supported.
-- Local maintenance history with due-date and mileage logic.
-- Open-Meteo weather and geocoding.
-- OpenStreetMap online rendering through `flutter_map`.
-- POI filters and clustering.
-- OpenRouteService route preview abstraction.
-- Versioned offline-content/download infrastructure.
-- Offline guides and guided onboarding.
-- Local search architecture with AI gateway disabled by default.
-- GPX, memories and travel statistics.
-- Backup/export/import services.
-- Local notification/reminder infrastructure.
+## Product Truth limitations
 
-Demo trips, journal entries, checklist items and POIs are no longer inserted
-silently into real user data. Empty states stay empty until the user creates or
-explicitly imports content.
+Do not describe the following as production-certified yet:
 
-## Current engineering focus
+- physical MapLibre offline restart/no-network behavior;
+- production POI catalog availability;
+- Play Internal Testing delivery;
+- iOS document scanning (iOS currently has import + OCR, not the Android scanner flow);
+- full Web parity for native document/media flows;
+- production ORS credential secrecy;
+- STEP 17 local AI.
 
-1. Product-truth cleanup and five-destination shell.
-2. Verified Map Engine V2 proof of concept for real offline maps.
-3. Camper-aware routing using the saved vehicle dimensions where the routing
-   provider can support them.
-4. Release hardening: privacy, CI, monetization, localization completeness and
-   device QA.
-5. Optional on-device AI only after the non-AI core is reliable.
+The authoritative release status is `ROADMAP.md` plus the latest Evidence Bundle.
 
-The future local-AI track must remain optional and provider-abstracted. Candidate
-micro-models such as Cactus/Needle-class models should be benchmarked before
-adoption for binary/model size, RAM, latency, supported devices, quality,
-license and offline privacy. The target for the first experiment is a model
-artifact around or below 50 MB; no specific model is considered selected yet.
-
-## Local commands
+## Local validation
 
 ```bash
 flutter pub get
 flutter analyze
 flutter test
-flutter run
 ```
+
+Platform/runtime certification is defined in the STEP 16 evidence and AppLab flows.
 
 ## Routing configuration
 
-Route previews compile without secrets and stay disabled until an ORS key is
-provided at runtime:
+Development builds may receive an ORS key using `--dart-define=ORS_API_KEY=...`.
+Do not commit keys. A key embedded in a client is not treated as a production secret; STEP 16O owns the production network boundary.
 
-```bash
-flutter run --dart-define=ORS_API_KEY=your-local-key
-```
+## Monetization
 
-Do not commit real API keys. Routing remains behind an application service so
-the provider can be replaced or proxied later.
+Production monetization is deferred. The current release candidate does not expose invented prices or checkout. Account/cloud/AI must not become prerequisites for the local-first core.
 
-## Monetization status
+## Repository governance
 
-Production monetization is intentionally deferred. CamperBoss does not ship a
-billing SDK, invented plans or fake purchase buttons in the Release Core.
-
-A provider-neutral entitlement boundary remains in the codebase so a future
-monetization step can integrate RevenueCat or another provider without coupling
-core features to a specific vendor. Offline maps remain available without a
-premature Pro gate until that product decision is revisited.
-
-## Quality
-
-GitHub Actions runs dependency resolution, `flutter analyze` and
-`flutter test` for the active development branch and pull requests to
-`main`.
+The latest Master Prompt / Golden Rules govern reuse, data safety, review, delivery and certification. See `AGENTS.md`, `ROADMAP.md`, `docs/governance/` and `docs/release/`.

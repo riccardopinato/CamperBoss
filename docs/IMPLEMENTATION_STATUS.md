@@ -1,75 +1,54 @@
 # CamperBoss implementation status
 
-Last updated: 2026-06-12
+Last updated: 2026-10-03
 
-## Current milestone
+## Canonical development baseline
 
-Visual MVP baseline with mock data.
+Release-candidate development is the stacked STEP 16 branch chain, currently extended through STEP 16J.
+`main` remains intentionally stable on the older STEP 15 baseline until release gates are closed.
 
-## Done
+The current audit/certification status is **NOT CERTIFIED / BLOCKED**. Green Flutter/platform builds do not substitute for runtime and data-safety evidence.
 
-- Flutter project manifest added.
-- Flutter SDK verified locally with Flutter 3.44.2 and Dart 3.12.2.
-- Android, iOS, and Web platform folders generated.
-- Material 3 dark premium theme added.
-- Feature-first `lib/` structure started.
-- Bottom navigation shell added.
-- Mock screens added:
-  - Home
-  - Map
-  - Trip planner
-  - Checklist
-  - Journal
-  - Profile
-  - Subscription paywall preview
-- Shared UI widgets added:
-  - `PremiumCard`
-  - `PrimaryButton`
-  - `SectionHeader`
-  - `ActionTile`
-  - `WeatherSummaryCard`
-  - `PlaceCard`
-  - `TripCard`
-  - `ChecklistItemTile`
-  - `ProBadge`
-  - `EmptyState`
-  - `LoadingOverlay`
-- Mock data models and `MockCamperRepository` added.
-- Translation JSON placeholders added for IT, EN, DE, FR, ES, PT.
-- Runtime localization wired through `easy_localization`.
-- Open-Meteo live weather service added with timeout/fallback behavior.
-- OpenStreetMap live tile map added through `flutter_map`.
-- Android internet permission added for live services.
-- `flutter analyze` passes.
-- `flutter test` passes.
+## Implemented in the STEP 16 candidate
 
-## Not connected yet
+- Five-area product shell: Home / Map / Trips / Camper / More.
+- Local-first persistence across trips, checklists, journal, vehicle, documents, maintenance, reminders, finance, routes and travel history.
+- MapLibre renderer consolidation and native Android/iOS offline region support.
+- Camper-aware route request adapter.
+- Real-data Home readiness model.
+- Vehicle document archive, Android scanner, PDF/image import, mobile OCR.
+- Maintenance attachments and reminders.
+- Local search with revision-driven freshness.
+- Offline guide/download coordination.
+- GPX, memories and statistics.
+- Versioned backup with manifest/hash verification, safety snapshot and physical-file remapping.
+- Reference-safe media cleanup for documents, maintenance, memories and GPX.
+- Android privacy flags and iOS document backup-exclusion bridge.
+- Flutter CI and Android/iOS/Web release build workflows.
+- CodeRabbit configuration and Fastlane candidate delivery scaffolding.
 
-- Firebase Auth
-- Firestore
-- Drift/SQLite
-- RevenueCat
-- Offline map cache implementation
-- Location permission/current GPS
-- Push notifications
-- Runtime localization wiring
+## Open release gates
 
-## Local commands
+See STEP 16J–16Q in `ROADMAP.md`.
 
-Flutter was verified through the local SDK at
-`C:\Users\Riccardo\Documents\Codex\tools\flutter`. If Flutter is also available
-on the system PATH, run:
+The highest-impact open items are:
 
-```bash
-flutter pub get
-flutter analyze
-flutter test
-```
+- canonicalize Product Truth and release lineage;
+- strengthen backup/restore and destructive operations;
+- connect a licensed production POI source;
+- complete deterministic CI/build-once delivery and Play Internal Testing;
+- finish localization/accessibility/iOS/Web truth;
+- close provider/privacy/licensing boundaries;
+- gather performance/stress baselines;
+- execute AppLab/device/no-network certification.
 
-## Recommended next steps
+## Platform truth
 
-1. Polish the live UI after seeing it on device or web.
-2. Add Drift/SQLite for checklist and cached places.
-3. Add current GPS/location permission and route-aware weather.
-4. Connect auth/cloud sync.
-5. Add RevenueCat paywall entitlements.
+- Android: scanner + import + OCR supported by current candidate.
+- iOS: import + OCR supported; Android-style document scanner is not currently implemented.
+- Web: UI/navigation/local data preview is supported, while native file/media capabilities can degrade or be unavailable.
+- Offline map regions: implementation exists on Android/iOS; physical restart/no-network certification remains required.
+
+## AI
+
+STEP 17 is intentionally gated. The non-AI baseline must be stable and measured before any local model is selected.
