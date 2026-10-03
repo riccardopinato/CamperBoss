@@ -38,6 +38,13 @@ class MemoryReminderRepository implements ReminderRepository {
   Future<ReminderSettings> loadSettings() async => settings;
 
   @override
+  Future<void> replaceAllReminders(List<AppReminder> next) async {
+    reminders
+      ..clear()
+      ..addAll(next);
+  }
+
+  @override
   Future<void> replaceSourceReminders(
     ReminderSourceType sourceType,
     String sourceId,
