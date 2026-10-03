@@ -229,7 +229,7 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  List<CamperPlace> _filteredPlaces(LatLng selectedPoint) {
+  List<CamperPlace> _filteredPlaces(LatLng? selectedPoint) {
     return filterAndSortPlaces(
       places: _places,
       activeFilters: _activeFilters,
@@ -252,8 +252,11 @@ class _MapScreenState extends State<MapScreen> {
       valueListenable: selectedLocationController,
       builder: (context, selectedLocation, _) {
         final selectedPoint = selectedLocation == null
-            ? const LatLng(42.5, 12.5)
+            ? null
             : LatLng(selectedLocation.latitude, selectedLocation.longitude);
+        // Renderer fallback only: never use this coordinate for POI distance
+        // labels or distance-based sorting.
+        final mapCenter = selectedPoint ?? const LatLng(42.5, 12.5);
         final places = _filteredPlaces(selectedPoint);
         final cacheSnapshot = _cacheSnapshot;
 
@@ -302,8 +305,8 @@ class _MapScreenState extends State<MapScreen> {
                         child: MapEngineV2PreviewScreen(
                           key: const ValueKey('primary-maplibre-map'),
                           places: places,
-                          initialLatitude: selectedPoint.latitude,
-                          initialLongitude: selectedPoint.longitude,
+                          initialLatitude: mapCenter.latitude,
+                          initialLongitude: mapCenter.longitude,
                           onOpenDirections: _openDirections,
                           offlineManager: widget.mapLibreOfflineManager,
                           stateRepository: widget.mapViewStateRepository,
@@ -491,8 +494,9 @@ class _MapScreenState extends State<MapScreen> {
               PlaceCard(
                 name: place.name,
                 type: '${place.type} - ${mapFilterLabels[place.category]}',
-                distance:
-                    '${_distanceKm(place, selectedPoint).toStringAsFixed(1)} km',
+                distance: selectedPoint == null
+                    ? ''
+                    : '${_distanceKm(place, selectedPoint).toStringAsFixed(1)} km',
                 rating: place.rating,
                 tags: place.tags,
                 address: place.address,

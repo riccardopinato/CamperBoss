@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import '../../data/models/download_models.dart';
 import '../../data/repositories/installed_resource_repository.dart';
-import 'device_storage_models.dart';
 import 'device_storage_service.dart';
 import 'managed_media_inspector.dart';
 import 'maplibre_offline_region_manager.dart';
@@ -107,7 +106,7 @@ class LocalStorageInspector implements StorageInspector {
     DeviceStorageService? deviceStorageService,
     ManagedMediaInspector? mediaInspector,
     MapLibreOfflineRegionManager? mapManager,
-    this.appStorageBudgetBytes = 5 * 1024 * 1024 * 1024,
+    this.appStorageBudgetBytes = 0,
     this.minimumSafetyMarginBytes = 100 * 1024 * 1024,
   })  : _repository = repository ?? LocalInstalledResourceRepository(),
         _deviceStorageService =
@@ -205,7 +204,7 @@ class LocalStorageInspector implements StorageInspector {
     final policyKnown = appStorageBudgetBytes > 0;
     final policyRemaining = policyKnown
         ? math.max(0, appStorageBudgetBytes - projectedUsed)
-        : 0x7fffffffffffffff;
+        : 0;
     final policyAllows =
         !policyKnown || projectedUsed <= appStorageBudgetBytes;
 
@@ -230,10 +229,12 @@ class LocalStorageInspector implements StorageInspector {
 
     final projectedDeviceRemaining = deviceKnown
         ? math.max(0, deviceFree! - requiredDeviceBytes)
-        : policyRemaining;
-    final effectiveRemaining = policyKnown
-        ? math.min(projectedDeviceRemaining, policyRemaining)
-        : projectedDeviceRemaining;
+        : 0;
+    final effectiveRemaining = deviceKnown
+        ? (policyKnown
+            ? math.min(projectedDeviceRemaining, policyRemaining)
+            : projectedDeviceRemaining)
+        : (policyKnown ? policyRemaining : 0);
 
     final policyRatio = policyKnown && appStorageBudgetBytes > 0
         ? projectedUsed / appStorageBudgetBytes

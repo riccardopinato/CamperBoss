@@ -15,11 +15,16 @@ const mapFilterLabels = <String, String>{
 List<CamperPlace> filterAndSortPlaces({
   required List<CamperPlace> places,
   required Set<String> activeFilters,
-  required LatLng selectedPoint,
+  required LatLng? selectedPoint,
   required Distance distance,
 }) {
   final filtered =
       places.where((place) => activeFilters.contains(place.category)).toList();
+
+  // Without a real user-selected/current position there is no truthful
+  // distance ordering. Preserve package/provider order instead.
+  if (selectedPoint == null) return filtered;
+
   filtered.sort(
     (a, b) => distance
         .as(

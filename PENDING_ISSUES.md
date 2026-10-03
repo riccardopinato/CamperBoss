@@ -2,15 +2,18 @@
 
 This file is a compact pointer only. The authoritative backlog is `ROADMAP.md`.
 
-Current unresolved groups after the Master v20 heavy audit:
+Completed remediation groups in the current stacked release candidate:
 
-- STEP 16J: canonical baseline / governance / PR and public-repository hygiene.
-- STEP 16K: backup recovery, atomic destructive flows, lifecycle and referential integrity.
-- STEP 16L: production POI source, offline/storage truth and MapLibre runtime proof.
+- STEP 16J: heavy audit, Product Truth and governance baseline.
+- STEP 16K: backup recovery, data safety and referential integrity.
+- STEP 16L: Map/POI/offline Product Truth, truthful distance semantics, storage preflight and updated AppLab harness.
+
+Current unresolved groups:
+
 - STEP 16M: deterministic CI/CD, Fastlane build-once, signing/versioning and Internal Testing.
-- STEP 16N: localization completeness, accessibility, iOS capability truth and Web quality.
-- STEP 16O: security/privacy/provider/licensing boundaries.
-- STEP 16P: performance, memory, battery, large-data stress.
-- STEP 16Q: AppLab/device/Web final certification.
+- STEP 16N: localization completeness, accessibility, iOS capability truth, Web quality and branding.
+- STEP 16O: security/privacy/provider/licensing boundaries and production POI/routing provider approval.
+- STEP 16P: performance, memory, battery and large-data stress.
+- STEP 16Q: final AppLab/device/Web certification, including physical MapLibre no-network proof.
 
 Do not duplicate detailed issue tracking here.

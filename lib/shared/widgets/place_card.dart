@@ -57,7 +57,7 @@ class PlaceCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    Text('$type - $distance'),
+                    Text(distance.trim().isEmpty ? type : '$type - $distance'),
                   ],
                 ),
               ),

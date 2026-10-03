@@ -3,10 +3,20 @@ import 'package:camperboss/core/services/app_download_manager.dart';
 import 'package:camperboss/core/services/offline_system_coordinator.dart';
 import 'package:camperboss/core/services/storage_inspector.dart';
 import 'package:camperboss/data/models/download_models.dart';
+import 'package:camperboss/data/models/poi_catalog_models.dart';
 import 'package:camperboss/features/offline/presentation/offline_content_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const _unconfiguredPoiCatalog = AsyncData<PoiCatalogSnapshot>(
+  PoiCatalogSnapshot(
+    remoteConfigured: false,
+    fromCache: false,
+    entries: [],
+    installed: [],
+  ),
+);
 
 void main() {
   testWidgets('offline content screen shows empty state', (tester) async {
@@ -19,6 +29,9 @@ void main() {
           ),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          poiCatalogSnapshotProvider.overrideWithValue(
+            _unconfiguredPoiCatalog,
           ),
           offlineSystemSnapshotProvider.overrideWithValue(
             const AsyncData<OfflineSystemSnapshot>(
@@ -42,6 +55,7 @@ void main() {
 
     expect(find.text('offline_empty_title'), findsOneWidget);
     expect(find.text('offline_wifi_only'), findsOneWidget);
+    expect(find.text('offline_poi_catalog_unconfigured'), findsOneWidget);
   });
 
   testWidgets('download row shows progress and actions', (tester) async {
@@ -74,6 +88,9 @@ void main() {
           ),
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
+          ),
+          poiCatalogSnapshotProvider.overrideWithValue(
+            _unconfiguredPoiCatalog,
           ),
           offlineSystemSnapshotProvider.overrideWithValue(
             const AsyncData<OfflineSystemSnapshot>(
@@ -113,6 +130,9 @@ void main() {
           storageInspectorProvider.overrideWithValue(
             const _FakeStorageInspector(),
           ),
+          poiCatalogSnapshotProvider.overrideWithValue(
+            _unconfiguredPoiCatalog,
+          ),
           offlineSystemSnapshotProvider.overrideWithValue(
             const AsyncData<OfflineSystemSnapshot>(
               OfflineSystemSnapshot(
@@ -130,6 +150,7 @@ void main() {
 
     expect(find.text('offline_storage_title'), findsOneWidget);
     expect(find.textContaining('1.0 MB'), findsOneWidget);
+    expect(find.textContaining('offline_storage_device_unknown'), findsOneWidget);
   });
 }
 
