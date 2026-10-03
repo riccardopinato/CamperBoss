@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:camperboss/core/services/data_backup_service.dart';
+import 'package:camperboss/core/services/data_integrity_service.dart';
 import 'package:camperboss/core/services/user_state_backup_service.dart';
 import 'package:camperboss/core/services/document_services_models.dart';
 import 'package:camperboss/core/services/document_storage_service.dart';
@@ -11,6 +12,7 @@ import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
+import 'package:camperboss/data/models/route_preview.dart';
 import 'package:camperboss/data/models/travel_history_models.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
@@ -19,6 +21,7 @@ import 'package:camperboss/data/repositories/local_checklist_repository.dart';
 import 'package:camperboss/data/repositories/local_finance_repository.dart';
 import 'package:camperboss/data/repositories/local_journal_repository.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
+import 'package:camperboss/data/repositories/local_route_preview_repository.dart';
 import 'package:camperboss/data/repositories/local_reminder_repository.dart';
 import 'package:camperboss/data/repositories/local_travel_history_repository.dart';
 import 'package:camperboss/data/repositories/local_trip_repository.dart';
@@ -418,6 +421,16 @@ DataBackupService _serviceFrom(
     reminderRepository: reminders,
     userStateBackupService:
         UserStateBackupService(store: MemoryKeyValueStore()),
+    integrityService: DataIntegrityService(
+      tripRepository: trips,
+      financeRepository: finance,
+      journalRepository: journal,
+      documentRepository: documents,
+      maintenanceRepository: maintenance,
+      travelHistoryRepository: history,
+      reminderRepository: reminders,
+      routeRepository: _MemoryRouteRepository(),
+    ),
     fileStorageService: fileStorageService,
   );
 }
@@ -821,6 +834,18 @@ class _MemoryTravelHistoryRepository implements TravelHistoryRepository {
   }
 }
 
+
+
+class _MemoryRouteRepository implements RoutePreviewRepository {
+  @override
+  Future<void> deleteRouteForTrip(int tripId) async {}
+
+  @override
+  Future<RouteResult?> loadRouteForTrip(int tripId) async => null;
+
+  @override
+  Future<RouteResult> saveRoute(RouteResult route) async => route;
+}
 
 class _MemoryReminderRepository implements ReminderRepository {
   ReminderSettings settings = const ReminderSettings();

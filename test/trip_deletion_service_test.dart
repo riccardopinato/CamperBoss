@@ -73,6 +73,8 @@ class _Finance implements FinanceRepository {
   final fuel = <FuelEntry>[];
   final bookings = <TripBooking>[];
   final deletedBudgets = <int>[];
+  TripBudget? budget =
+      const TripBudget(tripId: 7, plannedAmountMinor: 1000, currencyCode: 'EUR');
 
   @override
   Future<void> deleteBooking(String id) async =>
@@ -87,7 +89,10 @@ class _Finance implements FinanceRepository {
       fuel.removeWhere((item) => item.id == id);
 
   @override
-  Future<void> deleteTripBudget(int tripId) async => deletedBudgets.add(tripId);
+  Future<void> deleteTripBudget(int tripId) async {
+    deletedBudgets.add(tripId);
+    if (budget?.tripId == tripId) budget = null;
+  }
 
   @override
   Future<List<TripBooking>> listBookings() async => [...bookings];
@@ -99,7 +104,8 @@ class _Finance implements FinanceRepository {
   Future<List<FuelEntry>> listFuelEntries() async => [...fuel];
 
   @override
-  Future<TripBudget?> loadTripBudget(int tripId) async => null;
+  Future<TripBudget?> loadTripBudget(int tripId) async =>
+      budget?.tripId == tripId ? budget : null;
 
   @override
   Future<TripBooking> saveBooking(TripBooking booking) async {
@@ -136,6 +142,7 @@ class _Finance implements FinanceRepository {
 
   @override
   Future<void> saveTripBudget(TripBudget budget) async {
+    this.budget = budget;
     deletedBudgets.remove(budget.tripId);
   }
 }
@@ -157,6 +164,7 @@ void main() {
     expect(routes.deleted, isTrue);
     expect(finance.expenses.map((item) => item.id), ['other']);
     expect(finance.deletedBudgets, [7]);
+    expect(finance.budget, isNull);
   });
 
   test('trip deletion restores already-deleted records when cascade fails',
@@ -175,5 +183,6 @@ void main() {
     expect(trips.trips.map((item) => item.id), contains(7));
     expect(finance.expenses.map((item) => item.id), contains('linked'));
     expect(finance.deletedBudgets, isNot(contains(7)));
+    expect(finance.budget?.tripId, 7);
   });
 }
