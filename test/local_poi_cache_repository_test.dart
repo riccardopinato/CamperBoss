@@ -99,6 +99,52 @@ void main() {
     expect(visible.single.services, ['water', 'waste']);
   });
 
+  test('offline POI import rejects duplicate ids without replacing old data',
+      () async {
+    final repository = LocalOfflinePoiRepository(
+      collection: LocalJsonCollection(
+        'offline.poi.duplicate.test',
+        store: MemoryKeyValueStore(),
+      ),
+    );
+
+    await repository.importPackageFromJson('pkg', '''
+[
+  {
+    "id": "old",
+    "name": "Old valid place",
+    "category": "parking",
+    "latitude": 45.0,
+    "longitude": 11.0
+  }
+]
+''');
+
+    await expectLater(
+      repository.importPackageFromJson('pkg', '''
+[
+  {
+    "id": "same",
+    "name": "A",
+    "category": "parking",
+    "latitude": 45.0,
+    "longitude": 11.0
+  },
+  {
+    "id": "same",
+    "name": "B",
+    "category": "parking",
+    "latitude": 45.1,
+    "longitude": 11.1
+  }
+]
+'''),
+      throwsFormatException,
+    );
+
+    expect((await repository.loadPackage('pkg')).single.id, 'old');
+  });
+
   test('offline POI import rolls back previous package on invalid format',
       () async {
     final repository = LocalOfflinePoiRepository(

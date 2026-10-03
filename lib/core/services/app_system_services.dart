@@ -25,9 +25,7 @@ class AppSystemServices {
       LocalInstalledResourceRepository();
 
   late final RemoteManifestLoader? _remoteManifestLoader =
-      OfflineContentConfig.manifestUri case final uri?
-          ? RemoteManifestLoader(uri: uri)
-          : null;
+      _createRemoteManifestLoader();
 
   late final OfflineManifestRepository offlineManifestRepository =
       LocalOfflineManifestRepository(
@@ -81,6 +79,11 @@ class AppSystemServices {
 
   DataIntegrityReport? lastIntegrityReport;
   bool _initializationStarted = false;
+
+  RemoteManifestLoader? _createRemoteManifestLoader() {
+    final uri = OfflineContentConfig.manifestUri;
+    return uri == null ? null : RemoteManifestLoader(uri: uri);
+  }
 
   Future<void> initialize() async {
     if (_initializationStarted) return;
