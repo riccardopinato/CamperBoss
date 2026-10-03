@@ -70,7 +70,7 @@ class DataIntegrityService {
     final fuel = await _financeRepository.listFuelEntries();
     final bookings = await _financeRepository.listBookings();
     final budgets = _financeRepository is LocalFinanceRepository
-        ? await (_financeRepository as LocalFinanceRepository).listTripBudgets()
+        ? await _financeRepository.listTripBudgets()
         : const [];
     final journal = await _journalRepository.listEntries();
     final documents = await _documentRepository.listDocuments();
@@ -79,7 +79,7 @@ class DataIntegrityService {
     final memories = await _travelHistoryRepository.listMemories();
     final reminders = await _reminderRepository.listReminders();
     final routes = _routeRepository is LocalRoutePreviewRepository
-        ? await (_routeRepository as LocalRoutePreviewRepository).listRoutes()
+        ? await _routeRepository.listRoutes()
         : const [];
 
     final issues = <DataIntegrityIssue>[];
