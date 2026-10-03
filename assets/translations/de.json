@@ -496,5 +496,6 @@
   "maintenance_attachment_pending": "Wird beim Speichern in den privaten App-Speicher kopiert.",
   "maintenance_attachment_file": "Anhang",
   "maintenance_attachment_pick_failed": "Die Dateiauswahl konnte nicht geöffnet werden.",
-  "maintenance_attachment_copy_failed": "Der Anhang konnte nicht in den privaten App-Speicher kopiert werden."
+  "maintenance_attachment_copy_failed": "Der Anhang konnte nicht in den privaten App-Speicher kopiert werden.",
+  "document_error_in_use": "Dieses Dokument ist mit {count} Finanz- oder Buchungseinträgen verknüpft. Entferne zuerst diese Verknüpfungen."
 }

@@ -496,5 +496,6 @@
   "maintenance_attachment_pending": "Will be copied to private app storage when you save.",
   "maintenance_attachment_file": "Attachment",
   "maintenance_attachment_pick_failed": "Could not open the file picker.",
-  "maintenance_attachment_copy_failed": "Could not copy the attachment to private app storage."
+  "maintenance_attachment_copy_failed": "Could not copy the attachment to private app storage.",
+  "document_error_in_use": "This document is linked to {count} finance or booking records. Remove those links before deleting it."
 }

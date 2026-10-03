@@ -496,5 +496,6 @@
   "maintenance_attachment_pending": "Verrà copiato nello storage privato dell’app al salvataggio.",
   "maintenance_attachment_file": "Allegato",
   "maintenance_attachment_pick_failed": "Impossibile aprire il selettore file.",
-  "maintenance_attachment_copy_failed": "Impossibile copiare l’allegato nello storage privato dell’app."
+  "maintenance_attachment_copy_failed": "Impossibile copiare l’allegato nello storage privato dell’app.",
+  "document_error_in_use": "Questo documento è collegato a {count} record di spese, carburante o prenotazioni. Rimuovi prima quei collegamenti."
 }

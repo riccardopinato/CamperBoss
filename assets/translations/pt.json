@@ -496,5 +496,6 @@
   "maintenance_attachment_pending": "Será copiado para o armazenamento privado da app ao guardar.",
   "maintenance_attachment_file": "Anexo",
   "maintenance_attachment_pick_failed": "Não foi possível abrir o seletor de ficheiros.",
-  "maintenance_attachment_copy_failed": "Não foi possível copiar o anexo para o armazenamento privado da app."
+  "maintenance_attachment_copy_failed": "Não foi possível copiar o anexo para o armazenamento privado da app.",
+  "document_error_in_use": "Este documento está ligado a {count} registos financeiros ou reservas. Remova primeiro essas ligações."
 }

@@ -496,5 +496,6 @@
   "maintenance_attachment_pending": "Sera copié dans le stockage privé de l’app lors de l’enregistrement.",
   "maintenance_attachment_file": "Pièce jointe",
   "maintenance_attachment_pick_failed": "Impossible d’ouvrir le sélecteur de fichiers.",
-  "maintenance_attachment_copy_failed": "Impossible de copier la pièce jointe dans le stockage privé de l’app."
+  "maintenance_attachment_copy_failed": "Impossible de copier la pièce jointe dans le stockage privé de l’app.",
+  "document_error_in_use": "Ce document est lié à {count} enregistrements financiers ou réservations. Supprimez d’abord ces liens."
 }
