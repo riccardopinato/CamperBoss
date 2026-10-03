@@ -21,10 +21,21 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
   String? _selectedPath;
   String? _status;
   bool _busy = false;
+  bool _cancelRequested = false;
+  double? _progress;
 
   Future<void> _createBackup() async {
     await _run(() async {
-      final result = await _service.createBackup(const BackupOptions());
+      _cancelRequested = false;
+      final result = await _service.createBackup(
+        BackupOptions(
+          shouldCancel: () => _cancelRequested,
+          onProgress: (progress) {
+            if (!mounted) return;
+            setState(() => _progress = progress);
+          },
+        ),
+      );
       if (!mounted) return;
       setState(() {
         _status = 'backup_created'.tr(
@@ -136,6 +147,9 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
     });
     try {
       await action();
+    } on BackupCancelledException {
+      if (!mounted) return;
+      setState(() => _status = 'backup_cancelled'.tr());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -144,7 +158,13 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
         );
       });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progress = null;
+          _cancelRequested = false;
+        });
+      }
     }
   }
 
@@ -182,7 +202,18 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
         ),
         if (_busy) ...[
           const SizedBox(height: 16),
-          const LinearProgressIndicator(),
+          LinearProgressIndicator(value: _progress),
+          const SizedBox(height: 8),
+          if (_progress != null)
+            Text('${(_progress! * 100).round()}%'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _cancelRequested = true),
+              icon: const Icon(Icons.cancel_outlined),
+              label: Text('backup_cancel'.tr()),
+            ),
+          ),
         ],
         if (_status != null) ...[
           const SizedBox(height: 16),

@@ -514,5 +514,7 @@
   "backup_replace_confirm_body": "A safety backup is created first. The imported backup then replaces current local data.",
   "backup_restored": "Restore complete: {restored} restored, {skipped} skipped, {conflicts} conflicts.",
   "backup_exported": "Exports created. PDF: {pdf}. CSV: {csv}",
-  "backup_failed": "Backup operation failed: {reason}"
+  "backup_failed": "Backup operation failed: {reason}",
+  "backup_cancel": "Cancel operation",
+  "backup_cancelled": "Backup cancelled. No incomplete archive was kept."
 }

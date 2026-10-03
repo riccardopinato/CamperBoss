@@ -514,5 +514,7 @@
   "backup_replace_confirm_body": "Prima viene creato un backup di sicurezza. Poi il backup importato sostituisce i dati locali correnti.",
   "backup_restored": "Ripristino completato: {restored} ripristinati, {skipped} ignorati, {conflicts} conflitti.",
   "backup_exported": "Esportazioni create. PDF: {pdf}. CSV: {csv}",
-  "backup_failed": "Operazione di backup non riuscita: {reason}"
+  "backup_failed": "Operazione di backup non riuscita: {reason}",
+  "backup_cancel": "Annulla operazione",
+  "backup_cancelled": "Backup annullato. Nessun archivio incompleto è stato conservato."
 }
