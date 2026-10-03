@@ -1,14 +1,16 @@
-# Problemi sospesi
+# CamperBoss — open release gates
 
-Questo file raccoglie i problemi lasciati volutamente in sospeso durante i primi 5 step della roadmap.
+This file is a compact pointer only. The authoritative backlog is `ROADMAP.md`.
 
-Regola operativa:
+Current unresolved groups after the Master v20 heavy audit:
 
-- durante gli step 1-5 si annotano qui solo problemi reali o debiti tecnici emersi;
-- non si risolvono problemi fuori scope nello stesso step;
-- dopo il completamento dello step 5, si risolvono questi problemi prima di proporre altri 5 step prioritari;
-- mantenere le note sintetiche e aggiornare il file in-place.
+- STEP 16J: canonical baseline / governance / PR and public-repository hygiene.
+- STEP 16K: backup recovery, atomic destructive flows, lifecycle and referential integrity.
+- STEP 16L: production POI source, offline/storage truth and MapLibre runtime proof.
+- STEP 16M: deterministic CI/CD, Fastlane build-once, signing/versioning and Internal Testing.
+- STEP 16N: localization completeness, accessibility, iOS capability truth and Web quality.
+- STEP 16O: security/privacy/provider/licensing boundaries.
+- STEP 16P: performance, memory, battery, large-data stress.
+- STEP 16Q: AppLab/device/Web final certification.
 
-## Da risolvere dopo lo step 5
-
-- Branch locale avanti rispetto a `origin/main`: valutare push/allineamento dopo conferma.
+Do not duplicate detailed issue tracking here.

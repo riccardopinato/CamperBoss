@@ -385,7 +385,7 @@ Esito:
 
 ## STEP 16J — Product Truth, governance e baseline di release
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Fonte: audit Master Prompt v20 / Golden Rules 2026-10-03.
 
@@ -404,9 +404,16 @@ Criterio di uscita:
 
 - una baseline canonica, tracciabile e coerente tra Master/Product Truth, repository, PR stack, `main`, Pages ed Evidence Bundle.
 
+Esito 2026-10-03:
+
+- Product Truth riallineata in AGENTS/README/IMPLEMENTATION_STATUS/PENDING_ISSUES e dossier audit; residui non necessari rimossi dal candidate tree;
+- vecchia PR STEP 16 Release Core chiusa come superseded; PR stack corrente mantenuta senza merge prematuro;
+- ruleset repository assenti; branch-protection classica non verificabile dal connector e resta gate di enforcement finale nello STEP 16Q;
+- autorizzazione utente registrata per esecuzione sequenziale 16J→16Q.
+
 ## STEP 16K — Backup Recovery v2 + atomicità + lifecycle dati
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Problemi da risolvere tutti:
 
