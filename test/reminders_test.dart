@@ -287,6 +287,31 @@ void main() {
     expect((await coordinator.loadSettings()).advanceDays, [14, 0]);
   });
 
+  test('reconciliation removes stale reminders from deleted sources', () async {
+    final repository = MemoryReminderRepository();
+    repository.reminders.add(
+      AppReminder(
+        id: 'document:999:0',
+        sourceType: ReminderSourceType.document,
+        sourceId: '999',
+        title: 'Stale',
+        body: 'Stale',
+        scheduledAt: DateTime(2027, 1, 1),
+      ),
+    );
+    final coordinator = ReminderCoordinator(
+      reminderRepository: repository,
+      documentRepository: MemoryDocumentRepository(const []),
+      maintenanceRepository: MemoryMaintenanceRepository(const []),
+      financeRepository: MemoryFinanceRepository(const []),
+      notificationService: FakeLocalNotificationService(),
+    );
+
+    await coordinator.reconcile(now: DateTime(2026, 7, 1));
+
+    expect(repository.reminders, isEmpty);
+  });
+
   test('reconciliation is idempotent', () async {
     final repository = MemoryReminderRepository();
     final notifications = FakeLocalNotificationService();
