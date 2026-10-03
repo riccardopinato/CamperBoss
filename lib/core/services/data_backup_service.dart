@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -41,11 +42,15 @@ class BackupOptions {
     this.outputDirectory,
     this.includeFiles = true,
     this.createdAt,
+    this.onProgress,
+    this.shouldCancel,
   });
 
   final Directory? outputDirectory;
   final bool includeFiles;
   final DateTime? createdAt;
+  final void Function(double progress)? onProgress;
+  final bool Function()? shouldCancel;
 }
 
 class BackupResult {
@@ -62,6 +67,13 @@ class BackupResult {
   final int recordCount;
   final int fileCount;
   final List<String> missingFiles;
+}
+
+class BackupCancelledException implements Exception {
+  const BackupCancelledException();
+
+  @override
+  String toString() => 'Backup cancelled';
 }
 
 class BackupInspection {
@@ -257,66 +269,134 @@ class DataBackupService implements BackupService {
     final createdAt = options.createdAt ?? DateTime.now();
     final snapshot = await _loadSnapshot();
     final payloads = _buildDataPayloads(snapshot);
-    final archive = Archive();
-    final manifestFiles = <BackupManifestFile>[];
-
-    for (final entry in payloads.entries) {
-      final bytes = utf8.encode(_prettyJson(entry.value));
-      archive.addFile(ArchiveFile(entry.key, bytes.length, bytes));
-      manifestFiles.add(_manifestFile(entry.key, bytes));
-    }
-
+    final sourcePaths = options.includeFiles
+        ? (_collectFilePaths(snapshot)
+            .where((path) => path.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort())
+        : <String>[];
     final missingFiles = <String>[];
-    var fileCount = 0;
-    if (options.includeFiles) {
-      final sourcePaths = _collectFilePaths(snapshot)
-          .where((path) => path.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
-      for (final filePath in sourcePaths) {
-        final file = File(filePath);
-        if (!await file.exists()) {
-          missingFiles.add(filePath);
-          continue;
-        }
-        final bytes = await file.readAsBytes();
-        final backupPath = _backupPathForFile(filePath);
-        archive.addFile(ArchiveFile(backupPath, bytes.length, bytes));
-        manifestFiles.add(
-          _manifestFile(backupPath, bytes, sourcePath: filePath),
-        );
-        fileCount++;
-      }
-    }
-
-    final manifest = BackupManifest(
-      format: format,
-      schemaVersion: schemaVersion,
-      appVersion: _appVersion,
-      createdAt: createdAt,
-      files: manifestFiles..sort((a, b) => a.path.compareTo(b.path)),
-    );
-    final manifestBytes = utf8.encode(_prettyJson(manifest.toMap()));
-    archive.addFile(
-      ArchiveFile('manifest.json', manifestBytes.length, manifestBytes),
-    );
+    final manifestFiles = <BackupManifestFile>[];
 
     final outputDirectory =
         options.outputDirectory ?? await _defaultDirectory();
     await outputDirectory.create(recursive: true);
     final fileName = 'camperboss_backup_${_dateStamp(createdAt)}.zip';
     final output = await _uniqueFile(outputDirectory, fileName);
-    final encoded = ZipEncoder().encode(archive);
-    await output.writeAsBytes(encoded, flush: true);
+    final stage =
+        await Directory.systemTemp.createTemp('camperboss_backup_stage_');
+    final encoder = ZipFileEncoder();
+    var encoderOpened = false;
+    var fileCount = 0;
+    var completed = 0;
+    final totalWork = payloads.length + sourcePaths.length + 1;
 
-    return BackupResult(
-      path: output.path,
-      manifest: manifest,
-      recordCount: snapshot.recordCount,
-      fileCount: fileCount,
-      missingFiles: missingFiles,
-    );
+    void checkCancelled() {
+      if (options.shouldCancel?.call() == true) {
+        throw const BackupCancelledException();
+      }
+    }
+
+    void reportProgress() {
+      options.onProgress?.call(
+        totalWork == 0 ? 1 : (completed / totalWork).clamp(0.0, 1.0),
+      );
+    }
+
+    try {
+      checkCancelled();
+      encoder.create(output.path);
+      encoderOpened = true;
+
+      var payloadIndex = 0;
+      for (final entry in payloads.entries) {
+        checkCancelled();
+        final staged = File(
+          p.join(stage.path, 'payload_${payloadIndex++}.json'),
+        );
+        await staged.writeAsString(
+          _prettyJson(entry.value),
+          encoding: utf8,
+          flush: true,
+        );
+        manifestFiles.add(
+          await _manifestFileFromDisk(staged, entry.key),
+        );
+        await encoder.addFile(staged, entry.key);
+        completed++;
+        reportProgress();
+      }
+
+      for (final filePath in sourcePaths) {
+        checkCancelled();
+        final file = File(filePath);
+        if (!await file.exists()) {
+          missingFiles.add(filePath);
+          completed++;
+          reportProgress();
+          continue;
+        }
+        final backupPath = _backupPathForFile(filePath);
+        manifestFiles.add(
+          await _manifestFileFromDisk(
+            file,
+            backupPath,
+            sourcePath: filePath,
+          ),
+        );
+        await encoder.addFile(file, backupPath);
+        fileCount++;
+        completed++;
+        reportProgress();
+      }
+
+      checkCancelled();
+      final manifest = BackupManifest(
+        format: format,
+        schemaVersion: schemaVersion,
+        appVersion: _appVersion,
+        createdAt: createdAt,
+        files: manifestFiles..sort((a, b) => a.path.compareTo(b.path)),
+      );
+      final manifestFile = File(p.join(stage.path, 'manifest.json'));
+      await manifestFile.writeAsString(
+        _prettyJson(manifest.toMap()),
+        encoding: utf8,
+        flush: true,
+      );
+      await encoder.addFile(manifestFile, 'manifest.json');
+      completed++;
+      reportProgress();
+
+      await encoder.close();
+      encoderOpened = false;
+      options.onProgress?.call(1);
+
+      return BackupResult(
+        path: output.path,
+        manifest: manifest,
+        recordCount: snapshot.recordCount,
+        fileCount: fileCount,
+        missingFiles: missingFiles,
+      );
+    } catch (_) {
+      if (encoderOpened) {
+        try {
+          await encoder.close();
+        } catch (_) {
+          // The incomplete archive is deleted below.
+        }
+      }
+      if (await output.exists()) {
+        await output.delete();
+      }
+      rethrow;
+    } finally {
+      if (await stage.exists()) {
+        await stage.delete(recursive: true);
+      }
+    }
   }
 
   @override
@@ -1242,6 +1322,20 @@ class DataBackupService implements BackupService {
       path: path,
       sha256: sha256.convert(bytes).toString(),
       size: bytes.length,
+      sourcePath: sourcePath,
+    );
+  }
+
+  Future<BackupManifestFile> _manifestFileFromDisk(
+    File file,
+    String archivePath, {
+    String? sourcePath,
+  }) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return BackupManifestFile(
+      path: archivePath,
+      sha256: digest.toString(),
+      size: await file.length(),
       sourcePath: sourcePath,
     );
   }
