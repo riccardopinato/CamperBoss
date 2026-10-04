@@ -456,7 +456,7 @@ Regola operativa: correggere automaticamente i problemi software riproducibili; 
 
 ## STEP 16L — Map / POI / Offline Product Truth
 
-Stato: `CURRENT`
+Stato: `DONE`
 
 Priorità: chiudere prima la verità del prodotto cartografico, poi certificare offline/storage. Non aggiungere nuove feature mappa finché questa base non è affidabile.
 
@@ -488,9 +488,15 @@ Criterio di uscita:
 
 - fresh install senza demo; POI/provider truth esplicita; storage reale o fallback dichiarato; nessuna distanza inventata; flow AppLab aggiornati e smoke map/offline ripetibile.
 
+Esito:
+
+- Risultato: catalogo POI provider-neutral esposto nella UI senza fixture runtime; storage usa spazio device reale quando disponibile senza budget fisso implicito; MapLibre mantiene il fallback tecnico solo per il renderer e non inventa piu distanze; harness Maestro/AppLab aggiornato con policy network/restart.
+- Test: regressioni widget/unit aggiornate; il push finale richiede `flutter analyze` + `flutter test` via CI. Il runtime fisico no-network resta evidence obbligatoria dello STEP 16Q e non viene dichiarato PASS qui.
+- Commit: `fix(map): close STEP 16L product truth gaps`.
+
 ## STEP 16M — Supply chain, CI/CD, Fastlane e release identity
 
-Stato: `TODO`
+Stato: `CURRENT`
 
 Problemi da risolvere tutti:
 

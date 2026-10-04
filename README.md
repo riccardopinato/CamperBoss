@@ -23,13 +23,13 @@ The active STEP 16 release-candidate stack contains:
 - Private vehicle documents, Android document scanning, image/PDF import and mobile OCR where supported.
 - Maintenance history and local reminders.
 - MapLibre as the production renderer; native offline regions on Android/iOS.
-- Local POI package repository and filtering. A production POI catalog/provider is still a release gate.
+- Provider-neutral POI catalog/package install path, local repository and filtering. Production source/licensing selection remains a STEP 16O release gate.
 - Open-Meteo weather/geocoding.
 - OpenRouteService routing abstraction with camper-aware HGV restrictions when a valid vehicle profile is available. Production credential architecture is still a release gate.
 - Offline download/guide infrastructure.
 - Local search.
 - GPX, travel memories and statistics.
-- Versioned backup/export/restore services with ongoing STEP 16K data-safety hardening.
+- Versioned backup/export/restore services hardened by STEP 16K data-safety and recovery work.
 - Dormant provider-neutral Pro entitlement boundary; no active billing SDK or fake checkout.
 
 ## Product Truth limitations

@@ -42,6 +42,8 @@ class FakePoiCacheRepository implements PoiCacheRepository {
 }
 
 void main() {
+  tearDown(() => selectedLocationController.value = null);
+
   testWidgets('map filters update POI list and cache controls work', (
     tester,
   ) async {
@@ -161,6 +163,59 @@ void main() {
     await tester.tap(find.text('Directions').first);
     await tester.pumpAndSettle();
     expect(directionsCount, 1);
+  });
+
+  testWidgets('map does not invent distance without a real reference point', (
+    tester,
+  ) async {
+    selectedLocationController.value = null;
+
+    const places = [
+      CamperPlace(
+        name: 'Unlocated stop',
+        category: 'camping',
+        type: 'Camping',
+        distance: '999 km',
+        rating: '4.2',
+        tags: [],
+        latitude: 45.0,
+        longitude: 10.0,
+        source: 'Local POI package',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: MapScreen(
+              places: places,
+              cacheRepository: FakePoiCacheRepository(
+                const PoiCacheSnapshot(
+                  region: 'Local package',
+                  itemCount: 1,
+                  sizeBytes: 1024,
+                ),
+              ),
+              mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+              renderMap: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Unlocated stop'),
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unlocated stop'), findsOneWidget);
+    expect(find.text('Camping - Camping'), findsOneWidget);
+    expect(find.textContaining('999 km'), findsNothing);
   });
 
   testWidgets('main map uses the unified MapLibre surface', (tester) async {
