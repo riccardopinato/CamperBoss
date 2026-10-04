@@ -11,6 +11,11 @@ on:
       - "pubspec.lock"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Exact 40-character candidate SHA to deploy"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,27 +26,64 @@ concurrency:
   group: camperboss-pages
   cancel-in-progress: true
 
+env:
+  FLUTTER_VERSION: "3.47.6"
+
 jobs:
   build-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Validate manual source SHA
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: '[[ "${{ inputs.source_sha }}" =~ ^[0-9a-fA-F]{40}$ ]]'
+
+      - name: Checkout canonical source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
+
+      - name: Capture canonical SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get
+      - name: Resolve locked dependencies
+        run: |
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
 
-      - name: Build web
+      - name: Build Web
         run: flutter build web --release --base-href "/CamperBoss/"
 
+      - name: Record Web artifact provenance
+        run: |
+          set -euo pipefail
+          mkdir -p build/evidence
+          BUNDLE_SHA=$(find build/web -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+          cat > build/evidence/web-preview.json <<EOF
+          {
+            "sourceSha": "${{ steps.source.outputs.sha }}",
+            "webBundleSha256": "$BUNDLE_SHA",
+            "baseHref": "/CamperBoss/"
+          }
+          EOF
+
+      - name: Upload Web provenance evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: camperboss-pages-evidence-${{ steps.source.outputs.sha }}
+          path: build/evidence/web-preview.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: build/web
 
@@ -53,10 +95,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         with:
           enablement: true
 
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

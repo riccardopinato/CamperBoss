@@ -2,7 +2,7 @@ name: camperboss
 description: Premium Flutter app for camper, vanlife, and motorhome travel planning.
 publish_to: "none"
 
-version: 0.1.0+1
+version: 0.2.0+16
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -34,6 +34,7 @@ dependencies:
   timezone: ^0.11.0
   url_launcher: ^6.3.1
   web: ^1.1.1
+  xml: 6.6.1
 
 dev_dependencies:
   flutter_test:

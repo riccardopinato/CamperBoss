@@ -496,7 +496,7 @@ Esito:
 
 ## STEP 16M — Supply chain, CI/CD, Fastlane e release identity
 
-Stato: `CURRENT`
+Stato: `BLOCKED — PLAY INTERNAL EVIDENCE`
 
 Problemi da risolvere tutti:
 
@@ -513,6 +513,23 @@ Problemi da risolvere tutti:
 - aggiungere coverage/integration gates, non solo analyze + unit/widget tests;
 - portare retention Evidence/QA oltre 1 giorno per i candidate artifact;
 - certificare Play Internal Testing con signing key, service account, track/version e hash AAB nell'Evidence Bundle.
+
+Implementato:
+
+- trigger PR completi anche per stacked STEP 16; GitHub Actions pin a SHA immutabili;
+- Flutter fissato a 3.47.6 con `pubspec.lock` verificato contro drift;
+- Fastlane 2.240.1 + Bundler 4.0.22 con `Gemfile.lock` source-controlled;
+- Fastlane eseguito da `android/`, con dry-run CI che verifica l'hash e non contiene build;
+- release identity `0.2.0+16` con ledger monotono e contract test cross-layer;
+- percorso Play con signing hard-fail; debug-signing consentito solo per artifact QA esplicitamente marcati;
+- dependency/license audit, secret scan, project-specific SAST, coverage gate e release integration contracts;
+- artifact/evidence retention 30 giorni;
+- workflow Play build-once: build e upload sono job distinti, l'AAB viene scaricato e confrontato via SHA-256 prima di Fastlane;
+- deploy Pages e platform builds usano toolchain/versioni/pin coerenti e producono provenance.
+
+Blocco residuo esterno:
+
+- serve eseguire realmente `Android Internal Delivery` con upload key e `PLAY_SERVICE_ACCOUNT_JSON`, verificando track `internal`, versionCode 16 e SHA-256 dell'AAB nell'Evidence Bundle. Finché questa evidenza non esiste, STEP 16M non è DONE e nessun Play upload viene dichiarato PASS.
 
 Criterio di uscita:
 

@@ -186,10 +186,12 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
 
   List<TravelMemory> get _filteredMemories {
     return _memories.where((memory) {
-      if (_selectedTag != null && !memory.tags.contains(_selectedTag))
+      if (_selectedTag != null && !memory.tags.contains(_selectedTag)) {
         return false;
-      if (_fromDate != null && memory.occurredAt.isBefore(_fromDate!))
+      }
+      if (_fromDate != null && memory.occurredAt.isBefore(_fromDate!)) {
         return false;
+      }
       if (_toDate != null && memory.occurredAt.isAfter(_toDate!)) return false;
       return true;
     }).toList(growable: false);

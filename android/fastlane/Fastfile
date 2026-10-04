@@ -1,3 +1,5 @@
+require "digest"
+
 default_platform(:android)
 
 platform :android do
@@ -5,22 +7,45 @@ platform :android do
   lane :internal do |options|
     aab_path = options[:aab_path] || ENV["AAB_PATH"]
     UI.user_error!("aab_path is required") if aab_path.to_s.empty?
-    UI.user_error!("AAB does not exist: #{aab_path}") unless File.exist?(aab_path)
 
-    json_key = ENV["PLAY_SERVICE_ACCOUNT_JSON"]
-    UI.user_error!("PLAY_SERVICE_ACCOUNT_JSON is required") if json_key.to_s.empty?
+    absolute_aab_path = File.expand_path(aab_path)
+    UI.user_error!("AAB does not exist: #{absolute_aab_path}") unless File.file?(absolute_aab_path)
 
-    release_status = ENV.fetch("PLAY_RELEASE_STATUS", "draft")
+    actual_sha256 = Digest::SHA256.file(absolute_aab_path).hexdigest
+    expected_sha256 = options[:expected_sha256] || ENV["AAB_SHA256"]
+    if !expected_sha256.to_s.empty? && actual_sha256.downcase != expected_sha256.to_s.downcase
+      UI.user_error!(
+        "AAB SHA-256 mismatch: expected #{expected_sha256}, got #{actual_sha256}"
+      )
+    end
 
-    upload_to_play_store(
-      package_name: ENV.fetch("PLAY_PACKAGE_NAME", "com.camperboss.camperboss"),
-      track: "internal",
-      aab: aab_path,
-      json_key_data: json_key,
-      release_status: release_status,
-      skip_upload_metadata: ENV.fetch("FASTLANE_UPLOAD_METADATA", "false") != "true",
-      skip_upload_images: ENV.fetch("FASTLANE_UPLOAD_IMAGES", "false") != "true",
-      skip_upload_screenshots: ENV.fetch("FASTLANE_UPLOAD_SCREENSHOTS", "false") != "true"
-    )
+    UI.message("Immutable AAB SHA-256: #{actual_sha256}")
+
+    dry_run = options[:dry_run].to_s == "true" || ENV["FASTLANE_DRY_RUN"] == "true"
+    if dry_run
+      UI.success("Dry run passed: existing AAB validated without rebuilding or uploading.")
+    else
+      json_key = ENV["PLAY_SERVICE_ACCOUNT_JSON"]
+      UI.user_error!("PLAY_SERVICE_ACCOUNT_JSON is required") if json_key.to_s.empty?
+
+      release_status = ENV.fetch("PLAY_RELEASE_STATUS", "draft")
+      upload_metadata = ENV.fetch("FASTLANE_UPLOAD_METADATA", "false") == "true"
+      upload_images = ENV.fetch("FASTLANE_UPLOAD_IMAGES", "false") == "true"
+      upload_screenshots = ENV.fetch("FASTLANE_UPLOAD_SCREENSHOTS", "false") == "true"
+
+      upload_to_play_store(
+        package_name: ENV.fetch("PLAY_PACKAGE_NAME", "com.camperboss.camperboss"),
+        track: "internal",
+        aab: absolute_aab_path,
+        json_key_data: json_key,
+        release_status: release_status,
+        skip_upload_metadata: !upload_metadata,
+        skip_upload_changelogs: !upload_metadata,
+        skip_upload_images: !upload_images,
+        skip_upload_screenshots: !upload_screenshots
+      )
+
+      UI.success("Uploaded the verified immutable AAB to Google Play Internal Testing.")
+    end
   end
 end

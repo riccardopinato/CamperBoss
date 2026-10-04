@@ -10,7 +10,7 @@ Completed remediation groups in the current stacked release candidate:
 
 Current unresolved groups:
 
-- STEP 16M: deterministic CI/CD, Fastlane build-once, signing/versioning and Internal Testing.
+- STEP 16M: deterministic CI/CD, version/signing/build-once automation implemented; external Play Internal Testing evidence still required (upload key + service account + successful internal-track upload of the recorded AAB hash).
 - STEP 16N: localization completeness, accessibility, iOS capability truth, Web quality and branding.
 - STEP 16O: security/privacy/provider/licensing boundaries and production POI/routing provider approval.
 - STEP 16P: performance, memory, battery and large-data stress.

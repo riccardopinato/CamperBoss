@@ -52,9 +52,26 @@ The authoritative release status is `ROADMAP.md` plus the latest Evidence Bundle
 flutter pub get
 flutter analyze
 flutter test
+python3 tool/ci/release_guard.py identity
 ```
 
+CI is pinned to Flutter 3.47.6 and source-controlled lockfiles. Pull requests run
+release integration contracts, full tests with coverage, dependency/license
+audit, secret scanning and project-specific SAST. Evidence artifacts are kept
+for 30 days.
+
 Platform/runtime certification is defined in the STEP 16 evidence and AppLab flows.
+
+## Release delivery
+
+Release identity is source-controlled in `pubspec.yaml` and
+`release/release_identity.json`. Android Play delivery requires an exact
+source SHA and real upload signing. The Play workflow builds one AAB, records
+its SHA-256, stores it as an immutable candidate artifact, then Fastlane uploads
+those same bytes from a separate job without rebuilding.
+
+QA release APKs may use debug signing but are labelled QA-only and are never
+eligible for Play upload. See `release/README.md`.
 
 ## Routing configuration
 

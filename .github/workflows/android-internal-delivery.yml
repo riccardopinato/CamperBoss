@@ -3,6 +3,15 @@ name: Android Internal Delivery
 on:
   workflow_dispatch:
     inputs:
+      source_sha:
+        description: "Exact 40-character CamperBoss commit SHA to build and upload"
+        required: true
+        type: string
+      confirm_upload:
+        description: "Explicitly allow upload to Google Play Internal Testing"
+        required: true
+        default: false
+        type: boolean
       release_status:
         description: "Google Play release status"
         required: true
@@ -12,7 +21,7 @@ on:
           - draft
           - completed
       upload_metadata:
-        description: "Upload reviewed fastlane metadata"
+        description: "Upload reviewed Fastlane metadata"
         required: true
         default: false
         type: boolean
@@ -34,22 +43,49 @@ concurrency:
   group: android-internal-delivery
   cancel-in-progress: false
 
+env:
+  FLUTTER_VERSION: "3.47.6"
+  PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME || 'com.camperboss.camperboss' }}
+
 jobs:
-  build-and-upload:
+  build:
+    if: ${{ inputs.confirm_upload }}
+    name: Build signed immutable AAB once
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      PLAY_PACKAGE_NAME: ${{ vars.PLAY_PACKAGE_NAME || 'com.camperboss.camperboss' }}
-      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-      PLAY_RELEASE_STATUS: ${{ inputs.release_status }}
-      FASTLANE_UPLOAD_METADATA: ${{ inputs.upload_metadata }}
-      FASTLANE_UPLOAD_IMAGES: ${{ inputs.upload_images }}
-      FASTLANE_UPLOAD_SCREENSHOTS: ${{ inputs.upload_screenshots }}
+    timeout-minutes: 40
+    outputs:
+      aab_sha256: ${{ steps.candidate.outputs.aab_sha256 }}
+      version_name: ${{ steps.candidate.outputs.version_name }}
+      version_code: ${{ steps.candidate.outputs.version_code }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Validate immutable source SHA
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.source_sha }}" =~ ^[0-9a-fA-F]{40}$ ]]
 
-      - name: Validate delivery secrets
+      - name: Checkout exact candidate source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+
+      - name: Verify checked-out SHA
+        run: test "$(git rev-parse HEAD)" = "${{ inputs.source_sha }}"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Validate signing secrets
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -61,25 +97,6 @@ jobs:
           test -n "$ANDROID_KEYSTORE_PASSWORD"
           test -n "$ANDROID_KEY_ALIAS"
           test -n "$ANDROID_KEY_PASSWORD"
-          test -n "$PLAY_SERVICE_ACCOUNT_JSON"
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
 
       - name: Materialize Android upload key
         env:
@@ -97,28 +114,137 @@ jobs:
           storeFile=app/upload-keystore.jks
           EOF
 
-      - name: Resolve Flutter dependencies
+      - name: Resolve locked Flutter dependencies
         run: flutter pub get
 
-      - name: Build signed AAB once
+      - name: Reject Flutter lock drift
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Run release guards
+        run: |
+          set -euo pipefail
+          python3 tool/ci/release_guard.py identity
+          python3 tool/ci/release_guard.py supply-chain
+          python3 tool/ci/release_guard.py secrets
+          python3 tool/ci/release_guard.py sast
+
+      - name: Build signed AAB exactly once
+        env:
+          ORG_GRADLE_PROJECT_requireReleaseSigning: "true"
         run: flutter build appbundle --release
 
-      - name: Verify AAB
+      - name: Verify signing, identity and candidate hash
+        id: candidate
         run: |
           set -euo pipefail
           AAB=build/app/outputs/bundle/release/app-release.aab
           test -s "$AAB"
-          sha256sum "$AAB"
-          ls -lh "$AAB"
+          jarsigner -verify "$AAB" | grep -Fq "jar verified."
+          AAB_SHA256=$(sha256sum "$AAB" | cut -d' ' -f1)
+          VERSION_NAME=$(python3 -c 'import json; print(json.load(open("release/release_identity.json"))["versionName"])')
+          VERSION_CODE=$(python3 -c 'import json; print(json.load(open("release/release_identity.json"))["versionCode"])')
+          echo "aab_sha256=$AAB_SHA256" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          python3 - <<PY
+          import json, os
+          from pathlib import Path
+          Path("build/evidence").mkdir(parents=True, exist_ok=True)
+          Path("build/evidence/play-candidate.json").write_text(json.dumps({
+              "sourceSha": "${{ inputs.source_sha }}",
+              "versionName": "$VERSION_NAME",
+              "versionCode": int("$VERSION_CODE"),
+              "packageName": "${{ env.PLAY_PACKAGE_NAME }}",
+              "track": "internal",
+              "aabSha256": "$AAB_SHA256",
+              "buildOnce": True,
+          }, indent=2) + "\n")
+          PY
 
-      - name: Upload immutable AAB artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload immutable Play candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: camperboss-play-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: camperboss-play-candidate-${{ inputs.source_sha }}
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/evidence/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
           compression-level: 0
 
-      - name: Upload the same AAB to Play Internal Testing
-        run: bundle exec fastlane android internal aab_path:"build/app/outputs/bundle/release/app-release.aab"
+  deliver:
+    if: ${{ inputs.confirm_upload }}
+    name: Upload the exact built AAB to Play Internal
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: play-internal
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      PLAY_RELEASE_STATUS: ${{ inputs.release_status }}
+      FASTLANE_UPLOAD_METADATA: ${{ inputs.upload_metadata }}
+      FASTLANE_UPLOAD_IMAGES: ${{ inputs.upload_images }}
+      FASTLANE_UPLOAD_SCREENSHOTS: ${{ inputs.upload_screenshots }}
+      BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
+
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Setup Ruby and locked Fastlane
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: "3.3"
+          bundler: "4.0.22"
+          bundler-cache: true
+
+      - name: Download immutable candidate artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: camperboss-play-candidate-${{ inputs.source_sha }}
+          path: dist
+
+      - name: Verify downloaded AAB is byte-identical
+        run: |
+          set -euo pipefail
+          AAB=dist/build/app/outputs/bundle/release/app-release.aab
+          test -s "$AAB"
+          ACTUAL=$(sha256sum "$AAB" | cut -d' ' -f1)
+          test "$ACTUAL" = "${{ needs.build.outputs.aab_sha256 }}"
+
+      - name: Validate Play service account
+        run: test -n "$PLAY_SERVICE_ACCOUNT_JSON"
+
+      - name: Upload through Fastlane without rebuilding
+        working-directory: android
+        run: >
+          bundle exec fastlane android internal
+          aab_path:"${{ github.workspace }}/dist/build/app/outputs/bundle/release/app-release.aab"
+          expected_sha256:"${{ needs.build.outputs.aab_sha256 }}"
+
+      - name: Record delivery evidence
+        run: |
+          mkdir -p build/evidence
+          cat > build/evidence/play-internal-delivery.json <<EOF
+          {
+            "sourceSha": "${{ inputs.source_sha }}",
+            "versionName": "${{ needs.build.outputs.version_name }}",
+            "versionCode": ${{ needs.build.outputs.version_code }},
+            "packageName": "${{ env.PLAY_PACKAGE_NAME }}",
+            "track": "internal",
+            "releaseStatus": "${{ inputs.release_status }}",
+            "aabSha256": "${{ needs.build.outputs.aab_sha256 }}",
+            "sameArtifactVerified": true
+          }
+          EOF
+
+      - name: Upload delivery evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: camperboss-play-delivery-evidence-${{ inputs.source_sha }}
+          path: build/evidence/play-internal-delivery.json
+          if-no-files-found: error
+          retention-days: 30

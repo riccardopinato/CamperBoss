@@ -1,3 +1,20 @@
+analyzer:
+  errors:
+    avoid_print: warning
+    depend_on_referenced_packages: warning
+    use_build_context_synchronously: warning
+
 linter:
   rules:
+    avoid_empty_else: true
+    avoid_print: true
+    avoid_relative_lib_imports: true
+    avoid_types_as_parameter_names: true
+    curly_braces_in_flow_control_structures: true
+    depend_on_referenced_packages: true
+    empty_catches: true
+    no_duplicate_case_values: true
     prefer_single_quotes: true
+    secure_pubspec_urls: true
+    use_build_context_synchronously: true
+    valid_regexps: true

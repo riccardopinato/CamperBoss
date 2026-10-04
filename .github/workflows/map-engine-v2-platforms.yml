@@ -3,9 +3,15 @@ name: Map Engine V2 Platform Builds
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.6"
 
 jobs:
   android:
@@ -15,22 +21,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Java 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get
+      - name: Resolve locked dependencies
+        run: |
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
 
       - name: Build Android APK
         run: flutter build apk --debug --target-platform android-arm64
@@ -47,16 +55,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get
+      - name: Resolve locked dependencies
+        run: |
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
 
       - name: Build Web
         run: flutter build web --release
@@ -68,16 +78,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get
+      - name: Resolve locked dependencies
+        run: |
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
 
       - name: Build iOS device
         run: flutter build ios --release --no-codesign

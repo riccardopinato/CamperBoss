@@ -301,8 +301,9 @@ class LocalOfflineGuidesService implements OfflineGuidesService {
       return GuideCollectionState.updateAvailable;
     }
     if (installedCount == 0) return GuideCollectionState.notInstalled;
-    if (installedCount == packageIds.length)
+    if (installedCount == packageIds.length) {
       return GuideCollectionState.installed;
+    }
     return GuideCollectionState.partiallyInstalled;
   }
 
