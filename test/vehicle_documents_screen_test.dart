@@ -98,6 +98,9 @@ class FakeDocumentOcrService implements DocumentOcrService {
 }
 
 class FakeReminderSyncService implements ReminderSyncService {
+  FakeReminderSyncService({this.failDocumentSync = false});
+
+  final bool failDocumentSync;
   final syncedDocuments = <VehicleDocument>[];
   final deletedDocuments = <String>[];
 
@@ -111,6 +114,7 @@ class FakeReminderSyncService implements ReminderSyncService {
 
   @override
   Future<void> syncDocument(VehicleDocument document) async {
+    if (failDocumentSync) throw StateError('forced reminder failure');
     syncedDocuments.add(document);
   }
 
@@ -159,6 +163,37 @@ void main() {
     expect(repository.documents.single.pageCount, 2);
     expect(repository.documents.single.pdfPath, '/private/scan.pdf');
     expect(reminders.syncedDocuments.single.title, 'Insurance 2026');
+  });
+
+  testWidgets('committed document survives reminder scheduling failure',
+      (tester) async {
+    final repository = FakeVehicleDocumentRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: VehicleDocumentsScreen(
+            repository: repository,
+            captureService: FakeDocumentCaptureService(),
+            ocrService: FakeDocumentOcrService(),
+            reminderService:
+                FakeReminderSyncService(failDocumentSync: true),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('document_add'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('document_action_scan'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), 'Committed document');
+    await tester.tap(find.text('save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.documents.single.title, 'Committed document');
+    expect(find.text('Committed document'), findsOneWidget);
   });
 
   testWidgets('documents screen disables scanner when unsupported',
