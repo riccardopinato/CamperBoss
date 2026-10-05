@@ -537,7 +537,7 @@ Criterio di uscita:
 
 ## STEP 16N — Localizzazione, accessibilità, iOS capability e Web quality
 
-Stato: `TODO`
+Stato: `BLOCKED — RUNTIME ACCESSIBILITY / WEB EVIDENCE`
 
 Problemi da risolvere tutti:
 
@@ -555,6 +555,30 @@ Problemi da risolvere tutti:
 - verificare browser back/refresh/deep-link e quota/error recovery del local storage;
 - allineare branding, display name, icon/splash/store assets e capitalizzazione CamperBoss;
 - decidere la copertura reale della ricerca locale: oggi non indicizza expense, fuel, budget, checklist, GPX e Memories; o estenderla o descriverne correttamente lo scope.
+
+Implementato:
+
+- localizzazione strutturale delle superfici Map/MapLibre, Finance, Trip Planner, Travel History, Checklist, Offline Guides e Search;
+- geocoder Map e tappe Planner alimentato dalla lingua applicazione corrente;
+- formatter condivisi locale-aware per date, numeri, distanza, valuta e dimensioni storage; valuta Finance basata su `NumberFormat`;
+- gate automatico EN/IT/DE/FR/ES/PT: parità chiavi, placeholder e literal UI non autorizzati sulle superfici core;
+- scanner documenti dichiarato e mantenuto Android-only; iOS conserva import immagini/PDF + OCR, Web non simula capture nativa;
+- permission state iOS notifiche letto realmente dal plugin; fallback timezone UTC esposto visibilmente nella UI;
+- touch target Material padded, contrast gate sui colori testo core, semantica mappa localizzata e nessun clamp del text scaling;
+- metadata Web/PWA ripuliti dal template, brand CamperBoss coerente e blocco `portrait-primary` rimosso;
+- routing Web top-level URL-addressable per `/`, `/map`, `/trips`, `/camper`, `/more`, con fallback per route sconosciuta;
+- recovery test per write storage fallito: dati precedenti preservati e coda di scrittura riutilizzabile;
+- ricerca locale estesa a expense, fuel, budget context, checklist, GPX e Memories; revision bump aggiunto a checklist e travel history per evitare indice stale.
+
+Evidenza ancora esterna/runtime:
+
+- TalkBack, focus order/keyboard reale, textScale 200% sulle schermate complete e visual contrast su device;
+- browser reale: back/refresh/deep-link, quota localStorage e graceful recovery;
+- visual QA di icon/splash/store assets;
+- iOS import/OCR/notifiche su runtime Apple compatibile.
+- il gate CI iOS compila una build Debug per simulatore senza firma, perché Flutter non supporta Release su iOS Simulator; Release device, firma e provisioning restano evidenza esterna STEP 16Q/store delivery.
+
+Queste prove confluiscono nel gate finale STEP 16Q; finché non esistono, STEP 16N non viene dichiarato DONE.
 
 Criterio di uscita:
 

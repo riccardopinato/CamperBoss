@@ -7,6 +7,8 @@ import 'package:camperboss/features/trip/presentation/trip_planner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 class FakeTripRepository implements TripRepository {
   FakeTripRepository(this.trips);
 
@@ -72,16 +74,14 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
           renderMaps: false,
-        ),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Alps loop'), findsOneWidget);
     expect(find.textContaining('Dolomites'), findsOneWidget);
@@ -120,7 +120,7 @@ void main() {
     await tester.tap(find.byTooltip('Delete trip'));
     await tester.pumpAndSettle();
     expect(repository.trips.length, 2);
-    await tester.tap(find.text('delete'));
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(repository.trips.length, 1);
@@ -145,18 +145,16 @@ void main() {
     ]);
     final routeRepository = FakeRoutePreviewRepository();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: routeRepository,
           routingService: const FakeRoutingService(),
           isRoutingConfigured: true,
           renderMaps: false,
-        ),
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('Route preview'),
@@ -172,7 +170,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.route, isNotNull);
-    expect(find.text('12.0 km'), findsOneWidget);
+    expect(find.text('12 km'), findsOneWidget);
     expect(find.text('30 min'), findsOneWidget);
     expect(find.textContaining('Sirmione -> Bardolino'), findsOneWidget);
   });
@@ -193,18 +191,16 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
           routingService: const FakeRoutingService(),
           isRoutingConfigured: false,
           renderMaps: false,
-        ),
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('Route preview'),

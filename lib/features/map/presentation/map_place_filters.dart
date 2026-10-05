@@ -3,13 +3,13 @@ import 'package:latlong2/latlong.dart';
 import '../../../data/models/camper_place.dart';
 
 const mapFilterLabels = <String, String>{
-  'sosta': 'Sosta',
-  'camping': 'Camping',
-  'parcheggio': 'Parcheggio',
-  'acqua': 'Acqua',
-  'scarico': 'Scarico',
-  'gpl': 'GPL',
-  'assistenza': 'Assistenza',
+  'sosta': 'map_filter_stopover',
+  'camping': 'map_filter_camping',
+  'parcheggio': 'map_filter_parking',
+  'acqua': 'map_filter_water',
+  'scarico': 'map_filter_waste',
+  'gpl': 'map_filter_lpg',
+  'assistenza': 'map_filter_service',
 };
 
 List<CamperPlace> filterAndSortPlaces({

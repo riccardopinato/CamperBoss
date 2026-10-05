@@ -26,6 +26,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       scaffoldBackgroundColor: background,
       colorScheme: colorScheme,
       fontFamily: 'Roboto',

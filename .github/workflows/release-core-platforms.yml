@@ -8,7 +8,6 @@ on:
       - "lib/**"
       - "test/**"
       - "android/**"
-      - "ios/**"
       - "web/**"
       - "tool/**"
       - "release/**"
@@ -27,15 +26,10 @@ on:
         required: true
         default: true
         type: boolean
-      ios:
-        description: "Build iOS release without codesign"
-        required: true
-        default: false
-        type: boolean
       web:
         description: "Build Web release"
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -57,29 +51,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Setup Java 21
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
-
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-
       - name: Resolve locked dependencies
         run: |
           flutter pub get
           git diff --exit-code -- pubspec.lock
-
       - name: Build QA release APK
         env:
           ORG_GRADLE_PROJECT_requireReleaseSigning: "false"
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi
-
       - name: Verify QA APK and write hash evidence
         run: |
           set -euo pipefail
@@ -88,8 +77,8 @@ jobs:
           mkdir -p build/evidence
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           SIZE=$(stat -c%s "$APK")
-          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"signingClass":"QA_ONLY"}\n'             "${{ github.sha }}" "$APK" "$SHA" "$SIZE" > build/evidence/android-qa-release.json
-
+          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"signingClass":"QA_ONLY"}\n' \
+            "${{ github.sha }}" "$APK" "$SHA" "$SIZE" > build/evidence/android-qa-release.json
       - name: Upload QA APK and evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -100,40 +89,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
-
       - name: Verify privacy backup policy
         run: |
           grep -Fq 'android:allowBackup="false"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
           test -s android/app/src/main/res/xml/data_extraction_rules.xml
-
-  ios:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.ios }}
-    name: iOS no-codesign release
-    runs-on: macos-latest
-    timeout-minutes: 35
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
-
-      - name: Resolve locked dependencies
-        run: |
-          flutter pub get
-          git diff --exit-code -- pubspec.lock
-
-      - name: Build iOS release
-        run: flutter build ios --release --no-codesign
-
-      - name: Audit iOS app size
-        run: |
-          test -d build/ios/iphoneos/Runner.app
-          du -sh build/ios/iphoneos/Runner.app
 
   web:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.web }}
@@ -143,27 +103,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-
       - name: Resolve locked dependencies
         run: |
           flutter pub get
           git diff --exit-code -- pubspec.lock
-
       - name: Build Web release
         run: flutter build web --release
-
       - name: Audit Web bundle size
         run: |
           test -s build/web/index.html
           du -sh build/web
           find build/web -maxdepth 2 -type f -print0 | xargs -0 du -h | sort -h | tail -20
-
       - name: Upload Web candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

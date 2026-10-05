@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:intl/intl.dart';
+
 enum ExpenseScope {
   vehicle,
   trip,
@@ -344,7 +346,7 @@ int parseAmountMinor(String input) {
 
 String formatAmountMinor(int amountMinor, {String currencyCode = 'EUR'}) {
   final amount = amountMinor / 100;
-  return '$currencyCode ${amount.toStringAsFixed(2)}';
+  return NumberFormat.simpleCurrency(name: currencyCode).format(amount);
 }
 
 String encodeIntList(List<int> values) => jsonEncode(values);

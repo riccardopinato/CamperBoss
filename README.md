@@ -1,6 +1,6 @@
 # CamperBoss
 
-CamperBoss is a Flutter Android/iOS/Web application for camper, vanlife and motorhome owners. The core is local-first: vehicle, trips, documents, maintenance, journal, finance, search and offline resources remain usable without a mandatory account or cloud service.
+CamperBoss is a Flutter Android/Web application for camper, vanlife and motorhome owners. The iOS target is intentionally deferred and is not part of the current release or IAP scope. The core is local-first: vehicle, trips, documents, maintenance, journal, finance, search and offline resources remain usable without a mandatory account or cloud service.
 
 ## Product areas
 
@@ -16,18 +16,18 @@ No demo trips, journal entries, checklist items or POI are inserted silently int
 
 The active STEP 16 release-candidate stack contains:
 
-- Flutter targets for Android, iOS and Web.
+- Active release targets: Android and Web. iOS code may remain in-tree for future work, but iOS build/runtime/IAP gates are deferred.
 - Material 3 light/dark themes.
 - Runtime locales IT/EN/DE/FR/ES/PT.
 - SQLite persistence on mobile and local key/value JSON persistence on Web.
-- Private vehicle documents, Android document scanning, image/PDF import and mobile OCR where supported.
+- Private vehicle documents. Native document scanning is Android-only; Android/iOS support image/PDF import and mobile OCR where supported. Web never pretends to provide native document capture.
 - Maintenance history and local reminders.
 - MapLibre as the production renderer; native offline regions on Android/iOS.
 - Provider-neutral POI catalog/package install path, local repository and filtering. Production source/licensing selection remains a STEP 16O release gate.
 - Open-Meteo weather/geocoding.
 - OpenRouteService routing abstraction with camper-aware HGV restrictions when a valid vehicle profile is available. Production credential architecture is still a release gate.
 - Offline download/guide infrastructure.
-- Local search.
+- Local search across documents, maintenance, journal, trips, bookings, expenses, fuel, trip budget context, checklists, GPX tracks, travel memories, offline guides and vehicle data.
 - GPX, travel memories and statistics.
 - Versioned backup/export/restore services hardened by STEP 16K data-safety and recovery work.
 - Dormant provider-neutral Pro entitlement boundary; no active billing SDK or fake checkout.
@@ -42,7 +42,9 @@ Do not describe the following as production-certified yet:
 - iOS document scanning (iOS currently has import + OCR, not the Android scanner flow);
 - full Web parity for native document/media flows;
 - production ORS credential secrecy;
-- STEP 17 local AI.
+- STEP 17 local AI;
+- TalkBack, keyboard/focus, 200% text scaling and browser runtime certification, which remain STEP 16Q evidence gates;
+- visual store-asset/icon/splash certification.
 
 The authoritative release status is `ROADMAP.md` plus the latest Evidence Bundle.
 
@@ -61,6 +63,27 @@ audit, secret scanning and project-specific SAST. Evidence artifacts are kept
 for 30 days.
 
 Platform/runtime certification is defined in the STEP 16 evidence and AppLab flows.
+
+## Localization and platform truth
+
+CamperBoss ships IT/EN/DE/FR/ES/PT catalogs with automated key and placeholder
+parity checks. Core Map, Finance, Trip Planner, Travel History, Checklist,
+Offline Guides and Search surfaces are guarded against fixed user-facing
+literals. Geocoding receives the current application language, and shared
+formatters handle localized dates, decimal values, distances, currencies and
+storage sizes.
+
+On iOS, notification permission state is queried from the native plugin instead
+of being reported as permanently unavailable. If the local timezone cannot be
+resolved, the UTC fallback is visible in Notification settings.
+
+Web metadata is branded for CamperBoss and no longer forces portrait
+orientation. Top-level routes `/`, `/map`, `/trips`, `/camper` and
+`/more` are URL-addressable so refresh/deep-link behavior can be tested.
+Native-only document/media capability remains explicitly unavailable on Web.
+Storage write failures propagate without replacing the previous JSON value and
+do not poison later serialized writes; real browser quota/runtime evidence
+remains part of STEP 16Q.
 
 ## Release delivery
 
@@ -85,3 +108,8 @@ Production monetization is deferred. The current release candidate does not expo
 ## Repository governance
 
 The latest Master Prompt / Golden Rules govern reuse, data safety, review, delivery and certification. See `AGENTS.md`, `ROADMAP.md`, `docs/governance/` and `docs/release/`.
+
+
+## Current platform scope
+
+For the current release train, Android is the native production target and Web is the verification/companion target. iOS is explicitly deferred until a future product decision. iOS failures do not block STEP 16 or release certification, and Apple StoreKit / iOS IAP integration is out of scope. Android monetization, when introduced, will use the Google Play path only.

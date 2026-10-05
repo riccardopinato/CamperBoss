@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/app_system_services.dart';
 import '../../../core/services/offline_guides_service.dart';
 import '../../../data/models/guide_models.dart';
@@ -129,25 +131,22 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
   @override
   Widget build(BuildContext context) {
     return ScreenScaffold(
-      title: 'Offline guides',
-      subtitle:
-          'Read installed content without network, keep favorites, and resume where you stopped.',
+      title: 'offline_guides_title'.tr(),
+      subtitle: 'offline_guides_subtitle'.tr(),
       children: [
         PremiumCard(
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'CamperBoss Essential',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Starter package with emergency notes and responsible overnight reminders.',
-                    ),
+                    const SizedBox(height: 6),
+                    Text('offline_guides_essential_body'.tr()),
                   ],
                 ),
               ),
@@ -155,7 +154,11 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
               FilledButton.icon(
                 onPressed: _isInstalling ? null : _installEssential,
                 icon: const Icon(Icons.download_outlined),
-                label: Text(_isInstalling ? 'Installing...' : 'Install'),
+                label: Text(
+                  _isInstalling
+                      ? 'offline_guides_installing'.tr()
+                      : 'offline_guides_install'.tr(),
+                ),
               ),
             ],
           ),
@@ -164,9 +167,9 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         TextField(
           controller: _searchController,
           onChanged: _onSearchChanged,
-          decoration: const InputDecoration(
-            labelText: 'Search guides',
-            prefixIcon: Icon(Icons.search),
+          decoration: InputDecoration(
+            labelText: 'offline_guides_search'.tr(),
+            prefixIcon: const Icon(Icons.search),
           ),
         ),
         const SizedBox(height: 16),
@@ -180,11 +183,11 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         if (_isLoading)
           const Center(child: CircularProgressIndicator())
         else ...[
-          const SectionHeader(title: 'Installed packages'),
+          SectionHeader(title: 'offline_guides_installed'.tr()),
           const SizedBox(height: 12),
           if (_packages.isEmpty)
-            const PremiumCard(
-              child: Text('No guide package installed yet.'),
+            PremiumCard(
+              child: Text('offline_guides_empty'.tr()),
             )
           else
             for (final package in _packages) ...[
@@ -207,7 +210,7 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
               ),
               const SizedBox(height: 12),
             ],
-          const SectionHeader(title: 'Guide index'),
+          SectionHeader(title: 'offline_guides_index'.tr()),
           const SizedBox(height: 12),
           for (final result in _results) ...[
             PremiumCard(
@@ -219,7 +222,7 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
                 ),
                 leading: Icon(_iconFor(result.entry.contentType)),
                 trailing: IconButton(
-                  tooltip: 'Favorite',
+                  tooltip: 'offline_guides_favorite'.tr(),
                   onPressed: () => _toggleFavorite(result.entry.id),
                   icon: Icon(
                     _favorites.contains(result.entry.id)
@@ -316,7 +319,14 @@ class _GuideReaderScreenState extends State<_GuideReaderScreen> {
       children: [
         if (_progress != null) ...[
           Text(
-            'Last reading position saved ${_progress!.updatedAt.toLocal()}',
+            'offline_guides_last_position'.tr(
+              namedArgs: {
+                'date': localizedDateTime(
+                  _progress!.updatedAt.toLocal(),
+                  locale: context.locale.toLanguageTag(),
+                ),
+              },
+            ),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -326,14 +336,12 @@ class _GuideReaderScreenState extends State<_GuideReaderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'PDF guides open with the system viewer to avoid executing embedded scripts.',
-                ),
+                Text('offline_guides_pdf_safety'.tr()),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _openPdf,
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Open PDF'),
+                  label: Text('offline_guides_open_pdf'.tr()),
                 ),
               ],
             ),

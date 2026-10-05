@@ -4,6 +4,11 @@ enum SearchDocumentType {
   journal,
   trip,
   booking,
+  expense,
+  fuel,
+  checklist,
+  gpxTrack,
+  memory,
   offlineGuide,
   vehicleNote,
 }

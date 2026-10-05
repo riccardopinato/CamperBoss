@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
@@ -99,11 +101,12 @@ class _MapScreenState extends State<MapScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'POI cache unavailable');
+      setState(() => _error = 'map_error_poi_cache_unavailable'.tr());
     }
   }
 
   Future<void> _search(String query) async {
+    final language = context.locale.languageCode;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 450), () async {
       final trimmed = query.trim();
@@ -123,18 +126,18 @@ class _MapScreenState extends State<MapScreen> {
       });
 
       try {
-        final results = await _geocodingService.search(trimmed);
+        final results = await _geocodingService.search(trimmed, language: language);
         if (!mounted) return;
         setState(() {
           _results = results;
           _isSearching = false;
-          _error = results.isEmpty ? 'No locations found' : null;
+          _error = results.isEmpty ? 'map_error_no_locations'.tr() : null;
         });
       } catch (_) {
         if (!mounted) return;
         setState(() {
           _isSearching = false;
-          _error = 'Location search unavailable';
+          _error = 'map_error_location_search'.tr();
         });
       }
     });
@@ -172,14 +175,14 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final snapshot = await _cacheRepository.refresh(
-        region: selectedLocationController.value?.label ?? 'Custom area',
+        region: selectedLocationController.value?.label ?? 'map_custom_area'.tr(),
         places: _places,
       );
       if (!mounted) return;
       setState(() => _cacheSnapshot = snapshot);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'POI cache refresh failed');
+      setState(() => _error = 'map_error_cache_refresh'.tr());
     } finally {
       if (mounted) setState(() => _isRefreshingCache = false);
     }
@@ -197,7 +200,7 @@ class _MapScreenState extends State<MapScreen> {
       setState(() => _cacheSnapshot = snapshot);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'POI cache clear failed');
+      setState(() => _error = 'map_error_cache_clear'.tr());
     } finally {
       if (mounted) setState(() => _isClearingCache = false);
     }
@@ -215,7 +218,7 @@ class _MapScreenState extends State<MapScreen> {
     );
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
-      setState(() => _error = 'Directions unavailable');
+      setState(() => _error = 'map_error_directions'.tr());
     }
   }
 
@@ -261,13 +264,12 @@ class _MapScreenState extends State<MapScreen> {
         final cacheSnapshot = _cacheSnapshot;
 
         return ScreenScaffold(
-          title: 'Smart map',
-          subtitle:
-              'MapLibre, POI e aree offline usano ora un solo motore cartografico.',
+          title: 'map_title'.tr(),
+          subtitle: 'map_subtitle'.tr(),
           children: [
             Semantics(
               container: true,
-              label: 'Interactive camper map',
+              label: 'map_semantics_interactive'.tr(),
               child: PremiumCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +278,7 @@ class _MapScreenState extends State<MapScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            selectedLocation?.label ?? 'Map',
+                            selectedLocation?.label ?? 'map_default_label'.tr(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style:
@@ -286,7 +288,7 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         ),
                         IconButton.outlined(
-                          tooltip: 'Offline contents',
+                          tooltip: 'offline_title'.tr(),
                           onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const OfflineContentScreen(),
@@ -340,7 +342,7 @@ class _MapScreenState extends State<MapScreen> {
                               ),
                             )
                           : IconButton(
-                              tooltip: 'Clear',
+                              tooltip: 'common_clear'.tr(),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -350,7 +352,7 @@ class _MapScreenState extends State<MapScreen> {
                               },
                               icon: const Icon(Icons.close),
                             ),
-                      hintText: 'Search a city or postal code...',
+                      hintText: 'map_search_hint'.tr(),
                       filled: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -372,7 +374,7 @@ class _MapScreenState extends State<MapScreen> {
                             )
                           : const Icon(Icons.my_location),
                       label:
-                          Text(_isLocating ? 'Locating...' : 'Use my location'),
+                          Text(_isLocating ? 'map_locating'.tr() : 'map_use_my_location'.tr()),
                     ),
                   ),
                   if (_error != null) ...[
@@ -400,7 +402,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Le aree offline salvate appartengono allo stesso motore MapLibre della mappa principale. Toccando un’area completata la mappa torna al relativo viewport.',
+              'map_offline_explanation'.tr(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -411,19 +413,27 @@ class _MapScreenState extends State<MapScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ResourceBar(
-                    label: 'Cache POI offline',
+                    label: 'map_poi_cache'.tr(),
                     value: _places.isEmpty
                         ? 0
                         : (cacheSnapshot?.itemCount ?? 0) / _places.length,
                     detail: cacheSnapshot == null
-                        ? 'No saved POI cache'
-                        : '${cacheSnapshot.region} - ${cacheSnapshot.itemCount} items - ${cacheSnapshot.sizeLabel}',
+                        ? 'map_poi_cache_empty'.tr()
+                        : 'map_poi_cache_detail'.tr(
+                            namedArgs: {
+                              'region': cacheSnapshot.region,
+                              'count': cacheSnapshot.itemCount.toString(),
+                              'size': cacheSnapshot.sizeLabel,
+                            },
+                          ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     cacheSnapshot == null
-                        ? 'POI only; cartography offline is managed by MapLibre above.'
-                        : 'Updated ${cacheSnapshot.updatedLabel}; POI and cartography have separate storage but one map UI.',
+                        ? 'map_poi_cache_cartography_note'.tr()
+                        : 'map_poi_cache_updated'.tr(
+                            namedArgs: {'updated': cacheSnapshot.updatedLabel},
+                          ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 12),
@@ -441,7 +451,7 @@ class _MapScreenState extends State<MapScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
+                        label: Text('common_refresh'.tr()),
                       ),
                       OutlinedButton.icon(
                         onPressed: _isClearingCache ? null : _clearCache,
@@ -453,10 +463,10 @@ class _MapScreenState extends State<MapScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
+                        label: Text('common_delete'.tr()),
                       ),
                       IconButton.outlined(
-                        tooltip: 'Offline contents',
+                        tooltip: 'offline_title'.tr(),
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const OfflineContentScreen(),
@@ -470,7 +480,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const SectionHeader(title: 'Filters'),
+            SectionHeader(title: 'map_filters'.tr()),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -479,24 +489,33 @@ class _MapScreenState extends State<MapScreen> {
                 for (final entry in mapFilterLabels.entries)
                   FilterChip(
                     key: ValueKey('map-filter-${entry.key}'),
-                    label: Text(entry.value),
+                    label: Text(entry.value.tr()),
                     selected: _activeFilters.contains(entry.key),
                     onSelected: (_) => _toggleFilter(entry.key),
                   ),
               ],
             ),
             const SizedBox(height: 24),
-            SectionHeader(title: 'POI', action: '${places.length} visible'),
+            SectionHeader(
+              title: 'map_poi'.tr(),
+              action: 'map_poi_visible'.tr(
+                namedArgs: {'count': places.length.toString()},
+              ),
+            ),
             const SizedBox(height: 12),
             if (places.isEmpty)
-              const PremiumCard(child: Text('No POI match the active filters')),
+              PremiumCard(child: Text('map_poi_empty'.tr())),
             for (final place in places) ...[
               PlaceCard(
                 name: place.name,
-                type: '${place.type} - ${mapFilterLabels[place.category]}',
+                type:
+                    '${place.type} - ${mapFilterLabels[place.category]?.tr() ?? place.category}',
                 distance: selectedPoint == null
                     ? ''
-                    : '${_distanceKm(place, selectedPoint).toStringAsFixed(1)} km',
+                    : '${localizedDecimal(
+                        _distanceKm(place, selectedPoint),
+                        locale: context.locale.toLanguageTag(),
+                      )} km',
                 rating: place.rating,
                 tags: place.tags,
                 address: place.address,

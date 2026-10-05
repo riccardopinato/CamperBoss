@@ -30,6 +30,8 @@ class _NotificationSettingsScreenState
   ReminderSettings _settings = const ReminderSettings();
   NotificationPermissionState _permission =
       NotificationPermissionState.unavailable;
+  NotificationTimezoneState _timezoneState =
+      NotificationTimezoneState.unavailable;
   bool _isLoading = true;
   String? _status;
   String? _error;
@@ -48,10 +50,12 @@ class _NotificationSettingsScreenState
     try {
       final settings = await _coordinator.loadSettings();
       final permission = await _coordinator.permissionState();
+      final timezoneState = await _coordinator.timezoneState();
       if (!mounted) return;
       setState(() {
         _settings = settings;
         _permission = permission;
+        _timezoneState = timezoneState;
       });
     } catch (_) {
       if (!mounted) return;
@@ -200,6 +204,20 @@ class _NotificationSettingsScreenState
                 if (_permission == NotificationPermissionState.denied) ...[
                   const SizedBox(height: 12),
                   Text('notification_permission_denied_help'.tr()),
+                ],
+                if (_timezoneState ==
+                    NotificationTimezoneState.utcFallback) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.schedule_outlined, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('notification_timezone_utc_fallback'.tr()),
+                      ),
+                    ],
+                  ),
                 ],
                 if (_status != null) ...[
                   const SizedBox(height: 12),

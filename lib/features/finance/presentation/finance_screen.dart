@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/finance_summary_service.dart';
 import '../../../core/services/app_system_services.dart';
 import '../../../core/services/reminder_coordinator.dart';
@@ -125,7 +127,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Finance data unavailable';
+        _error = 'finance_error_unavailable'.tr();
       });
     }
   }
@@ -167,7 +169,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       await _load();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Expense save failed');
+      setState(() => _error = 'finance_error_expense_save'.tr());
     }
   }
 
@@ -179,7 +181,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
   Future<void> _saveFuelEntry([FuelEntry? entry]) async {
     final profile = _profile;
     if (profile?.id == null) {
-      setState(() => _error = 'Create a vehicle profile before adding fuel');
+      setState(() => _error = 'finance_error_vehicle_required'.tr());
       return;
     }
 
@@ -201,7 +203,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       await _load();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Fuel entry save failed');
+      setState(() => _error = 'finance_error_fuel_save'.tr());
     }
   }
 
@@ -229,7 +231,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       await _selectTrip(id);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Budget save failed');
+      setState(() => _error = 'finance_error_budget_save'.tr());
     }
   }
 
@@ -237,7 +239,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
     final trip = _selectedTrip;
     final tripId = trip?.id;
     if (tripId == null) {
-      setState(() => _error = 'Select a trip before adding a booking');
+      setState(() => _error = 'finance_error_trip_required'.tr());
       return;
     }
 
@@ -258,7 +260,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       await _load();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Booking save failed');
+      setState(() => _error = 'finance_error_booking_save'.tr());
     }
   }
 
@@ -274,7 +276,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
     );
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
-      setState(() => _error = 'Navigation unavailable');
+      setState(() => _error = 'finance_error_navigation'.tr());
     }
   }
 
@@ -304,9 +306,9 @@ class _FinanceScreenState extends State<FinanceScreen> {
           );
 
     return ScreenScaffold(
-      title: 'Costs, budgets & bookings',
+      title: 'finance_title'.tr(),
       subtitle:
-          'Track fuel, expenses, trip budgets, attachments, and reminders locally.',
+          'finance_subtitle'.tr(),
       children: [
         if (_error != null) ...[
           Text(
@@ -325,7 +327,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
           ),
           const SizedBox(height: 16),
           if (profile != null) ...[
-            const SectionHeader(title: 'Vehicle'),
+            SectionHeader(title: 'finance_vehicle'.tr()),
             const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
@@ -337,33 +339,33 @@ class _FinanceScreenState extends State<FinanceScreen> {
               children: [
                 MetricTile(
                   icon: Icons.local_gas_station_outlined,
-                  label: 'Fuel spend',
+                  label: 'finance_fuel_spend'.tr(),
                   value: formatAmountMinor(fuelStats.totalCostMinor),
                   detail:
                       '${(fuelStats.totalVolumeMilliLitres / 1000).toStringAsFixed(1)} L',
                 ),
                 MetricTile(
                   icon: Icons.speed_outlined,
-                  label: 'Avg consumption',
+                  label: 'finance_avg_consumption'.tr(),
                   value: fuelStats.averageConsumptionLitersPer100Km == null
                       ? '--'
                       : '${fuelStats.averageConsumptionLitersPer100Km!.toStringAsFixed(1)} L/100km',
-                  detail: 'Full tanks only',
+                  detail: 'finance_full_tanks_only'.tr(),
                 ),
                 MetricTile(
                   icon: Icons.route_outlined,
-                  label: 'Cost / km',
+                  label: 'finance_cost_per_km'.tr(),
                   value: fuelStats.costPerKmMinor == null
                       ? '--'
                       : formatAmountMinor(fuelStats.costPerKmMinor!),
-                  detail: 'Fuel only',
+                  detail: 'finance_fuel_only'.tr(),
                 ),
                 MetricTile(
                   icon: Icons.calendar_month_outlined,
-                  label: 'This month',
+                  label: 'finance_this_month'.tr(),
                   value: formatAmountMinor(fuelStats.monthlyCostMinor),
                   detail:
-                      'This year ${formatAmountMinor(fuelStats.yearlyCostMinor)}',
+                      'finance_this_year'.tr(namedArgs: {'value': formatAmountMinor(fuelStats.yearlyCostMinor)}),
                 ),
               ],
             ),
@@ -384,14 +386,14 @@ class _FinanceScreenState extends State<FinanceScreen> {
                           ),
                       ],
                       onChanged: _selectTrip,
-                      decoration: const InputDecoration(
-                        labelText: 'Trip budget context',
+                      decoration: InputDecoration(
+                        labelText: 'finance_trip_budget_context'.tr(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   IconButton.filled(
-                    tooltip: 'Edit budget',
+                    tooltip: 'finance_edit_budget'.tr(),
                     onPressed: trip?.id == null ? null : _saveBudget,
                     icon: const Icon(Icons.savings_outlined),
                   ),
@@ -400,7 +402,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
             ),
             const SizedBox(height: 16),
             if (budgetSummary != null) ...[
-              const SectionHeader(title: 'Trip'),
+              SectionHeader(title: 'finance_trip'.tr()),
               const SizedBox(height: 12),
               GridView.count(
                 crossAxisCount: 2,
@@ -412,27 +414,27 @@ class _FinanceScreenState extends State<FinanceScreen> {
                 children: [
                   MetricTile(
                     icon: Icons.account_balance_wallet_outlined,
-                    label: 'Planned',
+                    label: 'finance_planned'.tr(),
                     value: formatAmountMinor(budgetSummary.plannedMinor),
-                    detail: 'Budget',
+                    detail: 'finance_budget'.tr(),
                   ),
                   MetricTile(
                     icon: Icons.payments_outlined,
-                    label: 'Spent',
+                    label: 'finance_spent'.tr(),
                     value: formatAmountMinor(budgetSummary.spentMinor),
-                    detail: 'Expenses + fuel + bookings',
+                    detail: 'finance_spent_detail'.tr(),
                   ),
                   MetricTile(
                     icon: Icons.balance_outlined,
-                    label: 'Remaining',
+                    label: 'finance_remaining'.tr(),
                     value: formatAmountMinor(budgetSummary.remainingMinor),
                     detail: budgetSummary.remainingMinor < 0
-                        ? 'Over budget'
-                        : 'Available',
+                        ? 'finance_over_budget'.tr()
+                        : 'finance_available'.tr(),
                   ),
                   MetricTile(
                     icon: Icons.analytics_outlined,
-                    label: 'Cost / day',
+                    label: 'finance_cost_per_day'.tr(),
                     value: budgetSummary.costPerDayMinor == null
                         ? '--'
                         : formatAmountMinor(budgetSummary.costPerDayMinor!),
@@ -445,10 +447,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
               const SizedBox(height: 16),
             ],
           ],
-          const SectionHeader(title: 'Fuel log'),
+          SectionHeader(title: 'finance_fuel_log'.tr()),
           const SizedBox(height: 12),
           if (vehicleFuel.isEmpty)
-            const PremiumCard(child: Text('No fuel entries yet'))
+            PremiumCard(child: Text('finance_no_fuel'.tr()))
           else
             for (final entry in vehicleFuel) ...[
               _FuelCard(
@@ -459,10 +461,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
               const SizedBox(height: 12),
             ],
           const SizedBox(height: 16),
-          const SectionHeader(title: 'Expenses'),
+          SectionHeader(title: 'finance_expenses'.tr()),
           const SizedBox(height: 12),
           if (_expenses.isEmpty)
-            const PremiumCard(child: Text('No expenses yet'))
+            PremiumCard(child: Text('finance_no_expenses'.tr()))
           else
             for (final expense in _expenses) ...[
               _ExpenseCard(
@@ -474,10 +476,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
               const SizedBox(height: 12),
             ],
           const SizedBox(height: 16),
-          const SectionHeader(title: 'Bookings'),
+          SectionHeader(title: 'finance_bookings'.tr()),
           const SizedBox(height: 12),
           if (tripBookings.isEmpty)
-            const PremiumCard(child: Text('No bookings for the selected trip'))
+            PremiumCard(child: Text('finance_no_bookings'.tr()))
           else
             for (final booking in tripBookings) ...[
               _BookingCard(
@@ -526,17 +528,17 @@ class _FinanceActions extends StatelessWidget {
           FilledButton.icon(
             onPressed: onAddFuel,
             icon: const Icon(Icons.local_gas_station_outlined),
-            label: const Text('Add fuel'),
+            label: Text('finance_add_fuel'.tr()),
           ),
           FilledButton.icon(
             onPressed: onAddExpense,
             icon: const Icon(Icons.payments_outlined),
-            label: const Text('Add expense'),
+            label: Text('finance_add_expense'.tr()),
           ),
           FilledButton.icon(
             onPressed: onAddBooking,
             icon: const Icon(Icons.event_available_outlined),
-            label: const Text('Add booking'),
+            label: Text('finance_add_booking'.tr()),
           ),
         ],
       ),
@@ -570,7 +572,7 @@ class _FuelCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry.station ?? 'Fuel entry',
+                  entry.station ?? 'finance_fuel_entry'.tr(),
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
@@ -581,7 +583,7 @@ class _FuelCard extends StatelessWidget {
                 Text(
                   '${formatAmountMinor(entry.totalCostMinor)}'
                   '${costPerLiter == null ? '' : ' - ${formatAmountMinor(costPerLiter.round())}/L'}'
-                  '${entry.fullTank ? ' - Full tank' : ' - Partial'}',
+                  '${entry.fullTank ? ' - ${'finance_full_tank'.tr()}' : ' - ${'finance_partial_tank'.tr()}'}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (entry.notes != null && entry.notes!.isNotEmpty) ...[
@@ -592,12 +594,12 @@ class _FuelCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Edit fuel',
+            tooltip: 'finance_edit_fuel'.tr(),
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Delete fuel',
+            tooltip: 'finance_delete_fuel'.tr(),
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline),
           ),
@@ -638,7 +640,9 @@ class _ExpenseCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${expense.scope.name} - ${expense.category.name} - ${formatAmountMinor(expense.amountMinor, currencyCode: expense.currencyCode)}',
+                  '${'finance_scope_${expense.scope.name}'.tr()} - '
+                  '${'finance_category_${expense.category.name}'.tr()} - '
+                  '${formatAmountMinor(expense.amountMinor, currencyCode: expense.currencyCode)}',
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -653,12 +657,12 @@ class _ExpenseCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Edit expense',
+            tooltip: 'finance_edit_expense'.tr(),
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Delete expense',
+            tooltip: 'finance_delete_expense'.tr(),
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline),
           ),
@@ -704,19 +708,20 @@ class _BookingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${booking.type.name} - ${booking.status.name}'
+                      '${'finance_booking_type_${booking.type.name}'.tr()} - '
+                  '${'finance_booking_status_${booking.status.name}'.tr()}'
                       '${booking.costMinor == null ? '' : ' - ${formatAmountMinor(booking.costMinor!, currencyCode: booking.currencyCode)}'}',
                     ),
                   ],
                 ),
               ),
               IconButton(
-                tooltip: 'Edit booking',
+                tooltip: 'finance_edit_booking'.tr(),
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_outlined),
               ),
               IconButton(
-                tooltip: 'Delete booking',
+                tooltip: 'finance_delete_booking'.tr(),
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -726,11 +731,11 @@ class _BookingCard extends StatelessWidget {
           Text(
             [
               if (booking.startsAt != null)
-                'Start ${_formatDate(booking.startsAt!)}',
-              if (booking.endsAt != null) 'End ${_formatDate(booking.endsAt!)}',
+                'finance_booking_start'.tr(namedArgs: {'date': _formatDate(booking.startsAt!)}),
+              if (booking.endsAt != null) 'finance_booking_end'.tr(namedArgs: {'date': _formatDate(booking.endsAt!)}),
               if (booking.bookingCode != null &&
                   booking.bookingCode!.isNotEmpty)
-                'Code ${booking.bookingCode!}',
+                'finance_booking_code_value'.tr(namedArgs: {'code': booking.bookingCode!}),
               if (documentTitle != null) documentTitle!,
             ].join(' - '),
             style: Theme.of(context).textTheme.bodySmall,
@@ -752,7 +757,7 @@ class _BookingCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onNavigate,
               icon: const Icon(Icons.navigation_outlined),
-              label: const Text('Navigate'),
+              label: Text('finance_navigate'.tr()),
             ),
           ],
         ],
@@ -761,11 +766,7 @@ class _BookingCard extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime date) {
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
-  return '${date.year}-$month-$day';
-}
+String _formatDate(DateTime date) => localizedDate(date);
 
 class _ExpenseEditor extends StatefulWidget {
   const _ExpenseEditor({
@@ -865,7 +866,7 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
   @override
   Widget build(BuildContext context) {
     return _EditorSheet(
-      title: widget.expense == null ? 'Add expense' : 'Edit expense',
+      title: widget.expense == null ? 'finance_add_expense'.tr() : 'finance_edit_expense'.tr(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -875,14 +876,14 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                 .map(
                   (scope) => DropdownMenuItem(
                     value: scope,
-                    child: Text(scope.name),
+                    child: Text('finance_scope_${scope.name}'.tr()),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
               if (value != null) setState(() => _scope = value);
             },
-            decoration: const InputDecoration(labelText: 'Scope'),
+            decoration: InputDecoration(labelText: 'finance_scope'.tr()),
           ),
           const SizedBox(height: 12),
           if (_scope == ExpenseScope.trip)
@@ -893,7 +894,7 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                   DropdownMenuItem(value: trip.id, child: Text(trip.title)),
               ],
               onChanged: (value) => setState(() => _tripId = value),
-              decoration: const InputDecoration(labelText: 'Trip'),
+              decoration: InputDecoration(labelText: 'finance_trip'.tr()),
             ),
           if (_scope == ExpenseScope.trip) const SizedBox(height: 12),
           DropdownButtonFormField<ExpenseCategory>(
@@ -902,19 +903,19 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                 .map(
                   (category) => DropdownMenuItem(
                     value: category,
-                    child: Text(category.name),
+                    child: Text('finance_category_${category.name}'.tr()),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
               if (value != null) setState(() => _category = value);
             },
-            decoration: const InputDecoration(labelText: 'Category'),
+            decoration: InputDecoration(labelText: 'common_category'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Title'),
+            decoration: InputDecoration(labelText: 'common_title'.tr()),
           ),
           const SizedBox(height: 12),
           Row(
@@ -925,7 +926,7 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  decoration: InputDecoration(labelText: 'finance_amount'.tr()),
                 ),
               ),
               const SizedBox(width: 12),
@@ -933,7 +934,7 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                 width: 100,
                 child: TextField(
                   controller: _currencyController,
-                  decoration: const InputDecoration(labelText: 'Currency'),
+                  decoration: InputDecoration(labelText: 'finance_currency'.tr()),
                 ),
               ),
             ],
@@ -948,8 +949,8 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
           DropdownButtonFormField<int>(
             initialValue: _documentId,
             items: [
-              const DropdownMenuItem<int>(
-                  value: null, child: Text('No document')),
+              DropdownMenuItem<int>(
+                  value: null, child: Text('finance_no_document'.tr())),
               for (final document in widget.documents)
                 DropdownMenuItem<int>(
                   value: document.id,
@@ -957,19 +958,19 @@ class _ExpenseEditorState extends State<_ExpenseEditor> {
                 ),
             ],
             onChanged: (value) => setState(() => _documentId = value),
-            decoration: const InputDecoration(labelText: 'Attachment'),
+            decoration: InputDecoration(labelText: 'finance_attachment'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Notes'),
+            decoration: InputDecoration(labelText: 'common_notes'.tr()),
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: _save, child: const Text('Save')),
+            child: FilledButton(onPressed: _save, child: Text('common_save'.tr())),
           ),
         ],
       ),
@@ -1086,24 +1087,24 @@ class _FuelEditorState extends State<_FuelEditor> {
   @override
   Widget build(BuildContext context) {
     return _EditorSheet(
-      title: widget.entry == null ? 'Add fuel' : 'Edit fuel',
+      title: widget.entry == null ? 'finance_add_fuel'.tr() : 'finance_edit_fuel'.tr(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _stationController,
-            decoration: const InputDecoration(labelText: 'Station'),
+            decoration: InputDecoration(labelText: 'finance_station'.tr()),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
             initialValue: _tripId,
             items: [
-              const DropdownMenuItem<int>(value: null, child: Text('No trip')),
+              DropdownMenuItem<int>(value: null, child: Text('finance_no_trip'.tr())),
               for (final trip in widget.trips)
                 DropdownMenuItem(value: trip.id, child: Text(trip.title)),
             ],
             onChanged: (value) => setState(() => _tripId = value),
-            decoration: const InputDecoration(labelText: 'Trip'),
+            decoration: InputDecoration(labelText: 'finance_trip'.tr()),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1112,7 +1113,7 @@ class _FuelEditorState extends State<_FuelEditor> {
                 child: TextField(
                   controller: _odometerController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Odometer km'),
+                  decoration: InputDecoration(labelText: 'finance_odometer'.tr()),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1121,7 +1122,7 @@ class _FuelEditorState extends State<_FuelEditor> {
                   controller: _litersController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Liters'),
+                  decoration: InputDecoration(labelText: 'finance_liters'.tr()),
                 ),
               ),
             ],
@@ -1134,7 +1135,7 @@ class _FuelEditorState extends State<_FuelEditor> {
                   controller: _amountController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Total cost'),
+                  decoration: InputDecoration(labelText: 'finance_total_cost'.tr()),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1142,7 +1143,7 @@ class _FuelEditorState extends State<_FuelEditor> {
                 width: 100,
                 child: TextField(
                   controller: _currencyController,
-                  decoration: const InputDecoration(labelText: 'Currency'),
+                  decoration: InputDecoration(labelText: 'finance_currency'.tr()),
                 ),
               ),
             ],
@@ -1150,7 +1151,7 @@ class _FuelEditorState extends State<_FuelEditor> {
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Full tank'),
+            title: Text('finance_full_tank'.tr()),
             value: _fullTank,
             onChanged: (value) => setState(() => _fullTank = value),
           ),
@@ -1163,8 +1164,8 @@ class _FuelEditorState extends State<_FuelEditor> {
           DropdownButtonFormField<int>(
             initialValue: _documentId,
             items: [
-              const DropdownMenuItem<int>(
-                  value: null, child: Text('No document')),
+              DropdownMenuItem<int>(
+                  value: null, child: Text('finance_no_document'.tr())),
               for (final document in widget.documents)
                 DropdownMenuItem<int>(
                   value: document.id,
@@ -1172,19 +1173,19 @@ class _FuelEditorState extends State<_FuelEditor> {
                 ),
             ],
             onChanged: (value) => setState(() => _documentId = value),
-            decoration: const InputDecoration(labelText: 'Attachment'),
+            decoration: InputDecoration(labelText: 'finance_attachment'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Notes'),
+            decoration: InputDecoration(labelText: 'common_notes'.tr()),
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: _save, child: const Text('Save')),
+            child: FilledButton(onPressed: _save, child: Text('common_save'.tr())),
           ),
         ],
       ),
@@ -1243,24 +1244,24 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   @override
   Widget build(BuildContext context) {
     return _EditorSheet(
-      title: 'Trip budget',
+      title: 'finance_trip_budget'.tr(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Planned budget'),
+            decoration: InputDecoration(labelText: 'finance_planned_budget'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _currencyController,
-            decoration: const InputDecoration(labelText: 'Currency'),
+            decoration: InputDecoration(labelText: 'finance_currency'.tr()),
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: _save, child: const Text('Save')),
+            child: FilledButton(onPressed: _save, child: Text('common_save'.tr())),
           ),
         ],
       ),
@@ -1394,7 +1395,7 @@ class _BookingEditorState extends State<_BookingEditor> {
   @override
   Widget build(BuildContext context) {
     return _EditorSheet(
-      title: widget.booking == null ? 'Add booking' : 'Edit booking',
+      title: widget.booking == null ? 'finance_add_booking'.tr() : 'finance_edit_booking'.tr(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1404,14 +1405,14 @@ class _BookingEditorState extends State<_BookingEditor> {
                 .map(
                   (type) => DropdownMenuItem(
                     value: type,
-                    child: Text(type.name),
+                    child: Text('finance_booking_type_${type.name}'.tr()),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
               if (value != null) setState(() => _type = value);
             },
-            decoration: const InputDecoration(labelText: 'Type'),
+            decoration: InputDecoration(labelText: 'finance_type'.tr()),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<BookingStatus>(
@@ -1420,19 +1421,19 @@ class _BookingEditorState extends State<_BookingEditor> {
                 .map(
                   (status) => DropdownMenuItem(
                     value: status,
-                    child: Text(status.name),
+                    child: Text('finance_booking_status_${status.name}'.tr()),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
               if (value != null) setState(() => _status = value);
             },
-            decoration: const InputDecoration(labelText: 'Status'),
+            decoration: InputDecoration(labelText: 'common_status'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Title'),
+            decoration: InputDecoration(labelText: 'common_title'.tr()),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1442,7 +1443,7 @@ class _BookingEditorState extends State<_BookingEditor> {
                   onPressed: () => _pickDate(start: true),
                   icon: const Icon(Icons.event_outlined),
                   label: Text(
-                      _startsAt == null ? 'Start' : _formatDate(_startsAt!)),
+                      _startsAt == null ? 'finance_start'.tr() : _formatDate(_startsAt!)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1450,7 +1451,7 @@ class _BookingEditorState extends State<_BookingEditor> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pickDate(start: false),
                   icon: const Icon(Icons.event_available_outlined),
-                  label: Text(_endsAt == null ? 'End' : _formatDate(_endsAt!)),
+                  label: Text(_endsAt == null ? 'finance_end'.tr() : _formatDate(_endsAt!)),
                 ),
               ),
             ],
@@ -1458,12 +1459,12 @@ class _BookingEditorState extends State<_BookingEditor> {
           const SizedBox(height: 12),
           TextField(
             controller: _addressController,
-            decoration: const InputDecoration(labelText: 'Address'),
+            decoration: InputDecoration(labelText: 'finance_address'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _bookingCodeController,
-            decoration: const InputDecoration(labelText: 'Booking code'),
+            decoration: InputDecoration(labelText: 'finance_booking_code'.tr()),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1473,7 +1474,7 @@ class _BookingEditorState extends State<_BookingEditor> {
                   controller: _amountController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Cost'),
+                  decoration: InputDecoration(labelText: 'finance_cost'.tr()),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1481,7 +1482,7 @@ class _BookingEditorState extends State<_BookingEditor> {
                 width: 100,
                 child: TextField(
                   controller: _currencyController,
-                  decoration: const InputDecoration(labelText: 'Currency'),
+                  decoration: InputDecoration(labelText: 'finance_currency'.tr()),
                 ),
               ),
             ],
@@ -1489,14 +1490,14 @@ class _BookingEditorState extends State<_BookingEditor> {
           const SizedBox(height: 12),
           TextField(
             controller: _contactController,
-            decoration: const InputDecoration(labelText: 'Contact'),
+            decoration: InputDecoration(labelText: 'finance_contact'.tr()),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
             initialValue: _documentId,
             items: [
-              const DropdownMenuItem<int>(
-                  value: null, child: Text('No document')),
+              DropdownMenuItem<int>(
+                  value: null, child: Text('finance_no_document'.tr())),
               for (final document in widget.documents)
                 DropdownMenuItem<int>(
                   value: document.id,
@@ -1504,24 +1505,24 @@ class _BookingEditorState extends State<_BookingEditor> {
                 ),
             ],
             onChanged: (value) => setState(() => _documentId = value),
-            decoration: const InputDecoration(labelText: 'Attachment'),
+            decoration: InputDecoration(labelText: 'finance_attachment'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _poiIdController,
-            decoration: const InputDecoration(labelText: 'Linked POI id'),
+            decoration: InputDecoration(labelText: 'finance_linked_poi'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Notes'),
+            decoration: InputDecoration(labelText: 'common_notes'.tr()),
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: _save, child: const Text('Save')),
+            child: FilledButton(onPressed: _save, child: Text('common_save'.tr())),
           ),
         ],
       ),

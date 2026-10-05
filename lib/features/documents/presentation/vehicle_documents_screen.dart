@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/document_capture_service.dart';
 import '../../../core/services/document_deletion_service.dart';
 import '../../../core/services/document_ocr_service.dart';
@@ -551,9 +552,7 @@ class _VehicleDocumentCard extends StatelessWidget {
     };
   }
 
-  static String _dateLabel(DateTime date) {
-    return '${date.year}-${date.month}-${date.day}';
-  }
+  static String _dateLabel(DateTime date) => localizedDate(date);
 }
 
 class _VehicleDocumentEditor extends StatefulWidget {
@@ -765,6 +764,6 @@ class _VehicleDocumentEditorState extends State<_VehicleDocumentEditor> {
 
   String _dateText(DateTime? date, String fallbackKey) {
     if (date == null) return fallbackKey.tr();
-    return '${date.year}-${date.month}-${date.day}';
+    return localizedDate(date);
   }
 }

@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/travel_history_service.dart';
 import '../../../data/models/travel_history_models.dart';
 import '../../../data/models/trip_plan.dart';
@@ -92,7 +94,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Travel history unavailable';
+        _error = 'travel_history_error_unavailable'.tr();
         _isLoading = false;
       });
     }
@@ -111,7 +113,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         _tracks = bundle.tracks;
         _memories = bundle.memories;
         _stats = bundle.stats;
-        _status = 'GPX imported locally';
+        _status = 'travel_history_gpx_imported'.tr();
       });
     } on Exception catch (error) {
       if (!mounted) return;
@@ -128,10 +130,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             .toList(growable: false),
       );
       if (!mounted) return;
-      setState(() => _status = 'GPX exported to $path');
+      setState(() => _status = 'travel_history_gpx_exported'.tr(namedArgs: {'path': path}));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'GPX export failed');
+      setState(() => _error = 'travel_history_gpx_export_failed'.tr());
     }
   }
 
@@ -140,16 +142,16 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         .where((memory) => _selectedMemoryIds.contains(memory.id))
         .toList(growable: false);
     if (memories.isEmpty) {
-      setState(() => _error = 'Select at least one memory with photos');
+      setState(() => _error = 'travel_history_select_memory_photos'.tr());
       return;
     }
     try {
       final path = await _historyService.exportSelectedPhotos(memories);
       if (!mounted) return;
-      setState(() => _status = 'Photo ZIP exported to $path');
+      setState(() => _status = 'travel_history_photo_exported'.tr(namedArgs: {'path': path}));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Photo ZIP export failed');
+      setState(() => _error = 'travel_history_photo_export_failed'.tr());
     }
   }
 
@@ -214,7 +216,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         _TimelineItem(
           when: memory.occurredAt,
           title: memory.title,
-          subtitle: memory.description ?? 'Geolocated memory',
+          subtitle: memory.description ?? 'travel_history_geolocated_memory'.tr(),
           icon: Icons.photo_camera_outlined,
         ),
     ];
@@ -227,15 +229,15 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
     if (_isLoading) return const Center(child: CircularProgressIndicator());
 
     return ScreenScaffold(
-      title: 'Travel history',
-      subtitle: 'GPX, memories, visited places and trip statistics.',
+      title: 'travel_history_title'.tr(),
+      subtitle: 'travel_history_subtitle'.tr(),
       children: [
         if (_trips.isNotEmpty)
           DropdownButtonFormField<int?>(
             initialValue: _selectedTripId,
             items: [
-              const DropdownMenuItem<int?>(
-                  value: null, child: Text('All trips')),
+              DropdownMenuItem<int?>(
+                  value: null, child: Text('travel_history_all_trips'.tr())),
               ..._trips.map(
                 (trip) => DropdownMenuItem<int?>(
                   value: trip.id,
@@ -244,7 +246,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
               ),
             ],
             onChanged: _selectTrip,
-            decoration: const InputDecoration(labelText: 'Trip filter'),
+            decoration: InputDecoration(labelText: 'travel_history_trip_filter'.tr()),
           ),
         const SizedBox(height: 16),
         Wrap(
@@ -254,18 +256,18 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             FilledButton.icon(
               onPressed: _importGpx,
               icon: const Icon(Icons.upload_file_outlined),
-              label: const Text('Import GPX'),
+              label: Text('travel_history_import_gpx'.tr()),
             ),
             FilledButton.tonalIcon(
               onPressed: () => _openMemoryEditor(),
               icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text('Add memory'),
+              label: Text('travel_history_add_memory'.tr()),
             ),
             OutlinedButton.icon(
               onPressed:
                   _selectedMemoryIds.isEmpty ? null : _exportSelectedPhotos,
               icon: const Icon(Icons.archive_outlined),
-              label: const Text('ZIP selected photos'),
+              label: Text('travel_history_zip_photos'.tr()),
             ),
           ],
         ),
@@ -281,11 +283,11 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'Timeline'),
-            Tab(text: 'Map'),
-            Tab(text: 'List'),
-            Tab(text: 'Summary'),
+          tabs: [
+            Tab(text: 'travel_history_tab_timeline'.tr()),
+            Tab(text: 'travel_history_tab_map'.tr()),
+            Tab(text: 'travel_history_tab_list'.tr()),
+            Tab(text: 'travel_history_tab_summary'.tr()),
           ],
         ),
         const SizedBox(height: 16),
@@ -307,10 +309,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
 
   Widget _buildTimelineTab() {
     if (_timelineItems.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.timeline_outlined,
-        title: 'No travel history yet',
-        message: 'Import a GPX or create a memory to start the timeline.',
+        title: 'travel_history_empty_title'.tr(),
+        message: 'travel_history_empty_body'.tr(),
       );
     }
     return ListView.separated(
@@ -363,15 +365,15 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
               OutlinedButton.icon(
                 onPressed: () => _pickDateRange(start: true),
                 icon: const Icon(Icons.event_outlined),
-                label: Text(_fromDate == null ? 'From' : _date(_fromDate!)),
+                label: Text(_fromDate == null ? 'travel_history_from'.tr() : _date(_fromDate!)),
               ),
               OutlinedButton.icon(
                 onPressed: () => _pickDateRange(start: false),
                 icon: const Icon(Icons.event_available_outlined),
-                label: Text(_toDate == null ? 'To' : _date(_toDate!)),
+                label: Text(_toDate == null ? 'travel_history_to'.tr() : _date(_toDate!)),
               ),
               IconButton.outlined(
-                tooltip: 'Clear filters',
+                tooltip: 'travel_history_clear_filters'.tr(),
                 onPressed: () {
                   setState(() {
                     _selectedTag = null;
@@ -487,10 +489,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   Widget _buildListTab() {
     return ListView(
       children: [
-        const SectionHeader(title: 'Tracks'),
+        SectionHeader(title: 'travel_history_tracks'.tr()),
         const SizedBox(height: 8),
         if (_tracks.isEmpty)
-          const PremiumCard(child: Text('No imported GPX tracks'))
+          PremiumCard(child: Text('travel_history_no_tracks'.tr()))
         else
           for (final track in _tracks) ...[
             PremiumCard(
@@ -512,12 +514,12 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Export GPX',
+                    tooltip: 'travel_history_export_gpx'.tr(),
                     onPressed: () => _exportTrack(track),
                     icon: const Icon(Icons.download_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Delete track',
+                    tooltip: 'travel_history_delete_track'.tr(),
                     onPressed: () => _deleteTrack(track),
                     icon: const Icon(Icons.delete_outline),
                   ),
@@ -527,10 +529,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
             const SizedBox(height: 8),
           ],
         const SizedBox(height: 16),
-        const SectionHeader(title: 'Memories'),
+        SectionHeader(title: 'travel_history_memories'.tr()),
         const SizedBox(height: 8),
         if (_filteredMemories.isEmpty)
-          const PremiumCard(child: Text('No memories for the current filters'))
+          PremiumCard(child: Text('travel_history_no_memories'.tr()))
         else
           for (final memory in _filteredMemories) ...[
             PremiumCard(
@@ -559,7 +561,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            memory.description ?? 'Geolocated memory',
+                            memory.description ?? 'travel_history_geolocated_memory'.tr(),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -578,12 +580,12 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Edit memory',
+                    tooltip: 'travel_history_edit_memory'.tr(),
                     onPressed: () => _openMemoryEditor(memory: memory),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Delete memory',
+                    tooltip: 'travel_history_delete_memory'.tr(),
                     onPressed: () => _deleteMemory(memory),
                     icon: const Icon(Icons.delete_outline),
                   ),
@@ -599,10 +601,10 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   Widget _buildSummaryTab() {
     final stats = _stats;
     if (stats == null) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.insights_outlined,
-        title: 'No statistics yet',
-        message: 'Import a track or save memories linked to a trip.',
+        title: 'travel_history_no_stats_title'.tr(),
+        message: 'travel_history_no_stats_body'.tr(),
       );
     }
     return ListView(
@@ -617,30 +619,30 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
           children: [
             MetricTile(
               icon: Icons.alt_route_outlined,
-              label: 'Distance',
+              label: 'travel_history_distance'.tr(),
               value: '${(stats.distanceMeters / 1000).toStringAsFixed(1)} km',
-              detail: '${stats.trackDays} days',
+              detail: 'travel_history_days'.tr(namedArgs: {'count': stats.trackDays.toString()}),
             ),
             MetricTile(
               icon: Icons.place_outlined,
-              label: 'Places',
+              label: 'travel_history_places'.tr(),
               value: stats.placeCount.toString(),
-              detail: 'Visited',
+              detail: 'travel_history_visited'.tr(),
             ),
             MetricTile(
               icon: Icons.account_balance_wallet_outlined,
-              label: 'Costs',
+              label: 'travel_history_costs'.tr(),
               value: _costSummary(stats),
               detail: stats.hasMixedCurrencies
-                  ? 'Separate currencies; no fake conversion'
-                  : 'Linked to trip',
+                  ? 'travel_history_mixed_currency'.tr()
+                  : 'travel_history_linked_trip'.tr(),
             ),
             MetricTile(
               icon: Icons.local_gas_station_outlined,
-              label: 'Fuel',
+              label: 'travel_history_fuel'.tr(),
               value: '${stats.totalFuelLiters.toStringAsFixed(1)} L',
               detail: stats.consumptionLitersPer100Km == null
-                  ? 'No consumption yet'
+                  ? 'travel_history_no_consumption'.tr()
                   : '${stats.consumptionLitersPer100Km!.toStringAsFixed(1)} L/100km',
             ),
           ],
@@ -650,7 +652,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Derived statistics',
+              Text('travel_history_derived_stats'.tr(),
                   style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               Text(
@@ -669,7 +671,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   }
 
   String _costSummary(TravelHistoryStats stats) {
-    if (stats.costByCurrency.isEmpty) return 'N/A';
+    if (stats.costByCurrency.isEmpty) return 'common_not_available'.tr();
     return stats.costByCurrency.entries
         .map(
           (entry) =>
@@ -697,7 +699,7 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
   }
 
   String _date(DateTime value) {
-    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+    return localizedDate(value);
   }
 
   String _duration(Duration value) {
@@ -800,7 +802,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
         final accepted = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Use photo metadata?'),
+            title: Text('travel_history_use_photo_metadata'.tr()),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -822,17 +824,26 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
                     'Coordinates: ${candidate.latitude!.toStringAsFixed(5)}, ${candidate.longitude!.toStringAsFixed(5)}',
                   ),
                 if (candidate.recordedAt != null)
-                  Text('Date: ${candidate.recordedAt!.toIso8601String()}'),
+                  Text(
+                    'travel_history_photo_date'.tr(
+                      namedArgs: {
+                        'date': localizedDateTime(
+                          candidate.recordedAt!,
+                          locale: context.locale.toLanguageTag(),
+                        ),
+                      },
+                    ),
+                  ),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Keep manual fields'),
+                child: Text('travel_history_keep_manual'.tr()),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Use metadata'),
+                child: Text('travel_history_use_metadata'.tr()),
               ),
             ],
           ),
@@ -918,20 +929,20 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.memory == null ? 'Add memory' : 'Edit memory',
+              widget.memory == null ? 'travel_history_add_memory'.tr() : 'travel_history_edit_memory'.tr(),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Title'),
+              decoration: InputDecoration(labelText: 'common_title'.tr()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _descriptionController,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Description'),
+              decoration: InputDecoration(labelText: 'travel_history_description'.tr()),
             ),
             const SizedBox(height: 12),
             Row(
@@ -941,7 +952,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
                     controller: _latitudeController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Latitude'),
+                    decoration: InputDecoration(labelText: 'travel_history_latitude'.tr()),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -950,7 +961,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
                     controller: _longitudeController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Longitude'),
+                    decoration: InputDecoration(labelText: 'travel_history_longitude'.tr()),
                   ),
                 ),
               ],
@@ -958,7 +969,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
             const SizedBox(height: 12),
             TextField(
               controller: _tagsController,
-              decoration: const InputDecoration(labelText: 'Tags'),
+              decoration: InputDecoration(labelText: 'travel_history_tags'.tr()),
             ),
             const SizedBox(height: 12),
             Row(
@@ -977,7 +988,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
                   child: OutlinedButton.icon(
                     onPressed: _importPhoto,
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Import photo'),
+                    label: Text('travel_history_import_photo'.tr()),
                   ),
                 ),
               ],
@@ -985,7 +996,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
             SwitchListTile(
               value: _favorite,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Favorite'),
+              title: Text('travel_history_favorite'.tr()),
               onChanged: (value) => setState(() => _favorite = value),
             ),
             if (_previewBytes != null) ...[
@@ -1005,7 +1016,7 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: _save,
-                child: const Text('Save'),
+                child: Text('common_save'.tr()),
               ),
             ),
           ],
@@ -1027,7 +1038,13 @@ class _MemoryPreview extends StatelessWidget {
       children: [
         const Icon(Icons.photo_library_outlined, size: 18),
         const SizedBox(width: 6),
-        Text('${memory.localPhotoPaths.length} photo(s)'),
+        Text(
+                    'travel_history_photo_count'.tr(
+                      namedArgs: {
+                        'count': memory.localPhotoPaths.length.toString(),
+                      },
+                    ),
+                  ),
       ],
     );
   }

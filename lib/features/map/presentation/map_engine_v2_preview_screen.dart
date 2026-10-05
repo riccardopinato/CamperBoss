@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../../core/config/map_engine_v2_config.dart';
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/app_system_services.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
 import '../../../data/models/camper_place.dart';
@@ -314,7 +316,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       if (mounted) {
         setState(() {
           _error =
-              'Area offline disponibile, ma il viewport storico non è stato salvato. Aprila dalla posizione corrente e risalvala se necessario.';
+              'map_offline_missing_viewport'.tr();
         });
       }
       return;
@@ -351,7 +353,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       await _offlineManager.clearAmbientCache();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cache cartografica temporanea eliminata')),
+        SnackBar(content: Text('map_cache_cleared'.tr())),
       );
     } on Object catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -365,10 +367,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mappa'),
+        title: Text('map_default_label'.tr()),
         actions: [
           IconButton(
-            tooltip: 'Pulisci cache temporanea',
+            tooltip: 'map_clear_temp_cache'.tr(),
             onPressed: _offlineManager.isSupported ? _clearAmbientCache : null,
             icon: const Icon(Icons.cleaning_services_outlined),
           ),
@@ -387,7 +389,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.download_for_offline_outlined),
-              label: const Text('Salva area offline'),
+              label: Text('map_save_offline_area'.tr()),
             )
           : null,
     );
@@ -452,26 +454,28 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                   children: [
                     const Icon(Icons.layers_outlined),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Mappa & offline',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                        'map_and_offline'.tr(),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
                     Chip(
                       label: Text(
                         !_offlineManager.isSupported
-                            ? 'Solo online'
+                            ? 'map_status_online_only'.tr()
                             : _openableOfflineRegionIds.isNotEmpty
-                                ? 'Offline pronto'
-                                : 'Offline da preparare',
+                                ? 'map_status_offline_ready'.tr()
+                                : 'map_status_offline_prepare'.tr(),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${widget.places.length} POI visibili',
+                  'map_poi_visible'.tr(
+                    namedArgs: {'count': widget.places.length.toString()},
+                  ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 Text(
@@ -492,7 +496,11 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Preparazione area offline: ${(_offlineProgress * 100).round()}%',
+                    'map_offline_preparing'.tr(
+                      namedArgs: {
+                        'percent': (_offlineProgress * 100).round().toString(),
+                      },
+                    ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -505,7 +513,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                       for (final region in _offlineRegions)
                         InputChip(
                           label: Text(
-                            '${region.name} - ${_sizeLabel(region.downloadedBytes)}',
+                            '${region.name} - ${localizedByteSize(
+                              region.downloadedBytes,
+                              locale: context.locale.toLanguageTag(),
+                            )}',
                           ),
                           avatar: Icon(
                             region.isComplete
@@ -532,10 +543,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                             ? null
                             : _prepareVisibleAreaOffline,
                         icon: const Icon(Icons.download_for_offline_outlined),
-                        label: const Text('Salva area offline'),
+                        label: Text('map_save_offline_area'.tr()),
                       ),
                       IconButton.outlined(
-                        tooltip: 'Pulisci cache temporanea',
+                        tooltip: 'map_clear_temp_cache'.tr(),
                         onPressed: _clearAmbientCache,
                         icon: const Icon(Icons.cleaning_services_outlined),
                       ),
@@ -580,14 +591,14 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                             onPressed: () =>
                                 widget.onOpenDirections!(_selectedPlace!),
                             icon: const Icon(Icons.directions_outlined),
-                            label: const Text('Indicazioni'),
+                            label: Text('common_directions'.tr()),
                           ),
                         ],
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Chiudi',
+                    tooltip: 'common_close'.tr(),
                     onPressed: () => setState(() => _selectedPlace = null),
                     icon: const Icon(Icons.close),
                   ),
@@ -612,17 +623,5 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
     };
   }
 
-  String _sizeLabel(int bytes) {
-    if (bytes <= 0) return '0 B';
-    if (bytes >= 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    if (bytes >= 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    if (bytes >= 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '$bytes B';
-  }
 }
+

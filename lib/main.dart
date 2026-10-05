@@ -36,6 +36,7 @@ class CamperBossApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Intl.defaultLocale = context.locale.toLanguageTag();
     return MaterialApp(
       title: 'CamperBoss',
       debugShowCheckedModeBanner: false,
@@ -45,7 +46,12 @@ class CamperBossApp extends StatelessWidget {
       locale: context.locale,
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
-      home: const AppShell(),
+      initialRoute: '/',
+      routes: camperBossRoutes(),
+      onUnknownRoute: (_) => MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/'),
+        builder: (_) => const AppShell(),
+      ),
     );
   }
 }

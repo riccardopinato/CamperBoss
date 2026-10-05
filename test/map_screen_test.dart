@@ -8,6 +8,8 @@ import 'package:camperboss/features/map/presentation/map_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 class FakePoiCacheRepository implements PoiCacheRepository {
   FakePoiCacheRepository(this.snapshot);
 
@@ -94,11 +96,11 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: SafeArea(
+          child: MapScreen(
               places: places,
               cacheRepository: cacheRepository,
               mapLibreOfflineManager: const _UnsupportedOfflineManager(),
@@ -106,12 +108,10 @@ void main() {
               onOpenDirections: (_) async {
                 directionsCount++;
               },
-            ),
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('map-filter-camping')),
@@ -184,11 +184,11 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: SafeArea(
+          child: MapScreen(
               places: places,
               cacheRepository: FakePoiCacheRepository(
                 const PoiCacheSnapshot(
@@ -199,12 +199,10 @@ void main() {
               ),
               mapLibreOfflineManager: const _UnsupportedOfflineManager(),
               renderMap: false,
-            ),
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('Unlocated stop'),
@@ -226,9 +224,9 @@ void main() {
       country: 'Italy',
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MapScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: MapScreen(
           places: const [],
           cacheRepository: FakePoiCacheRepository(
             const PoiCacheSnapshot(
@@ -239,14 +237,12 @@ void main() {
           ),
           mapLibreOfflineManager: const _UnsupportedOfflineManager(),
           renderMap: false,
-        ),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.byType(MapEngineV2PreviewScreen), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-maplibre-map')), findsOneWidget);
-    expect(find.text('Mappa & offline'), findsOneWidget);
+    expect(find.text('Map & offline'), findsOneWidget);
     expect(find.textContaining('PMTiles'), findsNothing);
   });
 }

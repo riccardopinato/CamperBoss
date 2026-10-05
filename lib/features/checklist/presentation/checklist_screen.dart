@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/checklist_item.dart';
@@ -57,7 +58,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Checklist unavailable';
+        _error = 'checklist_error_unavailable'.tr();
       });
     }
   }
@@ -92,7 +93,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       if (!mounted) return;
       setState(() {
         _items = previous;
-        _error = 'Checklist save failed';
+        _error = 'checklist_error_save'.tr();
       });
     }
   }
@@ -110,7 +111,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       if (!mounted) return;
       setState(() {
         _items = previous;
-        _error = 'Checklist delete failed';
+        _error = 'checklist_error_delete'.tr();
       });
     }
   }
@@ -152,24 +153,28 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   @override
   Widget build(BuildContext context) {
     return ScreenScaffold(
-      title: 'Checklist',
-      subtitle: 'Tap checks, track progress, and keep routines saved.',
+      title: 'checklist_title'.tr(),
+      subtitle: 'checklist_subtitle'.tr(),
       children: [
         PremiumCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ResourceBar(
-                label: 'Overall readiness',
+                label: 'checklist_overall_readiness'.tr(),
                 value: _progress,
                 detail:
-                    '${(_progress * 100).round()}% completed across routines',
+                    'checklist_progress_detail'.tr(
+                    namedArgs: {
+                      'percent': (_progress * 100).round().toString(),
+                    },
+                  ),
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () => _openEditor(),
                 icon: const Icon(Icons.add),
-                label: const Text('Add check'),
+                label: Text('checklist_add'.tr()),
               ),
             ],
           ),
@@ -190,20 +195,18 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'No checklist items yet',
+                  'checklist_empty_title'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Create the checks you actually use. CamperBoss no longer inserts demo routines automatically.',
-                ),
+                Text('checklist_empty_body'.tr()),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () => _openEditor(),
                   icon: const Icon(Icons.add),
-                  label: const Text('Create first check'),
+                  label: Text('checklist_create_first'.tr()),
                 ),
               ],
             ),
@@ -222,6 +225,16 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       ],
     );
   }
+}
+
+String _categoryLabel(String category) {
+  return switch (category) {
+    'Pre-trip' => 'checklist_cat_pretrip'.tr(),
+    'Arrival' => 'checklist_cat_arrival'.tr(),
+    'Service' => 'checklist_cat_service'.tr(),
+    'Winter' => 'checklist_cat_winter'.tr(),
+    _ => category,
+  };
 }
 
 class _ChecklistCategorySection extends StatelessWidget {
@@ -244,12 +257,17 @@ class _ChecklistCategorySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: title, action: '${items.length} items'),
+        SectionHeader(
+          title: _categoryLabel(title),
+          action: 'checklist_items_count'.tr(
+            namedArgs: {'count': items.length.toString()},
+          ),
+        ),
         const SizedBox(height: 12),
         PremiumCard(
           child: items.isEmpty
               ? Text(
-                  'No checks yet',
+                  'checklist_category_empty'.tr(),
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               : Column(
@@ -266,12 +284,12 @@ class _ChecklistCategorySection extends StatelessWidget {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Edit',
+                            tooltip: 'common_edit'.tr(),
                             onPressed: () => onEdit(item),
                             icon: const Icon(Icons.edit_outlined),
                           ),
                           IconButton(
-                            tooltip: 'Delete',
+                            tooltip: 'common_delete'.tr(),
                             onPressed: () => onDelete(item),
                             icon: const Icon(Icons.delete_outline),
                           ),
@@ -360,46 +378,46 @@ class _ChecklistItemEditorState extends State<_ChecklistItemEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.item == null ? 'Add check' : 'Edit check',
+            widget.item == null ? 'checklist_add'.tr() : 'checklist_edit'.tr(),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _titleController,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Title'),
+            decoration: InputDecoration(labelText: 'common_title'.tr()),
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _subtitleController,
-            decoration: const InputDecoration(labelText: 'Details'),
+            decoration: InputDecoration(labelText: 'checklist_details'.tr()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _listController,
-            decoration: const InputDecoration(labelText: 'List'),
+            decoration: InputDecoration(labelText: 'checklist_list'.tr()),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _category,
             items: [
               for (final category in widget.categories)
-                DropdownMenuItem(value: category, child: Text(category)),
+                DropdownMenuItem(value: category, child: Text(_categoryLabel(category))),
             ],
             onChanged: (value) {
               if (value != null) {
                 setState(() => _category = value);
               }
             },
-            decoration: const InputDecoration(labelText: 'Category'),
+            decoration: InputDecoration(labelText: 'common_category'.tr()),
           ),
           const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
               onPressed: _save,
-              child: const Text('Save'),
+              child: Text('common_save'.tr()),
             ),
           ),
         ],

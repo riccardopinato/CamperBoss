@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/travel_history_models.dart';
 
@@ -20,15 +21,18 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
     AppDatabase? database,
     LocalJsonCollection? tracksCollection,
     LocalJsonCollection? memoriesCollection,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _tracksCollection =
             tracksCollection ?? LocalJsonCollection('camperboss.gpx_tracks'),
         _memoriesCollection =
-            memoriesCollection ?? LocalJsonCollection('camperboss.memories');
+            memoriesCollection ?? LocalJsonCollection('camperboss.memories'),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _tracksCollection;
   final LocalJsonCollection _memoriesCollection;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<GpxTrack>> listTracks({int? tripId}) async {
@@ -52,6 +56,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
   Future<GpxTrack> saveTrack(GpxTrack track) async {
     if (kIsWeb) {
       final saved = await _tracksCollection.saveRow(track.toMap());
+      _revisionStore.bump();
       return GpxTrack.fromMap(saved);
     }
 
@@ -61,6 +66,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
       track.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
     return track;
   }
 
@@ -68,12 +74,14 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
   Future<void> deleteTrack(String id) async {
     if (kIsWeb) {
       await _tracksCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
     final db = await _database.database;
     await db
         .delete(AppDatabase.gpxTracksTable, where: 'id = ?', whereArgs: [id]);
+    _revisionStore.bump();
   }
 
   @override
@@ -98,6 +106,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
   Future<TravelMemory> saveMemory(TravelMemory memory) async {
     if (kIsWeb) {
       final saved = await _memoriesCollection.saveRow(memory.toMap());
+      _revisionStore.bump();
       return TravelMemory.fromMap(saved);
     }
 
@@ -107,6 +116,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
       memory.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _revisionStore.bump();
     return memory;
   }
 
@@ -114,6 +124,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
   Future<void> deleteMemory(String id) async {
     if (kIsWeb) {
       await _memoriesCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
@@ -123,6 +134,7 @@ class LocalTravelHistoryRepository implements TravelHistoryRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
   }
 
   List<GpxTrack> _filterTracks(List<GpxTrack> tracks, int? tripId) {

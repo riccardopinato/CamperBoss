@@ -9,12 +9,14 @@ import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../checklist/presentation/checklist_screen.dart';
 import '../../documents/presentation/vehicle_documents_screen.dart';
 import '../../finance/presentation/finance_screen.dart';
 import '../../journal/presentation/journal_screen.dart';
 import '../../maintenance/presentation/maintenance_screen.dart';
 import '../../offline/presentation/offline_guides_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../trip/presentation/travel_history_screen.dart';
 import '../../trip/presentation/trip_planner_screen.dart';
 
 class LocalSearchScreen extends ConsumerStatefulWidget {
@@ -68,7 +70,7 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Search index unavailable';
+        _error = 'search_error_index_unavailable'.tr();
         _isLoading = false;
       });
     }
@@ -86,14 +88,14 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       setState(() {
         _hits = hits;
         _error = snapshot.status == SearchIndexStatus.corrupted
-            ? snapshot.lastError ?? 'Search index corrupted'
+            ? 'search_error_index_corrupted'.tr()
             : null;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Search failed';
+        _error = 'search_error_failed'.tr();
         _isLoading = false;
       });
     }
@@ -106,7 +108,7 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       await _search();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Index rebuild failed');
+      setState(() => _error = 'search_error_rebuild_failed'.tr());
     } finally {
       if (mounted) setState(() => _isRebuilding = false);
     }
@@ -141,6 +143,19 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       SearchDocumentType.journal => JournalScreen(initialEntryId: sourceInt),
       SearchDocumentType.trip => TripPlannerScreen(initialTripId: sourceInt),
       SearchDocumentType.booking => FinanceScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.expense => FinanceScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.fuel => FinanceScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.checklist => const ChecklistScreen(),
+      SearchDocumentType.gpxTrack => TravelHistoryScreen(
+          initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
+        ),
+      SearchDocumentType.memory => TravelHistoryScreen(
           initialTripId: int.tryParse(hit.metadata['tripId'] ?? ''),
         ),
       SearchDocumentType.offlineGuide =>
@@ -241,6 +256,11 @@ class _LocalSearchScreenState extends ConsumerState<LocalSearchScreen> {
       SearchDocumentType.journal => 'search_filter_journal'.tr(),
       SearchDocumentType.trip => 'search_filter_trips'.tr(),
       SearchDocumentType.booking => 'search_filter_bookings'.tr(),
+      SearchDocumentType.expense => 'search_filter_expenses'.tr(),
+      SearchDocumentType.fuel => 'search_filter_fuel'.tr(),
+      SearchDocumentType.checklist => 'search_filter_checklist'.tr(),
+      SearchDocumentType.gpxTrack => 'search_filter_gpx'.tr(),
+      SearchDocumentType.memory => 'search_filter_memories'.tr(),
       SearchDocumentType.offlineGuide => 'search_filter_guides'.tr(),
       SearchDocumentType.vehicleNote => 'search_filter_vehicle'.tr(),
     };
@@ -266,7 +286,7 @@ class _SearchHitCard extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: CircleAvatar(child: Icon(_iconFor(hit.type))),
           title: Text(
-            hit.title,
+            _titleFor(hit),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -282,6 +302,15 @@ class _SearchHitCard extends StatelessWidget {
     );
   }
 
+  String _titleFor(SearchHit hit) {
+    if (hit.title.trim().isNotEmpty) return hit.title;
+    return switch (hit.type) {
+      SearchDocumentType.expense => 'search_fallback_expense'.tr(),
+      SearchDocumentType.fuel => 'search_fallback_fuel'.tr(),
+      _ => 'search_fallback_item'.tr(),
+    };
+  }
+
   IconData _iconFor(SearchDocumentType type) {
     return switch (type) {
       SearchDocumentType.vehicleDocument => Icons.folder_copy_outlined,
@@ -289,6 +318,11 @@ class _SearchHitCard extends StatelessWidget {
       SearchDocumentType.journal => Icons.auto_stories_outlined,
       SearchDocumentType.trip => Icons.route_outlined,
       SearchDocumentType.booking => Icons.event_available_outlined,
+      SearchDocumentType.expense => Icons.receipt_long_outlined,
+      SearchDocumentType.fuel => Icons.local_gas_station_outlined,
+      SearchDocumentType.checklist => Icons.checklist_outlined,
+      SearchDocumentType.gpxTrack => Icons.alt_route_outlined,
+      SearchDocumentType.memory => Icons.photo_camera_outlined,
       SearchDocumentType.offlineGuide => Icons.menu_book_outlined,
       SearchDocumentType.vehicleNote => Icons.directions_car_outlined,
     };

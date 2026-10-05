@@ -9,7 +9,10 @@ import '../../data/models/app_reminder.dart';
 import 'local_notification_service_stub.dart';
 
 export 'local_notification_service_stub.dart'
-    show LocalNotificationService, NotificationPermissionState;
+    show
+        LocalNotificationService,
+        NotificationPermissionState,
+        NotificationTimezoneState;
 
 LocalNotificationService createLocalNotificationService() {
   return FlutterLocalNotificationService();
@@ -27,6 +30,8 @@ class FlutterLocalNotificationService implements LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   String? _launchPayload;
   bool _initialized = false;
+  NotificationTimezoneState _timezoneState =
+      NotificationTimezoneState.unavailable;
 
   @override
   Future<void> initialize() async {
@@ -69,9 +74,23 @@ class FlutterLocalNotificationService implements LocalNotificationService {
           : NotificationPermissionState.denied;
     }
     if (Platform.isIOS) {
-      return NotificationPermissionState.unavailable;
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      final permissions = await ios?.checkPermissions();
+      if (permissions == null) {
+        return NotificationPermissionState.unavailable;
+      }
+      return permissions.isEnabled
+          ? NotificationPermissionState.granted
+          : NotificationPermissionState.denied;
     }
     return NotificationPermissionState.unavailable;
+  }
+
+  @override
+  Future<NotificationTimezoneState> getTimezoneState() async {
+    await initialize();
+    return _timezoneState;
   }
 
   @override
@@ -176,8 +195,10 @@ class FlutterLocalNotificationService implements LocalNotificationService {
     try {
       final timezone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timezone.identifier));
+      _timezoneState = NotificationTimezoneState.local;
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('UTC'));
+      _timezoneState = NotificationTimezoneState.utcFallback;
     }
   }
 }

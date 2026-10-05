@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_spacing.dart';
@@ -112,7 +113,7 @@ class PlaceCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onDirections,
                   icon: const Icon(Icons.directions_outlined),
-                  label: const Text('Directions'),
+                  label: Text('common_directions'.tr()),
                 ),
               ),
             ],

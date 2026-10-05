@@ -167,6 +167,10 @@ class ReminderCoordinator implements ReminderSyncService {
     return _notificationService.getPermissionState();
   }
 
+  Future<NotificationTimezoneState> timezoneState() {
+    return _notificationService.getTimezoneState();
+  }
+
   Future<bool> requestPermission() {
     return _notificationService.requestPermission();
   }

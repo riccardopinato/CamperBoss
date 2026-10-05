@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/checklist_item.dart';
 
@@ -15,12 +16,15 @@ class LocalChecklistRepository implements ChecklistRepository {
   LocalChecklistRepository({
     AppDatabase? database,
     LocalJsonCollection? webCollection,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
-            webCollection ?? LocalJsonCollection('camperboss.checklist');
+            webCollection ?? LocalJsonCollection('camperboss.checklist'),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<CamperChecklistItem>> listItems() async {
@@ -43,6 +47,7 @@ class LocalChecklistRepository implements ChecklistRepository {
     if (kIsWeb) {
       final values = item.toMap();
       final saved = await _webCollection.saveRow(values);
+      _revisionStore.bump();
       return CamperChecklistItem.fromMap(saved);
     }
 
@@ -53,6 +58,7 @@ class LocalChecklistRepository implements ChecklistRepository {
         ? await db.insert(AppDatabase.checklistTable, values)
         : await _updateItem(db, item.id!, values);
 
+    _revisionStore.bump();
     return item.copyWith(id: id);
   }
 
@@ -74,6 +80,7 @@ class LocalChecklistRepository implements ChecklistRepository {
   Future<void> deleteItem(int id) async {
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
@@ -83,6 +90,7 @@ class LocalChecklistRepository implements ChecklistRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
   }
 
   int _sortChecklistItems(CamperChecklistItem a, CamperChecklistItem b) {
