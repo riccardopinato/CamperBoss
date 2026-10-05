@@ -77,8 +77,10 @@ jobs:
           mkdir -p build/evidence
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           SIZE=$(stat -c%s "$APK")
-          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"signingClass":"QA_ONLY"}\n' \
-            "${{ github.sha }}" "$APK" "$SHA" "$SIZE" > build/evidence/android-qa-release.json
+          MAX=$((80 * 1024 * 1024))
+          test "$SIZE" -le "$MAX"
+          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"maxBytes":%s,"signingClass":"QA_ONLY"}\n' \
+            "${{ github.sha }}" "$APK" "$SHA" "$SIZE" "$MAX" > build/evidence/android-qa-release.json
       - name: Upload QA APK and evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -116,13 +118,22 @@ jobs:
         run: flutter build web --release
       - name: Audit Web bundle size
         run: |
+          set -euo pipefail
           test -s build/web/index.html
           du -sh build/web
+          TOTAL=$(find build/web -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}')
+          MAX=65000000
+          test "$TOTAL" -le "$MAX"
+          mkdir -p build/evidence
+          printf '{"sourceSha":"%s","webBytes":%s,"maxBytes":%s}\n' \
+            "${{ github.sha }}" "$TOTAL" "$MAX" > build/evidence/web-size.json
           find build/web -maxdepth 2 -type f -print0 | xargs -0 du -h | sort -h | tail -20
       - name: Upload Web candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: camperboss-web-release-${{ github.sha }}
-          path: build/web
+          path: |
+            build/web
+            build/evidence/web-size.json
           if-no-files-found: error
           retention-days: 30

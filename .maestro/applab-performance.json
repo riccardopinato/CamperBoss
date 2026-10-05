@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "profile": "step-16p-runtime",
+  "active_platforms": ["android", "web"],
+  "android": {
+    "cold_start_samples": 5,
+    "warm_start_samples": 5,
+    "map_pan_zoom_seconds": 60,
+    "offline_download_observation": true,
+    "process_death_recovery": true,
+    "memory_pressure_recovery": true,
+    "storage_near_full": true,
+    "battery_observation_minutes": 15
+  },
+  "web": {
+    "responsive_widths": [360, 768, 1440],
+    "local_storage_quota_recovery": true,
+    "refresh_back_forward": true
+  },
+  "required_for_final_certification": true,
+  "note": "AppLab/device measurements are external evidence; repository CI must not synthesize PASS values."
+}

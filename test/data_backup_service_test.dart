@@ -359,6 +359,48 @@ void main() {
     expect(vehiclePdf.lengthSync(), greaterThan(0));
     expect(tripPdf.lengthSync(), greaterThan(0));
   });
+
+  test('backs up and inspects 1k trips within broad CI regression budget',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_backup_stress_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final trips = List.generate(
+      1000,
+      (index) => TripPlan(
+        id: index + 1,
+        title: 'Stress trip $index',
+        summary: 'Local-first backup stress row $index',
+        progress: (index % 100) / 100,
+        destination: 'Destination ${index % 25}',
+        notes: 'Notes ' * 8,
+        stages: [
+          'Stage A $index',
+          'Stage B $index',
+        ],
+        updatedAt: DateTime(2026, 1, 1).add(Duration(minutes: index)),
+      ),
+      growable: false,
+    );
+    final service = _service(trips: trips);
+
+    final create = Stopwatch()..start();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    create.stop();
+
+    final inspect = Stopwatch()..start();
+    final inspection = await service.inspectBackup(backup.path);
+    inspect.stop();
+
+    expect(inspection.isValid, isTrue);
+    expect(inspection.recordCounts['data/trips.json'], 1000);
+    expect(File(backup.path).lengthSync(), greaterThan(0));
+    expect(create.elapsed, lessThan(const Duration(seconds: 15)));
+    expect(inspect.elapsed, lessThan(const Duration(seconds: 10)));
+  });
 }
 
 DataBackupService _service({
