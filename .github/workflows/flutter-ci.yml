@@ -87,6 +87,9 @@ jobs:
       - name: Project-specific SAST
         run: python3 tool/ci/release_guard.py sast
 
+      - name: Provider and trust-boundary audit
+        run: python3 tool/ci/release_guard.py trust-boundaries
+
       - name: Analyze
         run: flutter analyze
 

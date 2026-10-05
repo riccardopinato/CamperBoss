@@ -1,9 +1,21 @@
+import 'provider_trust_config.dart';
+
 abstract final class MapEngineV2Config {
   static const String engineId = 'maplibre';
+
+  /// Public online rendering style. Offline bulk download is intentionally
+  /// separated and must use an explicitly approved/self-hosted style URL.
   static const String styleUrl =
       'https://tiles.openfreemap.org/styles/liberty';
+
+  static String? get offlineStyleUrl =>
+      ProviderTrustConfig.offlineMapStyleUri?.toString();
+
+  static bool get isOfflineDownloadConfigured =>
+      ProviderTrustConfig.isOfflineMapDownloadConfigured;
+
   static const String attribution =
-      'OpenStreetMap contributors - OpenFreeMap';
+      'OpenFreeMap © OpenMapTiles · Data © OpenStreetMap contributors';
 
   static const double initialZoom = 10.2;
   static const double minimumOfflineZoom = 8.0;

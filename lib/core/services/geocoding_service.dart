@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/provider_trust_config.dart';
+
 class GeoLocationResult {
   const GeoLocationResult({
     required this.name,
@@ -29,11 +31,12 @@ class GeoLocationResult {
 }
 
 class GeocodingService {
-  const GeocodingService({http.Client? client}) : _client = client;
+  const GeocodingService({http.Client? client, Uri? endpoint})
+      : _client = client,
+        _endpoint = endpoint;
 
   final http.Client? _client;
-
-  static const _endpoint = 'https://geocoding-api.open-meteo.com/v1/search';
+  final Uri? _endpoint;
 
   Future<List<GeoLocationResult>> search(
     String query, {
@@ -42,9 +45,17 @@ class GeocodingService {
     final normalized = query.trim();
     if (normalized.length < 3) return const [];
 
+    final endpoint = _endpoint ?? ProviderTrustConfig.geocodingEndpoint;
+    if (endpoint == null) {
+      throw StateError(
+        'Geocoding provider is not configured for commercial distribution.',
+      );
+    }
+
     final client = _client ?? http.Client();
-    final uri = Uri.parse(_endpoint).replace(
+    final uri = endpoint.replace(
       queryParameters: {
+        ...endpoint.queryParameters,
         'name': normalized,
         'count': '8',
         'language': language,
@@ -56,7 +67,10 @@ class GeocodingService {
       final response =
           await client.get(uri).timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) {
-        throw StateError('Geocoding responded ${response.statusCode}');
+        throw StateError('Geocoding provider responded ${response.statusCode}');
+      }
+      if (response.bodyBytes.length > 1024 * 1024) {
+        throw StateError('Geocoding response exceeded safety limit');
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;

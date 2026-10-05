@@ -258,6 +258,97 @@ def sast() -> None:
         fail("blocking SAST findings detected")
 
 
+
+def trust_boundaries() -> None:
+    findings: list[dict] = []
+
+    provider = ROOT / "lib" / "core" / "config" / "provider_trust_config.dart"
+    routing = ROOT / "lib" / "core" / "services" / "routing_service.dart"
+    map_config = ROOT / "lib" / "core" / "config" / "map_engine_v2_config.dart"
+    map_offline = ROOT / "lib" / "core" / "services" / "maplibre_offline_region_manager.dart"
+    android_manifest = ROOT / "android" / "app" / "src" / "main" / "AndroidManifest.xml"
+
+    required_files = [
+        provider,
+        routing,
+        map_config,
+        map_offline,
+        ROOT / "docs" / "security" / "step-16o-threat-model.md",
+        ROOT / "docs" / "security" / "provider-licensing-ledger.md",
+        ROOT / "docs" / "privacy" / "data-inventory.md",
+    ]
+    for path in required_files:
+        if not path.is_file():
+            findings.append({"type": "missing_release_trust_evidence", "file": path.relative_to(ROOT).as_posix()})
+
+    if provider.is_file():
+        text = provider.read_text(encoding="utf-8")
+        required_fragments = [
+            "CAMPERBOSS_ROUTING_PROXY_URL",
+            "CAMPERBOSS_COMMERCIAL_DISTRIBUTION",
+            "CAMPERBOSS_OFFLINE_MAP_STYLE_URL",
+            "api.heigit.org/openrouteservice",
+        ]
+        for fragment in required_fragments:
+            if fragment not in text:
+                findings.append({"type": "provider_boundary_missing", "fragment": fragment})
+
+    lib_text = ""
+    for path in (ROOT / "lib").rglob("*.dart"):
+        lib_text += "\n" + path.read_text(encoding="utf-8")
+    if "api.openrouteservice.org" in lib_text:
+        findings.append({"type": "deprecated_routing_endpoint_in_runtime"})
+    if "ORS_BASE_URL" in lib_text:
+        findings.append({"type": "legacy_untrusted_routing_override"})
+
+    if map_offline.is_file():
+        text = map_offline.read_text(encoding="utf-8")
+        if "MapEngineV2Config.offlineStyleUrl" not in text:
+            findings.append({"type": "offline_map_does_not_use_approved_style_boundary"})
+        if "MapEngineV2Config.styleUrl" in text:
+            findings.append({"type": "offline_map_reuses_public_online_style"})
+
+    if android_manifest.is_file():
+        text = android_manifest.read_text(encoding="utf-8")
+        if 'android:allowBackup="false"' not in text:
+            findings.append({"type": "android_backup_not_disabled"})
+        if 'android:usesCleartextTraffic="false"' not in text:
+            findings.append({"type": "android_cleartext_not_disabled"})
+
+    forbidden_history_suffixes = (".jks", ".keystore", ".p12", ".pfx")
+    forbidden_history_names = {"android/key.properties"}
+    history_names = subprocess.check_output(
+        ["git", "log", "--all", "--name-only", "--pretty=format:"],
+        cwd=ROOT,
+        text=True,
+    ).splitlines()
+    for raw in history_names:
+        rel = raw.strip().replace("\\", "/")
+        if not rel:
+            continue
+        if rel in forbidden_history_names or rel.lower().endswith(forbidden_history_suffixes):
+            findings.append({"type": "secret_material_path_in_git_history", "file": rel})
+
+    large_public_files: list[dict] = []
+    for path in tracked_files():
+        rel = path.relative_to(ROOT).as_posix()
+        if not path.is_file():
+            continue
+        if path.stat().st_size > 5_000_000 and not rel.startswith(("android/gradle/wrapper/",)):
+            large_public_files.append({"file": rel, "bytes": path.stat().st_size})
+    if large_public_files:
+        findings.append({"type": "unexpected_large_tracked_files", "files": large_public_files})
+
+    report = {
+        "sourceSha": os.getenv("GITHUB_SHA", "local"),
+        "findings": findings,
+        "status": "PASS" if not findings else "FAIL",
+    }
+    write_report("trust-boundaries.json", report)
+    if findings:
+        fail("release trust-boundary audit failed")
+
+
 def coverage(lcov: Path, minimum: float) -> None:
     if not lcov.is_file():
         fail(f"coverage file missing: {lcov}")
@@ -290,6 +381,7 @@ def main() -> None:
     sub.add_parser("supply-chain")
     sub.add_parser("secrets")
     sub.add_parser("sast")
+    sub.add_parser("trust-boundaries")
     cov = sub.add_parser("coverage")
     cov.add_argument("--lcov", default="coverage/lcov.info")
     cov.add_argument("--minimum", type=float, default=20.0)
@@ -304,6 +396,8 @@ def main() -> None:
         secret_scan()
     elif args.command == "sast":
         sast()
+    elif args.command == "trust-boundaries":
+        trust_boundaries()
     elif args.command == "coverage":
         coverage(ROOT / args.lcov, args.minimum)
 

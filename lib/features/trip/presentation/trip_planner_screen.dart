@@ -62,7 +62,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   late final RoutePreviewRepository _routePreviewRepository =
       widget.routePreviewRepository ?? LocalRoutePreviewRepository();
   late final RoutingService _routingService = widget.routingService ??
-      OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
+      OpenRouteServiceRoutingService(
+        apiKey: RoutingConfig.orsApiKey,
+        baseUri: RoutingConfig.serviceBaseUrl,
+        requireApiKey: RoutingConfig.requiresClientApiKey,
+      );
   late final VehicleProfileRepository _vehicleProfileRepository =
       widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
   late final TripDeletionService _deletionService =
@@ -951,8 +955,10 @@ class _TripEditorState extends State<_TripEditor> {
       setState(() {
         _stagesController.text = resolved.join('\n');
         _stageResolutionStatus = unresolved == 0
-            ? 'Tutte le tappe sono geolocalizzate e pronte per il routing.'
-            : '$unresolved tappa/e non risolte: controllale o inserisci le coordinate.';
+            ? 'trip_geocode_all_resolved'.tr()
+            : 'trip_geocode_unresolved'.tr(
+                namedArgs: {'count': unresolved.toString()},
+              );
       });
     } finally {
       if (mounted) setState(() => _isResolvingStages = false);

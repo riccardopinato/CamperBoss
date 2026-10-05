@@ -127,6 +127,7 @@ jobs:
           python3 tool/ci/release_guard.py supply-chain
           python3 tool/ci/release_guard.py secrets
           python3 tool/ci/release_guard.py sast
+          python3 tool/ci/release_guard.py trust-boundaries
 
       - name: Build signed AAB exactly once
         env:

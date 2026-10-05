@@ -96,10 +96,26 @@ those same bytes from a separate job without rebuilding.
 QA release APKs may use debug signing but are labelled QA-only and are never
 eligible for Play upload. See `release/README.md`.
 
-## Routing configuration
+## Provider configuration
 
-Development builds may receive an ORS key using `--dart-define=ORS_API_KEY=...`.
-Do not commit keys. A key embedded in a client is not treated as a production secret; STEP 16O owns the production network boundary.
+Production routing must use an HTTPS server-side boundary supplied through
+`CAMPERBOSS_ROUTING_PROXY_URL`; provider credentials stay outside the Flutter
+binary. Direct ORS/HeiGIT access is development-only and requires both
+`ORS_API_KEY` and `CAMPERBOSS_ALLOW_DIRECT_ORS_DEV=true`.
+
+Open-Meteo public endpoints are permitted only for explicitly non-commercial
+builds. Before ads/IAP/subscriptions are enabled, configure commercial-capable
+weather/geocoding proxy endpoints. Any upstream provider credential must remain
+server-side and must not be embedded in the Flutter client.
+
+Online MapLibre rendering may use OpenFreeMap. Offline region bulk collection
+requires a separately approved/self-hosted style URL through
+`CAMPERBOSS_OFFLINE_MAP_STYLE_URL`; the public OpenFreeMap endpoint is not used
+as an implicit offline-download source.
+
+See `docs/security/step-16o-threat-model.md`,
+`docs/security/provider-licensing-ledger.md` and
+`docs/privacy/data-inventory.md`.
 
 ## Monetization
 
