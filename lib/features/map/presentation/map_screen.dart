@@ -6,11 +6,13 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/localization/locale_formatters.dart';
+import '../../../core/services/app_system_services.dart';
 import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/maplibre_offline_region_manager.dart';
 import '../../../core/state/selected_location.dart';
 import '../../../data/models/camper_place.dart';
+import '../../../data/models/download_models.dart';
 import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/map_view_state_repository.dart';
 import '../../../data/repositories/offline_map_repository.dart';
@@ -59,6 +61,8 @@ class _MapScreenState extends State<MapScreen> {
   final _locationService = const LocationService();
   final _distance = const Distance();
   Timer? _debounce;
+  StreamSubscription<List<DownloadRecord>>? _downloadSubscription;
+  String _poiDownloadSignature = '';
 
   List<GeoLocationResult> _results = const [];
   late List<CamperPlace> _places = widget.places ?? const <CamperPlace>[];
@@ -79,13 +83,35 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _loadLocalData();
+    if (widget.places == null && widget.poiRepository == null) {
+      _downloadSubscription = AppSystemServices.instance.downloads
+          .watchDownloads()
+          .listen(_handleDownloadRecords);
+    }
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _downloadSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleDownloadRecords(List<DownloadRecord> records) {
+    final installedPoiIds = records
+        .where(
+          (record) =>
+              record.type == DownloadPackageType.poiDatabase &&
+              record.status == DownloadStatus.completed,
+        )
+        .map((record) => record.packageId)
+        .toList(growable: false)
+      ..sort();
+    final signature = installedPoiIds.join('|');
+    if (signature == _poiDownloadSignature) return;
+    _poiDownloadSignature = signature;
+    unawaited(_loadLocalData());
   }
 
   Future<void> _loadLocalData() async {
