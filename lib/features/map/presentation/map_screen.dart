@@ -206,6 +206,17 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _openOfflineContent() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const OfflineContentScreen(),
+      ),
+    );
+    if (mounted) {
+      await _loadLocalData();
+    }
+  }
+
   Future<void> _openDirections(CamperPlace place) async {
     final handler = widget.onOpenDirections;
     if (handler != null) {
@@ -289,11 +300,7 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                         IconButton.outlined(
                           tooltip: 'offline_title'.tr(),
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const OfflineContentScreen(),
-                            ),
-                          ),
+                          onPressed: _openOfflineContent,
                           icon: const Icon(Icons.cloud_download_outlined),
                         ),
                       ],
@@ -467,11 +474,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       IconButton.outlined(
                         tooltip: 'offline_title'.tr(),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const OfflineContentScreen(),
-                          ),
-                        ),
+                        onPressed: _openOfflineContent,
                         icon: const Icon(Icons.cloud_download_outlined),
                       ),
                     ],
