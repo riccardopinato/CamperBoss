@@ -151,7 +151,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add service'));
+    await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'Committed service');
