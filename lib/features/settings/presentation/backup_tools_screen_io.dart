@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/services/app_system_services.dart';
 import '../../../core/services/data_backup_service.dart';
@@ -36,13 +39,32 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
           },
         ),
       );
+
+      final temporaryBackup = File(result.path);
+      final durableLocation = await FilePicker.saveFile(
+        dialogTitle: 'backup_create'.tr(),
+        fileName: p.basename(result.path),
+        bytes: await temporaryBackup.readAsBytes(),
+        type: FileType.custom,
+        allowedExtensions: const ['zip'],
+      );
+      if (durableLocation == null) {
+        if (!mounted) return;
+        setState(() => _status = 'backup_cancelled'.tr());
+        return;
+      }
+
+      final durablePath = durableLocation.toString();
+      if (await temporaryBackup.exists()) {
+        await temporaryBackup.delete();
+      }
       if (!mounted) return;
       setState(() {
         _status = 'backup_created'.tr(
           namedArgs: {
             'records': result.recordCount.toString(),
             'files': result.fileCount.toString(),
-            'path': result.path,
+            'path': durablePath,
           },
         );
       });
