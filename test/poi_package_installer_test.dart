@@ -12,6 +12,33 @@ import 'package:camperboss/data/repositories/poi_package_state_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('manifest rejects package destinations outside offline root', () {
+    final manifest = DownloadManifest(
+      schemaVersion: 1,
+      updatedAt: DateTime.utc(2026, 10, 6),
+      packages: const [
+        DownloadablePackage(
+          id: 'unsafe',
+          type: DownloadPackageType.poiDatabase,
+          title: 'Unsafe',
+          description: '',
+          version: '1',
+          url: 'https://downloads.example.test/unsafe.json',
+          fileName: 'unsafe.json',
+          fileSizeBytes: 1,
+          expectedSha256: '',
+          requiresWifiByDefault: true,
+          destinationDirectory: '../databases',
+        ),
+      ],
+    );
+
+    expect(
+      () => manifest.validate(allowedHosts: {'downloads.example.test'}),
+      throwsFormatException,
+    );
+  });
+
   test('activates verified POI package and persists provenance', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss-poi-');
     addTearDown(() => temp.delete(recursive: true));
