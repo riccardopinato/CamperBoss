@@ -264,6 +264,108 @@ void main() {
     expect(File(rolledBackPath).readAsStringSync(), 'old-private-file');
   });
 
+  test('replaceAll purges stale derived route previews before integrity audit',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_route_restore_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final source = _memoryState(
+      trips: const [
+        TripPlan(id: 42, title: 'Restored', summary: 'Backup', progress: 1),
+      ],
+    );
+    final backup = await _serviceFrom(source).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Old', summary: 'Local', progress: 0),
+      ],
+    );
+    final routes = _MemoryRouteRepository([
+      RouteResult(
+        tripId: 1,
+        waypointFingerprint: 'old-trip',
+        geometry: const [],
+        totalDistanceMeters: 0,
+        totalDurationSeconds: 0,
+        legs: const [],
+        provider: 'test',
+        calculatedAt: DateTime.utc(2026, 1, 1),
+      ),
+      RouteResult(
+        tripId: 999,
+        waypointFingerprint: 'orphan',
+        geometry: const [],
+        totalDistanceMeters: 0,
+        totalDurationSeconds: 0,
+        legs: const [],
+        provider: 'test',
+        calculatedAt: DateTime.utc(2026, 1, 2),
+      ),
+    ]);
+
+    await _serviceFrom(target, routeRepository: routes).restoreBackup(
+      backup.path,
+      RestoreStrategy.replaceAll,
+    );
+
+    expect(await routes.listRoutes(), isEmpty);
+    expect(target.trips.single.id, 42);
+  });
+
+  test('restore aborts before mutation when safety backup is incomplete',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_safety_guard_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _memoryState(
+      trips: const [
+        TripPlan(id: 2, title: 'Incoming', summary: 'Backup', progress: 0),
+      ],
+    );
+    final backup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final missingPath = '${temp.path}/missing-private.pdf';
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Keep me', summary: 'Local', progress: 0),
+      ],
+      documents: [
+        VehicleDocument(
+          id: 1,
+          category: 'insurance',
+          title: 'Missing attachment',
+          localFilePath: missingPath,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+
+    await expectLater(
+      _serviceFrom(target).restoreBackup(
+        backup.path,
+        RestoreStrategy.replaceAll,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Safety backup is incomplete'),
+        ),
+      ),
+    );
+
+    expect(target.trips.single.title, 'Keep me');
+    expect(target.documents.single.localFilePath, missingPath);
+  });
+
   test('merge keeps newer local conflicts and restores new records', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss_merge_test');
     addTearDown(() => temp.delete(recursive: true));
@@ -440,6 +542,7 @@ DataBackupService _serviceFrom(
   DocumentStorageService? fileStorageService,
   TripRepository? tripRepository,
   VehicleDocumentRepository? documentRepository,
+  RoutePreviewRepository? routeRepository,
 }) {
   final profile = _MemoryProfileRepository(state);
   final trips = tripRepository ?? _MemoryTripRepository(state);
@@ -450,6 +553,7 @@ DataBackupService _serviceFrom(
   final finance = _MemoryFinanceRepository(state);
   final history = _MemoryTravelHistoryRepository(state);
   final reminders = _MemoryReminderRepository();
+  final routes = routeRepository ?? _MemoryRouteRepository();
 
   return DataBackupService(
     profileRepository: profile,
@@ -461,6 +565,7 @@ DataBackupService _serviceFrom(
     financeRepository: finance,
     travelHistoryRepository: history,
     reminderRepository: reminders,
+    routeRepository: routes,
     userStateBackupService:
         UserStateBackupService(store: MemoryKeyValueStore()),
     integrityService: DataIntegrityService(
@@ -471,7 +576,7 @@ DataBackupService _serviceFrom(
       maintenanceRepository: maintenance,
       travelHistoryRepository: history,
       reminderRepository: reminders,
-      routeRepository: _MemoryRouteRepository(),
+      routeRepository: routes,
     ),
     fileStorageService: fileStorageService,
   );
@@ -879,14 +984,33 @@ class _MemoryTravelHistoryRepository implements TravelHistoryRepository {
 
 
 class _MemoryRouteRepository implements RoutePreviewRepository {
-  @override
-  Future<void> deleteRouteForTrip(int tripId) async {}
+  _MemoryRouteRepository([List<RouteResult> routes = const []])
+      : routes = [...routes];
+
+  final List<RouteResult> routes;
 
   @override
-  Future<RouteResult?> loadRouteForTrip(int tripId) async => null;
+  Future<List<RouteResult>> listRoutes() async => [...routes];
 
   @override
-  Future<RouteResult> saveRoute(RouteResult route) async => route;
+  Future<void> deleteRouteForTrip(int tripId) async {
+    routes.removeWhere((route) => route.tripId == tripId);
+  }
+
+  @override
+  Future<RouteResult?> loadRouteForTrip(int tripId) async {
+    for (final route in routes) {
+      if (route.tripId == tripId) return route;
+    }
+    return null;
+  }
+
+  @override
+  Future<RouteResult> saveRoute(RouteResult route) async {
+    await deleteRouteForTrip(route.tripId);
+    routes.add(route);
+    return route;
+  }
 }
 
 class _MemoryReminderRepository implements ReminderRepository {
