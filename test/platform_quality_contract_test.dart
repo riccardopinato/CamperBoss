@@ -35,6 +35,11 @@ void main() {
     }
     expect(main, contains('routes: camperBossRoutes()'));
     expect(main, contains('onUnknownRoute:'));
+    expect(main, isNot(contains('usePathUrlStrategy')));
+    expect(
+      File('README.md').readAsStringSync(),
+      contains('/CamperBoss/#/map'),
+    );
   });
 
   test('native capability Product Truth stays explicit', () {

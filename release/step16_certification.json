@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "step": "16",
+  "activePlatforms": ["android", "web"],
+  "ios": {
+    "status": "DEFERRED",
+    "blocksRelease": false,
+    "iapInScope": false
+  },
+  "softwareScope": "IMPLEMENTED",
+  "finalVerdict": "BLOCKED",
+  "blockedBy": [
+    "PLAY_INTERNAL_EVIDENCE",
+    "ANDROID_APPLAB_DEVICE_EVIDENCE",
+    "PHYSICAL_OFFLINE_MAP_EVIDENCE",
+    "ACCESSIBILITY_RUNTIME_EVIDENCE",
+    "ANDROID_PERFORMANCE_RUNTIME_EVIDENCE",
+    "WEB_RUNTIME_EVIDENCE",
+    "VISUAL_ASSET_QA"
+  ]
+}

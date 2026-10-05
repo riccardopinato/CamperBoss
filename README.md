@@ -73,13 +73,15 @@ literals. Geocoding receives the current application language, and shared
 formatters handle localized dates, decimal values, distances, currencies and
 storage sizes.
 
-On iOS, notification permission state is queried from the native plugin instead
-of being reported as permanently unavailable. If the local timezone cannot be
-resolved, the UTC fallback is visible in Notification settings.
+iOS implementation details may remain in-tree for future reuse, but iOS build,
+runtime and StoreKit/IAP behavior are not part of the current release scope.
 
 Web metadata is branded for CamperBoss and no longer forces portrait
-orientation. Top-level routes `/`, `/map`, `/trips`, `/camper` and
-`/more` are URL-addressable so refresh/deep-link behavior can be tested.
+orientation. The app exposes named routes `/`, `/map`, `/trips`, `/camper`
+and `/more`. GitHub Pages uses Flutter's default hash routing, so deployed
+URLs are truthful forms such as `/CamperBoss/#/map` and
+`/CamperBoss/#/trips`; server-side `/CamperBoss/map` rewrites are not
+claimed.
 Native-only document/media capability remains explicitly unavailable on Web.
 Storage write failures propagate without replacing the previous JSON value and
 do not poison later serialized writes; real browser quota/runtime evidence

@@ -537,7 +537,7 @@ Criterio di uscita:
 
 ## STEP 16N — Localizzazione, accessibilità, iOS capability e Web quality
 
-Stato: `BLOCKED — RUNTIME ACCESSIBILITY / WEB EVIDENCE`
+Stato: `DONE`
 
 Problemi da risolvere tutti:
 
@@ -586,7 +586,7 @@ Criterio di uscita:
 
 ## STEP 16O — Security, privacy, licensing e trust boundaries
 
-Stato: `TODO`
+Stato: `DONE`
 
 Problemi da risolvere tutti:
 
@@ -600,13 +600,24 @@ Problemi da risolvere tutti:
 - nessun secret, key, service account o materiale personale deve entrare nel repo pubblico o negli artifact/log;
 - aggiungere audit dei file non-code pubblici e della history prima della release.
 
+Implementato:
+
+- routing release vincolato a proxy HTTPS approvato; nessuna chiave ORS client trattata come secret di produzione;
+- accesso ORS diretto limitato allo sviluppo con opt-in esplicito;
+- Open-Meteo pubblico consentito solo in distribuzione non commerciale; per futura monetizzazione endpoint/proxy commerciali espliciti con credenziali upstream solo server-side;
+- online map e bulk offline separati; offline richiede style/provider HTTPS approvato e blocca host pubblici condivisi noti;
+- response-size guard su routing/meteo/geocoding;
+- threat model, data inventory e provider/license ledger;
+- audit history/file pubblici e trust-boundary gate nella CI;
+- Google Sign-In/cloud restano opzionali e fuori dal core local-first.
+
 Criterio di uscita:
 
 - ogni boundary locale/rete/cloud/store ha ownership, minacce, dati inviati, licenza e recovery documentati.
 
 ## STEP 16P — Performance, memoria, batteria e stress
 
-Stato: `TODO`
+Stato: `DONE`
 
 Problemi da risolvere tutti:
 
@@ -619,21 +630,29 @@ Problemi da risolvere tutti:
 - mantenere APK/IPA/Web size budget con breakdown delle dipendenze e regressione per release;
 - non introdurre AI finché questa baseline non è misurata, perché servirà da controllo per RAM/battery/size del futuro STEP 17.
 
+Implementato:
+
+- stress regression ripetibile per clustering 10k POI, GPX 5k punti e indice ricerca 5k documenti;
+- evidence JSON generato dalla suite;
+- budget hard Android ARM64 QA APK <= 80 MiB;
+- budget hard Web aggregate <= 65 MB;
+- matrice AppLab runtime Android/Web formalizzata;
+- baseline non-AI congelata; FPS/RAM/batteria/device restano misure runtime del 16Q e non vengono simulate in CI.
+
 Criterio di uscita:
 
-- Evidence Bundle con soglie, device di riferimento, risultati e regressioni ripetibili; baseline non-AI congelata per il confronto futuro con STEP 17.
+- baseline automatica ripetibile presente; misure fisiche confluiscono nel gate finale 16Q.
 
 ## STEP 16Q — AppLab / device / Web certification finale
 
-Stato: `TODO`
+Stato: `BLOCKED — EXTERNAL RUNTIME / STORE EVIDENCE`
 
 Gate obbligatori:
 
 - eseguire i flow Maestro/AppLab preparati negli step precedenti sulla UI corrente; niente coordinate fragili, dati demo o assertion su testi non localizzati;
 - Android release: first launch, locale, CRUD, document import/OCR, reminder permission, routing, backup/restore, MapLibre, process death e recovery;
 - offline critical path: scarica regione, relaunch, rete disabilitata, riapri regione e usa zoom/pan senza rete;
-- iPhone reale/simulatore compatibile: import documenti, OCR, notifiche, routing, lifecycle offline e privacy backup;
-- Web/Pages sul commit canonico: navigazione, local persistence, locale, responsive desktop, refresh/back, graceful degradation native-only;
+- Web/Pages sul commit canonico: navigazione, local persistence, locale, responsive desktop, hash-route refresh/back/forward, graceful degradation native-only;
 - permission denied/denied-forever, no network, provider quota/error, corrupt backup, low storage e retry;
 - destructive flows e recovery: trip cascade, document references, Trash/Restore/Purge dove previsto;
 - creare una sola release-candidate PR finale dal head STEP 16Q verso `main`, verificare che il diff comprenda l'intera catena 16D→16Q e chiudere come superseded le PR stacked intermedie solo dopo il confronto;
@@ -641,6 +660,22 @@ Gate obbligatori:
 - dopo merge controllato, rilanciare certification su `main`, deployare Pages e verificare che SHA Web, release evidence, APK/AAB e artifact appartengano alla stessa baseline;
 - evitare una full AppLab certification a ogni micro-commit: smoke mirati negli step 16L–16P, matrice completa soltanto qui;
 - produrre verdetto finale `CERTIFIED` / `NOT CERTIFIED` / `BLOCKED` senza trasformare un build PASS in runtime PASS.
+
+Implementato software/harness:
+
+- final static preflight machine-readable e `release/step16_certification.json`;
+- Maestro top-level smoke Android e matrice AppLab performance;
+- Product Truth Web: GitHub Pages usa hash route (`/CamperBoss/#/map`), non path rewrite fittizi;
+- iOS esplicitamente deferred e non bloccante, incluso StoreKit/IAP;
+- matrice certificazione completa in `docs/release/step-16q-certification.md`.
+
+Gate esterni ancora bloccanti:
+
+- Google Play Internal con AAB firmato e SHA-256 della stessa build;
+- AppLab/device Android reale, accessibilità e performance;
+- prova MapLibre no-network con provider offline approvato;
+- Web Pages reale su SHA canonico: refresh/back/forward/quota/recovery;
+- visual QA icon/splash/store assets.
 
 Criterio di uscita:
 

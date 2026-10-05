@@ -90,6 +90,10 @@ jobs:
       - name: Provider and trust-boundary audit
         run: python3 tool/ci/release_guard.py trust-boundaries
 
+      - name: STEP 16 final static preflight
+        if: ${{ hashFiles('tool/ci/final_certification_guard.py') != '' }}
+        run: python3 tool/ci/final_certification_guard.py
+
       - name: Analyze
         run: flutter analyze
 
