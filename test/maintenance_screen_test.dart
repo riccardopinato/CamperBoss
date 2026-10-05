@@ -36,7 +36,7 @@ class FakeMaintenanceRepository implements MaintenanceRepository {
 class FakeReminderSyncService implements ReminderSyncService {
   FakeReminderSyncService({this.failMaintenanceSync = false});
 
-  final bool failMaintenanceSync;
+  bool failMaintenanceSync;
   final syncedMaintenance = <MaintenanceRecord>[];
   final deletedMaintenance = <String>[];
 
@@ -122,45 +122,21 @@ void main() {
     expect(repository.records.single.nextDueMileage, 39000);
     expect(repository.records.single.attachmentPaths, isEmpty);
     expect(reminders.syncedMaintenance.single.title, 'Oil service');
-  });
-  testWidgets('committed maintenance survives reminder scheduling failure',
-      (tester) async {
-    final repository = FakeMaintenanceRepository();
 
-    await tester.pumpWidget(
-      EasyLocalization(
-        supportedLocales: const [Locale('en')],
-        path: 'assets/translations',
-        fallbackLocale: const Locale('en'),
-        startLocale: const Locale('en'),
-        child: Builder(
-          builder: (context) => MaterialApp(
-            locale: context.locale,
-            supportedLocales: context.supportedLocales,
-            localizationsDelegates: context.localizationDelegates,
-            home: Scaffold(
-              body: MaintenanceScreen(
-                repository: repository,
-                reminderService:
-                    FakeReminderSyncService(failMaintenanceSync: true),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    reminders.failMaintenanceSync = true;
+    await tester.tap(find.text('Add service'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pumpAndSettle();
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'Committed service');
-    await tester.enterText(fields.at(1), '25000');
+    final failureFields = find.byType(TextField);
+    await tester.enterText(failureFields.at(0), 'Committed service');
+    await tester.enterText(failureFields.at(1), '25000');
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(repository.records.single.title, 'Committed service');
+    expect(repository.records, hasLength(2));
+    expect(repository.records.last.title, 'Committed service');
     expect(find.text('Committed service'), findsOneWidget);
   });
+
 }
