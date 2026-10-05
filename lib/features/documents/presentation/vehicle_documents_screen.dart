@@ -270,26 +270,37 @@ class _VehicleDocumentsScreenState extends State<VehicleDocumentsScreen> {
     );
     if (result == null) return false;
 
+    late final VehicleDocument saved;
     try {
-      final saved = await _repository.saveDocument(result);
-      await _reminderService.syncDocument(saved);
-      if (!mounted) return false;
-      setState(() {
-        if (document == null) {
-          _documents = [saved, ..._documents];
-        } else {
-          _documents = [
-            for (final existing in _documents)
-              if (existing.id == saved.id) saved else existing,
-          ];
-        }
-      });
-      return true;
+      saved = await _repository.saveDocument(result);
     } catch (_) {
       if (!mounted) return false;
       setState(() => _error = 'document_error_save_failed'.tr());
       return false;
     }
+
+    // Persistence is canonical. Reminder scheduling is derived and is
+    // reconciled process-wide, so a scheduler failure must never make the
+    // caller delete files already referenced by the committed document.
+    try {
+      await _reminderService.syncDocument(saved);
+    } catch (_) {
+      // Best effort: ReminderCoordinator reconciles persisted sources.
+    }
+
+    if (!mounted) return true;
+    setState(() {
+      if (document == null) {
+        _documents = [saved, ..._documents];
+      } else {
+        _documents = [
+          for (final existing in _documents)
+            if (existing.id == saved.id) saved else existing,
+        ];
+      }
+      _error = null;
+    });
+    return true;
   }
 
   Future<void> _deleteDocument(VehicleDocument document) async {
