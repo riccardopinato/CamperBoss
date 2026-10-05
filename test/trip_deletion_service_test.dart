@@ -37,6 +37,9 @@ class _Routes implements RoutePreviewRepository {
   bool failDelete = false;
 
   @override
+  Future<List<RouteResult>> listRoutes() async => const [];
+
+  @override
   Future<void> deleteRouteForTrip(int tripId) async {
     deleted = true;
     if (failDelete) throw StateError('forced route delete failure');
