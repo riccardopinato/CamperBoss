@@ -132,7 +132,27 @@ jobs:
       - name: Build signed AAB exactly once
         env:
           ORG_GRADLE_PROJECT_requireReleaseSigning: "true"
-        run: flutter build appbundle --release
+          CAMPERBOSS_ROUTING_PROXY_URL: ${{ vars.CAMPERBOSS_ROUTING_PROXY_URL }}
+          CAMPERBOSS_OFFLINE_MANIFEST_URL: ${{ vars.CAMPERBOSS_OFFLINE_MANIFEST_URL }}
+          CAMPERBOSS_OFFLINE_MAP_STYLE_URL: ${{ vars.CAMPERBOSS_OFFLINE_MAP_STYLE_URL }}
+          CAMPERBOSS_OFFLINE_ALLOWED_HOSTS: ${{ vars.CAMPERBOSS_OFFLINE_ALLOWED_HOSTS }}
+        run: |
+          set -euo pipefail
+          for required in \
+            CAMPERBOSS_ROUTING_PROXY_URL \
+            CAMPERBOSS_OFFLINE_MANIFEST_URL \
+            CAMPERBOSS_OFFLINE_MAP_STYLE_URL
+          do
+            test -n "${!required:-}" || {
+              echo "::error::Missing required repository variable: $required"
+              exit 1
+            }
+          done
+          flutter build appbundle --release \
+            --dart-define="CAMPERBOSS_ROUTING_PROXY_URL=$CAMPERBOSS_ROUTING_PROXY_URL" \
+            --dart-define="CAMPERBOSS_OFFLINE_MANIFEST_URL=$CAMPERBOSS_OFFLINE_MANIFEST_URL" \
+            --dart-define="CAMPERBOSS_OFFLINE_MAP_STYLE_URL=$CAMPERBOSS_OFFLINE_MAP_STYLE_URL" \
+            --dart-define="CAMPERBOSS_OFFLINE_ALLOWED_HOSTS=$CAMPERBOSS_OFFLINE_ALLOWED_HOSTS"
 
       - name: Verify signing, identity and candidate hash
         id: candidate
@@ -211,7 +231,7 @@ jobs:
       - name: Verify downloaded AAB is byte-identical
         run: |
           set -euo pipefail
-          AAB=dist/build/app/outputs/bundle/release/app-release.aab
+          AAB=dist/app/outputs/bundle/release/app-release.aab
           test -s "$AAB"
           ACTUAL=$(sha256sum "$AAB" | cut -d' ' -f1)
           test "$ACTUAL" = "${{ needs.build.outputs.aab_sha256 }}"
@@ -223,7 +243,7 @@ jobs:
         working-directory: android
         run: >
           bundle exec fastlane android internal
-          aab_path:"${{ github.workspace }}/dist/build/app/outputs/bundle/release/app-release.aab"
+          aab_path:"${{ github.workspace }}/dist/app/outputs/bundle/release/app-release.aab"
           expected_sha256:"${{ needs.build.outputs.aab_sha256 }}"
 
       - name: Record delivery evidence
