@@ -119,22 +119,9 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     );
     if (result == null) return;
 
+    late final MaintenanceRecord saved;
     try {
-      final saved = await _repository.saveRecord(result);
-      await _reminderService.syncMaintenance(saved);
-      if (!mounted) return;
-      setState(() {
-        if (record == null) {
-          _records = [saved, ..._records];
-        } else {
-          _records = [
-            for (final existing in _records)
-              if (existing.id == saved.id) saved else existing,
-          ];
-        }
-        _records = [..._records]..sort(_sortRecords);
-        _error = null;
-      });
+      saved = await _repository.saveRecord(result);
     } catch (_) {
       final previous = (record?.attachmentPaths ?? const <String>[]).toSet();
       await _storageService.deleteFiles(
@@ -142,7 +129,30 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       );
       if (!mounted) return;
       setState(() => _error = 'maintenance_error_save'.tr());
+      return;
     }
+
+    // The record and its attachments are canonical once persistence succeeds.
+    // Reminder scheduling is derived and must never trigger destructive cleanup.
+    try {
+      await _reminderService.syncMaintenance(saved);
+    } catch (_) {
+      // Best effort: the process-wide coordinator reconciles persisted sources.
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (record == null) {
+        _records = [saved, ..._records];
+      } else {
+        _records = [
+          for (final existing in _records)
+            if (existing.id == saved.id) saved else existing,
+        ];
+      }
+      _records = [..._records]..sort(_sortRecords);
+      _error = null;
+    });
   }
 
   Future<void> _deleteRecord(MaintenanceRecord record) async {
