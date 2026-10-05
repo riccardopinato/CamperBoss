@@ -5,6 +5,7 @@ import '../database/local_json_collection.dart';
 import '../models/route_preview.dart';
 
 abstract interface class RoutePreviewRepository {
+  Future<List<RouteResult>> listRoutes();
   Future<RouteResult?> loadRouteForTrip(int tripId);
   Future<RouteResult> saveRoute(RouteResult route);
   Future<void> deleteRouteForTrip(int tripId);
@@ -21,6 +22,7 @@ class LocalRoutePreviewRepository implements RoutePreviewRepository {
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
 
+  @override
   Future<List<RouteResult>> listRoutes() async {
     if (kIsWeb) {
       final rows = await _webCollection.listRows();
