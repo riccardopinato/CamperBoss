@@ -24,6 +24,28 @@ class OfflineContentScreen extends ConsumerWidget {
     final offlineSystem = ref.watch(offlineSystemSnapshotProvider);
     final poiCatalog = ref.watch(poiCatalogSnapshotProvider);
 
+    ref.listen<AsyncValue<List<DownloadRecord>>>(
+      downloadsProvider,
+      (previous, next) {
+        final previousRecords =
+            previous?.asData?.value ?? const <DownloadRecord>[];
+        final currentRecords = next.asData?.value ?? const <DownloadRecord>[];
+        final previousById = {
+          for (final record in previousRecords) record.packageId: record.status,
+        };
+        final poiActivated = currentRecords.any(
+          (record) =>
+              record.type == DownloadPackageType.poiDatabase &&
+              record.status == DownloadStatus.completed &&
+              previousById[record.packageId] != DownloadStatus.completed,
+        );
+        if (!poiActivated) return;
+        ref.invalidate(poiCatalogSnapshotProvider);
+        ref.invalidate(storageProjectionProvider);
+        ref.invalidate(offlineSystemSnapshotProvider);
+      },
+    );
+
     return ScreenScaffold(
       title: 'offline_title'.tr(),
       subtitle: 'offline_subtitle'.tr(),
