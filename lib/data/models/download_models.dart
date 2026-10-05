@@ -34,7 +34,7 @@ enum DownloadStatus {
 }
 
 String normalizeOfflineDestinationDirectory(String value) {
-  final raw = value.trim().replaceAll('\\\\', '/');
+  final raw = value.trim().replaceAll('\\', '/');
   if (raw.isEmpty || p.posix.isAbsolute(raw)) {
     throw const FormatException('Package destination directory is invalid');
   }
