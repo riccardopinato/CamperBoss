@@ -26,6 +26,7 @@ import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_journal_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
 import '../../data/repositories/local_reminder_repository.dart';
+import '../../data/repositories/local_route_preview_repository.dart';
 import '../../data/repositories/local_travel_history_repository.dart';
 import '../../data/repositories/local_trip_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
@@ -204,6 +205,7 @@ class DataBackupService implements BackupService {
     TravelHistoryRepository? travelHistoryRepository,
     TravelHistoryService? travelHistoryService,
     ReminderRepository? reminderRepository,
+    RoutePreviewRepository? routeRepository,
     UserStateBackupService? userStateBackupService,
     DataIntegrityService? integrityService,
     DocumentStorageService? fileStorageService,
@@ -227,6 +229,7 @@ class DataBackupService implements BackupService {
                   travelHistoryRepository ?? LocalTravelHistoryRepository(),
             ),
         _reminderRepository = reminderRepository ?? LocalReminderRepository(),
+        _routeRepository = routeRepository ?? LocalRoutePreviewRepository(),
         _userStateBackupService =
             userStateBackupService ?? UserStateBackupService(),
         _integrityService = integrityService ??
@@ -238,6 +241,7 @@ class DataBackupService implements BackupService {
               maintenanceRepository: maintenanceRepository,
               travelHistoryRepository: travelHistoryRepository,
               reminderRepository: reminderRepository,
+              routeRepository: routeRepository,
             ),
         _fileStorageService =
             fileStorageService ?? createDocumentStorageService(),
@@ -258,6 +262,7 @@ class DataBackupService implements BackupService {
   final TravelHistoryRepository _travelHistoryRepository;
   final TravelHistoryService _travelHistoryService;
   final ReminderRepository _reminderRepository;
+  final RoutePreviewRepository _routeRepository;
   final UserStateBackupService _userStateBackupService;
   final DataIntegrityService _integrityService;
   final DocumentStorageService _fileStorageService;
@@ -533,6 +538,12 @@ class DataBackupService implements BackupService {
         createdAt: DateTime.now(),
       ),
     );
+    if (automaticBackup.missingFiles.isNotEmpty) {
+      throw StateError(
+        'Safety backup is incomplete; restore aborted before mutating data. '
+        'Missing files: ${automaticBackup.missingFiles.join(', ')}',
+      );
+    }
     _MaterializedRestore? materialized;
     try {
       final archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
@@ -1010,6 +1021,12 @@ class DataBackupService implements BackupService {
 
   Future<_RestoreCounters> _replaceAll(_BackupSnapshot snapshot) async {
     final current = await _loadSnapshot();
+    // Route previews are derived cache and are intentionally not part of the
+    // portable backup. Purge them before replacing canonical trip data so the
+    // post-restore integrity audit cannot observe stale route orphans.
+    for (final route in await _routeRepository.listRoutes()) {
+      await _routeRepository.deleteRouteForTrip(route.tripId);
+    }
     await _reminderRepository.replaceAllReminders(const []);
     for (final item in current.bookings) {
       await _financeRepository.deleteBooking(item.id);
