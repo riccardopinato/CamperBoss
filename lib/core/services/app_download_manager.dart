@@ -79,6 +79,8 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       throw ArgumentError('Package URL host is not allowed');
     }
     _validateFileName(package.fileName);
+    final destinationDirectory =
+        normalizeOfflineDestinationDirectory(package.destinationDirectory);
     if (package.fileSizeBytes < 0) {
       throw ArgumentError('Package size cannot be negative');
     }
@@ -98,7 +100,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
 
     final now = DateTime.now();
     final taskId = buildDownloadTaskId(package);
-    final tempDirectory = '${package.destinationDirectory}/partial';
+    final tempDirectory = '$destinationDirectory/partial';
     final task = DownloadTask(
       taskId: taskId,
       url: package.url,
@@ -118,7 +120,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     final support = await getApplicationSupportDirectory();
     final finalPath = p.join(
       support.path,
-      package.destinationDirectory,
+      destinationDirectory,
       package.fileName,
     );
 
