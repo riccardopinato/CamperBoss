@@ -40,6 +40,10 @@ class FakeRoutePreviewRepository implements RoutePreviewRepository {
   RouteResult? route;
 
   @override
+  Future<List<RouteResult>> listRoutes() async =>
+      route == null ? const [] : [route!];
+
+  @override
   Future<void> deleteRouteForTrip(int tripId) async {
     if (route?.tripId == tripId) route = null;
   }
