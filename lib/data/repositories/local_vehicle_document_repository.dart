@@ -113,20 +113,6 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
     return savedDocument;
   }
 
-  Future<int> _updateDocument(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.vehicleDocumentsTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteDocument(VehicleDocument document) async {
     final id = document.id;
