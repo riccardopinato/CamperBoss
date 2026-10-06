@@ -75,7 +75,12 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
 
     final previousPaths = previous?.attachmentPaths ?? const <String>[];
     if (previousPaths.isNotEmpty) {
-      await _deleteUnreferencedFiles(previousPaths);
+      try {
+        await _deleteUnreferencedFiles(previousPaths);
+      } catch (_) {
+        // The row is already committed. Attachment garbage collection is
+        // best-effort and must never make a successful save look failed.
+      }
     }
 
     return savedRecord;
@@ -120,7 +125,11 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     _revisionStore.bump();
 
     if (record != null && record.attachmentPaths.isNotEmpty) {
-      await _deleteUnreferencedFiles(record.attachmentPaths);
+      try {
+        await _deleteUnreferencedFiles(record.attachmentPaths);
+      } catch (_) {
+        // Deletion is already committed; orphan cleanup can be retried later.
+      }
     }
   }
 
