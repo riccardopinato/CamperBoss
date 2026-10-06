@@ -17,7 +17,7 @@ void main() {
     url: 'https://downloads.example.test/italy.json',
     fileName: 'italy.json',
     fileSizeBytes: 100,
-    expectedSha256: '',
+    expectedSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     requiresWifiByDefault: true,
     destinationDirectory: 'offline/poi',
     metadata: {
@@ -68,7 +68,7 @@ void main() {
             url: 'https://downloads.example.test/guide.json',
             fileName: 'guide.json',
             fileSizeBytes: 1,
-            expectedSha256: '',
+            expectedSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
             requiresWifiByDefault: true,
             destinationDirectory: 'offline/guides',
           ),
@@ -94,6 +94,52 @@ void main() {
     expect(records.single.packageId, 'italy-poi');
   });
 
+  test('missing checksum prevents POI install before enqueue', () async {
+    final store = MemoryKeyValueStore();
+    final unverifiable = DownloadablePackage(
+      id: 'unverifiable-poi',
+      type: DownloadPackageType.poiDatabase,
+      title: 'Unverifiable',
+      description: '',
+      version: '1',
+      url: 'https://downloads.example.test/unverifiable.json',
+      fileName: 'unverifiable.json',
+      fileSizeBytes: 100,
+      expectedSha256: '',
+      requiresWifiByDefault: true,
+      destinationDirectory: 'offline/poi',
+      metadata: const {
+        'region': 'Italy',
+        'license': 'ODbL-1.0',
+        'attribution': 'OpenStreetMap contributors',
+        'source': 'test',
+      },
+    );
+    final manifestRepository = LocalOfflineManifestRepository(
+      cacheCollection: LocalJsonCollection('manifest', store: store),
+      allowedHosts: {'downloads.example.test'},
+      remoteLoader: () async => DownloadManifest(
+        schemaVersion: 1,
+        updatedAt: DateTime.utc(2026, 10, 6),
+        packages: [unverifiable],
+      ).toJson(),
+    );
+    final manager = FakeDownloadManager();
+    final service = PoiCatalogService(
+      manifestRepository: manifestRepository,
+      downloadManager: manager,
+      stateRepository: LocalPoiPackageStateRepository(
+        collection: LocalJsonCollection('states', store: store),
+      ),
+      remoteConfigured: true,
+    );
+
+    await expectLater(
+      service.install('unverifiable-poi'),
+      throwsFormatException,
+    );
+    expect(await manager.watchDownloads().first, isEmpty);
+  });
   test('missing attribution prevents install before download is created',
       () async {
     final store = MemoryKeyValueStore();
@@ -106,7 +152,7 @@ void main() {
       url: 'https://downloads.example.test/bad.json',
       fileName: 'bad.json',
       fileSizeBytes: 1,
-      expectedSha256: '',
+      expectedSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       requiresWifiByDefault: true,
       destinationDirectory: 'offline/poi',
       metadata: const {
