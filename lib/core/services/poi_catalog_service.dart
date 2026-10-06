@@ -91,11 +91,25 @@ class PoiCatalogService {
     _requiredMeta(match, 'license');
     _requiredMeta(match, 'attribution');
     _requiredMeta(match, 'source');
+    _requireVerifiedPayload(match);
     await _downloadManager.enqueue(match);
   }
 
   Future<void> remove(String packageId) {
     return _downloadManager.delete(packageId);
+  }
+
+  void _requireVerifiedPayload(DownloadablePackage package) {
+    if (package.fileSizeBytes <= 0) {
+      throw const FormatException(
+        'POI package must declare a positive file size',
+      );
+    }
+    if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(package.expectedSha256)) {
+      throw const FormatException(
+        'POI package must declare a valid SHA-256 checksum',
+      );
+    }
   }
 
   String _requiredMeta(DownloadablePackage package, String key) {
