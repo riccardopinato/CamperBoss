@@ -3,8 +3,8 @@ import 'package:camperboss/data/models/guide_models.dart';
 import 'package:camperboss/features/onboarding/presentation/guided_onboarding_screen.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,80 +14,56 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
+  testWidgets(
+    'guided onboarding advances and invokes notification permission requester',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1080, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-  testWidgets('notification step invokes permission requester', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1080, 2400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+      final service = _FakeOnboardingService();
 
-    final service = _FakeOnboardingService()
-      ..progress = OnboardingProgress.empty.copyWith(
-        currentStepId: 'notifications',
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en')],
+          path: 'assets/translations',
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('en'),
+          child: Builder(
+            builder: (context) => MaterialApp(
+              locale: context.locale,
+              supportedLocales: context.supportedLocales,
+              localizationsDelegates: context.localizationDelegates,
+              home: GuidedOnboardingScreen(onboardingService: service),
+            ),
+          ),
+        ),
       );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      EasyLocalization(
-        supportedLocales: const [Locale('en')],
-        path: 'assets/translations',
-        fallbackLocale: const Locale('en'),
-        startLocale: const Locale('en'),
-        child: Builder(
-          builder: (context) => MaterialApp(
-            locale: context.locale,
-            supportedLocales: context.supportedLocales,
-            localizationsDelegates: context.localizationDelegates,
-            home: GuidedOnboardingScreen(onboardingService: service),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      expect(find.text('Guided setup'), findsOneWidget);
+      expect(find.text('Language and country'), findsOneWidget);
+      expect(find.text('Vehicle profile'), findsOneWidget);
 
-    expect(find.text('Explain and request'), findsOneWidget);
-    await tester.tap(find.text('Explain and request'));
-    await tester.pumpAndSettle();
+      for (final expectedStep in ['locale', 'vehicle', 'location']) {
+        final continueButton = find.widgetWithText(FilledButton, 'Continue');
+        expect(continueButton, findsOneWidget);
+        await tester.tap(continueButton);
+        await tester.pumpAndSettle();
+        expect(service.completedSteps, contains(expectedStep));
+      }
 
-    expect(service.notificationRequests, 1);
-    expect(find.text('Granted'), findsOneWidget);
-  });
+      expect(service.savedProgress?.currentStepId, 'notifications');
 
-  testWidgets('guided onboarding renders stepper and advances', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1080, 2400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+      final permissionButtons =
+          find.widgetWithText(FilledButton, 'Explain and request');
+      expect(permissionButtons, findsNWidgets(2));
+      await tester.tap(permissionButtons.last);
+      await tester.pumpAndSettle();
 
-    final service = _FakeOnboardingService();
-
-    await tester.pumpWidget(
-      EasyLocalization(
-        supportedLocales: const [Locale('en')],
-        path: 'assets/translations',
-        fallbackLocale: const Locale('en'),
-        startLocale: const Locale('en'),
-        child: Builder(
-          builder: (context) => MaterialApp(
-            locale: context.locale,
-            supportedLocales: context.supportedLocales,
-            localizationsDelegates: context.localizationDelegates,
-            home: GuidedOnboardingScreen(onboardingService: service),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Guided setup'), findsOneWidget);
-    expect(find.text('Language and country'), findsOneWidget);
-    expect(find.text('Vehicle profile'), findsOneWidget);
-
-    expect(find.text('Continue'), findsOneWidget);
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    expect(service.completedSteps, contains('locale'));
-    expect(service.savedProgress?.currentStepId, 'vehicle');
-  });
+      expect(service.notificationRequests, 1);
+      expect(find.text('Granted'), findsOneWidget);
+    },
+  );
 }
 
 class _FakeOnboardingService implements OnboardingService {
