@@ -490,10 +490,10 @@ class DataBackupService implements BackupService {
       errors.add('manifest.json is missing');
     } else {
       try {
+        final decodedManifest =
+            _decodeStructuredArchiveFile(manifestFile, 'manifest.json');
         manifest = BackupManifest.fromMap(
-          Map<String, Object?>.from(
-            jsonDecode(utf8.decode(_bytes(manifestFile))) as Map,
-          ),
+          Map<String, Object?>.from(decodedManifest as Map),
         );
       } catch (_) {
         errors.add('manifest.json is malformed');
