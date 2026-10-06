@@ -3,6 +3,7 @@ name: Release Core Platform Builds
 on:
   push:
     branches:
+      - main
       - "step-16*"
     paths:
       - "lib/**"
