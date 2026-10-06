@@ -80,20 +80,6 @@ class LocalChecklistRepository implements ChecklistRepository {
     return item.copyWith(id: id);
   }
 
-  Future<int> _updateItem(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.checklistTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteItem(int id) async {
     if (kIsWeb) {
