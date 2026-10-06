@@ -493,9 +493,38 @@ class DataBackupService implements BackupService {
           errors.add('Hash mismatch: ${entry.path}');
         }
       }
+
+      if (manifest.schemaVersion == schemaVersion) {
+        final declaredPaths = manifest.files
+            .map((entry) => p.posix.normalize(entry.path))
+            .toList(growable: false);
+        for (final requiredPath in _dataPaths) {
+          final manifestCount =
+              declaredPaths.where((path) => path == requiredPath).length;
+          final archiveCount = archive.files
+              .where(
+                (file) =>
+                    file.isFile &&
+                    p.posix.normalize(file.name) == requiredPath,
+              )
+              .length;
+          if (manifestCount != 1) {
+            errors.add(
+              'Required data payload must appear exactly once in manifest: '
+              '$requiredPath',
+            );
+          }
+          if (archiveCount != 1) {
+            errors.add(
+              'Required data payload must appear exactly once in archive: '
+              '$requiredPath',
+            );
+          }
+        }
+      }
     }
 
-    final recordCounts = <String, int>{};
+    final recordCounts = <String, int>{}
     for (final dataPath in _dataPaths) {
       final file = archive.findFile(dataPath);
       if (file == null) continue;
