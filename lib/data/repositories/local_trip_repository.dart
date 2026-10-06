@@ -48,11 +48,29 @@ class LocalTripRepository implements TripRepository {
     }
 
     final db = await _database.database;
-    final values = trip.toMap()..remove('id');
-
-    final id = trip.id == null
-        ? await db.insert(AppDatabase.tripsTable, values)
-        : await _updateTrip(db, trip.id!, values);
+    final values = trip.toMap();
+    final requestedId = trip.id;
+    late final int id;
+    if (requestedId == null) {
+      values.remove('id');
+      id = await db.insert(AppDatabase.tripsTable, values);
+    } else {
+      final updateValues = Map<String, Object?>.from(values)..remove('id');
+      final updated = await db.update(
+        AppDatabase.tripsTable,
+        updateValues,
+        where: 'id = ?',
+        whereArgs: [requestedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.tripsTable,
+          values,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = requestedId;
+    }
 
     _revisionStore.bump();
     return trip.copyWith(id: id);
