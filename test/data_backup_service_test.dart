@@ -824,6 +824,174 @@ void main() {
     expect(journal.existsSync(), isFalse);
   });
 
+  test('merge preserves sparse target user state and only fills missing keys',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_user_state_merge');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sourceStore = MemoryKeyValueStore();
+    await sourceStore.write('camperboss.guideFavorites', 'backup-favorite');
+    await sourceStore.write('camperboss.guideProgress', 'backup-progress');
+    final sourceUserState = UserStateBackupService(store: sourceStore);
+    final backup = await _serviceFrom(
+      _memoryState(),
+      userStateBackupService: sourceUserState,
+      recoveryDirectory: Directory('${temp.path}/source-recovery'),
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final targetStore = MemoryKeyValueStore();
+    await targetStore.write(
+      'camperboss.onboardingProgress',
+      'local-onboarding',
+    );
+    await targetStore.write(
+      'camperboss.guideFavorites',
+      'local-favorite',
+    );
+    final targetUserState = UserStateBackupService(store: targetStore);
+
+    final result = await _serviceFrom(
+      _memoryState(),
+      userStateBackupService: targetUserState,
+      recoveryDirectory: Directory('${temp.path}/target-recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(
+      await targetStore.read('camperboss.onboardingProgress'),
+      'local-onboarding',
+    );
+    expect(
+      await targetStore.read('camperboss.guideFavorites'),
+      'local-favorite',
+    );
+    expect(
+      await targetStore.read('camperboss.guideProgress'),
+      'backup-progress',
+    );
+    expect(result.skippedRecords, greaterThanOrEqualTo(1));
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
+
+  test('merge rejects vehicle-linked rows when source profile is absent',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_vehicle_ref_merge');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final backup = await _service(
+      documents: const [
+        VehicleDocument(
+          id: 7,
+          vehicleId: 1,
+          category: 'insurance',
+          title: 'Ambiguous document',
+          localFilePath: '',
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+      expenses: [
+        Expense(
+          id: 'ambiguous-expense',
+          scope: ExpenseScope.vehicle,
+          vehicleId: 1,
+          category: ExpenseCategory.insurance,
+          amountMinor: 1000,
+          currencyCode: 'EUR',
+          occurredAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+      fuel: [
+        FuelEntry(
+          id: 'ambiguous-fuel',
+          vehicleId: 1,
+          date: DateTime.utc(2026, 1, 2),
+          odometerKm: 1000,
+          volumeMilliLitres: 10000,
+          totalCostMinor: 2000,
+          currencyCode: 'EUR',
+          fullTank: true,
+        ),
+      ],
+    ).createBackup(
+      BackupOptions(outputDirectory: temp, includeFiles: false),
+    );
+
+    final target = _memoryState(profile: _profile.copyWith(id: 9));
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.documents, isEmpty);
+    expect(target.expenses, isEmpty);
+    expect(target.fuel, isEmpty);
+    expect(result.conflicts, greaterThanOrEqualTo(3));
+  });
+
+  test('startup recovery clears journal even when reminder reconcile fails',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_reconcile_recovery');
+    final recovery = Directory('${temp.path}/recovery')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final state = _memoryState(
+      trips: const [
+        TripPlan(
+          id: 1,
+          title: 'Safety state',
+          summary: 'Canonical',
+          progress: 0,
+        ),
+      ],
+    );
+    final creator = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+    );
+    final safety = await creator.createBackup(
+      BackupOptions(outputDirectory: recovery),
+    );
+
+    state.trips
+      ..clear()
+      ..add(
+        const TripPlan(
+          id: 2,
+          title: 'Partial state',
+          summary: 'Interrupted',
+          progress: 0,
+        ),
+      );
+
+    final journal = File(
+      '${recovery.path}/${DataBackupService.restoreJournalFileName}',
+    )..writeAsStringSync(
+        jsonEncode({
+          'format': DataBackupService.format,
+          'schemaVersion': DataBackupService.schemaVersion,
+          'strategy': RestoreStrategy.replaceAll.name,
+          'safetyBackupPath': safety.path,
+          'createdAt': DateTime.utc(2026, 10, 6).toIso8601String(),
+        }),
+        flush: true,
+      );
+
+    final service = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+      recoveryReconcile: () async {
+        throw StateError('notification backend unavailable');
+      },
+    );
+
+    expect(await service.recoverInterruptedRestore(), isTrue);
+    expect(state.trips.single.title, 'Safety state');
+    expect(journal.existsSync(), isFalse);
+  });
+
   test('exports CSV and PDF files', () async {
     final temp =
         await Directory.systemTemp.createTemp('camperboss_export_test');
@@ -962,6 +1130,7 @@ DataBackupService _serviceFrom(
   RoutePreviewRepository? routeRepository,
   Directory? recoveryDirectory,
   Future<void> Function()? recoveryReconcile,
+  UserStateBackupService? userStateBackupService,
 }) {
   final profile = _MemoryProfileRepository(state);
   final trips = tripRepository ?? _MemoryTripRepository(state);
@@ -985,7 +1154,7 @@ DataBackupService _serviceFrom(
     travelHistoryRepository: history,
     reminderRepository: reminders,
     routeRepository: routes,
-    userStateBackupService:
+    userStateBackupService: userStateBackupService ??
         UserStateBackupService(store: MemoryKeyValueStore()),
     integrityService: DataIntegrityService(
       tripRepository: trips,
@@ -997,11 +1166,27 @@ DataBackupService _serviceFrom(
       reminderRepository: reminders,
       routeRepository: routes,
     ),
-    fileStorageService: fileStorageService,
+    fileStorageService:
+        fileStorageService ?? const _NoopDocumentStorageService(),
     recoveryDirectory: recoveryDirectory ??
         Directory.systemTemp.createTempSync('camperboss_restore_unit_'),
     recoveryReconcile: recoveryReconcile,
   );
+}
+
+class _NoopDocumentStorageService implements DocumentStorageService {
+  const _NoopDocumentStorageService();
+
+  @override
+  Future<String> copyIntoPrivateDocuments(String pathOrUri) {
+    throw UnsupportedError('No media expected in this test');
+  }
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {}
+
+  @override
+  Future<List<String>> listManagedFiles() async => const [];
 }
 
 class _FailingDeleteStorageService extends _TestFileStorageService {
