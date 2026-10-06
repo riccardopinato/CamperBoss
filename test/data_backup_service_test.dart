@@ -605,6 +605,193 @@ void main() {
     expect(result.conflicts, 1);
   });
 
+  test('merge never overwrites ambiguous installation-local integer IDs',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_merge_id_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final source = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Unrelated backup trip',
+          summary: 'Different installation',
+          progress: 0.2,
+          updatedAt: DateTime.utc(2026, 3, 1),
+        ),
+      ],
+      bookings: [
+        const TripBooking(
+          id: 'backup-booking',
+          tripId: 1,
+          type: BookingType.campsite,
+          status: BookingStatus.confirmed,
+          title: 'Must not attach to local trip',
+          currencyCode: 'EUR',
+        ),
+      ],
+    );
+    final backup = await _serviceFrom(
+      source,
+      recoveryDirectory: Directory('${temp.path}/source-recovery'),
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final target = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Local trip',
+          summary: 'Keep local identity',
+          progress: 0.8,
+          updatedAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/target-recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.trips.single.title, 'Local trip');
+    expect(target.bookings, isEmpty);
+    expect(result.skippedRecords, greaterThanOrEqualTo(2));
+    expect(result.conflicts, greaterThanOrEqualTo(2));
+  });
+
+  test('merge preserves an existing differing trip budget', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_budget_merge_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sharedTrip = TripPlan(
+      id: 5,
+      title: 'Shared trip',
+      summary: 'Same canonical trip',
+      progress: 0.5,
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final backup = await _service(
+      trips: [sharedTrip],
+      budgets: const [
+        TripBudget(
+          tripId: 5,
+          plannedAmountMinor: 10000,
+          currencyCode: 'EUR',
+        ),
+      ],
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final target = _memoryState(
+      trips: [sharedTrip],
+      budgets: const [
+        TripBudget(
+          tripId: 5,
+          plannedAmountMinor: 25000,
+          currencyCode: 'EUR',
+        ),
+      ],
+    );
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.budgets.single.plannedAmountMinor, 25000);
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
+
+  test('merge applies newer profile data to the existing singleton id',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_profile_id_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _profile.copyWith(
+      id: 1,
+      brand: 'Incoming newer',
+      updatedAt: DateTime.utc(2026, 3, 1),
+    );
+    final backup = await _service(profile: incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final local = _profile.copyWith(
+      id: 9,
+      brand: 'Local older',
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final target = _memoryState(profile: local);
+
+    await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.profile?.brand, 'Incoming newer');
+    expect(target.profile?.id, 9);
+  });
+
+  test('startup recovery restores a journaled safety snapshot', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_journal_recovery_test');
+    final recovery = Directory('${temp.path}/recovery')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final state = _memoryState(
+      trips: const [
+        TripPlan(
+          id: 1,
+          title: 'Pre-restore state',
+          summary: 'Safety snapshot',
+          progress: 0,
+        ),
+      ],
+    );
+    final creator = _serviceFrom(state, recoveryDirectory: recovery);
+    final safety = await creator.createBackup(
+      BackupOptions(outputDirectory: recovery),
+    );
+
+    state.trips
+      ..clear()
+      ..add(
+        const TripPlan(
+          id: 99,
+          title: 'Partial interrupted state',
+          summary: 'Must disappear',
+          progress: 0,
+        ),
+      );
+
+    final journal = File(
+      '${recovery.path}/${DataBackupService.restoreJournalFileName}',
+    );
+    journal.writeAsStringSync(
+      jsonEncode({
+        'format': DataBackupService.format,
+        'schemaVersion': DataBackupService.schemaVersion,
+        'strategy': RestoreStrategy.replaceAll.name,
+        'safetyBackupPath': safety.path,
+        'createdAt': DateTime.utc(2026, 10, 6).toIso8601String(),
+      }),
+      flush: true,
+    );
+
+    var reconciled = false;
+    final recoveryService = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+      recoveryReconcile: () async {
+        reconciled = true;
+      },
+    );
+
+    expect(await recoveryService.recoverInterruptedRestore(), isTrue);
+    expect(state.trips.single.title, 'Pre-restore state');
+    expect(reconciled, isTrue);
+    expect(journal.existsSync(), isFalse);
+  });
+
   test('exports CSV and PDF files', () async {
     final temp =
         await Directory.systemTemp.createTemp('camperboss_export_test');
@@ -741,6 +928,8 @@ DataBackupService _serviceFrom(
   TripRepository? tripRepository,
   VehicleDocumentRepository? documentRepository,
   RoutePreviewRepository? routeRepository,
+  Directory? recoveryDirectory,
+  Future<void> Function()? recoveryReconcile,
 }) {
   final profile = _MemoryProfileRepository(state);
   final trips = tripRepository ?? _MemoryTripRepository(state);
@@ -777,6 +966,9 @@ DataBackupService _serviceFrom(
       routeRepository: routes,
     ),
     fileStorageService: fileStorageService,
+    recoveryDirectory: recoveryDirectory ??
+        Directory.systemTemp.createTempSync('camperboss_restore_unit_'),
+    recoveryReconcile: recoveryReconcile,
   );
 }
 
