@@ -51,11 +51,29 @@ class LocalJournalRepository implements JournalRepository {
     }
 
     final db = await _database.database;
-    final values = entry.toMap()..remove('id');
-
-    final id = entry.id == null
-        ? await db.insert(AppDatabase.journalTable, values)
-        : await _updateEntry(db, entry.id!, values);
+    final values = entry.toMap();
+    final requestedId = entry.id;
+    late final int id;
+    if (requestedId == null) {
+      values.remove('id');
+      id = await db.insert(AppDatabase.journalTable, values);
+    } else {
+      final updateValues = Map<String, Object?>.from(values)..remove('id');
+      final updated = await db.update(
+        AppDatabase.journalTable,
+        updateValues,
+        where: 'id = ?',
+        whereArgs: [requestedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.journalTable,
+          values,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = requestedId;
+    }
 
     _revisionStore.bump();
     return entry.copyWith(id: id);
