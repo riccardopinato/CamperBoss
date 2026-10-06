@@ -14,7 +14,6 @@ import 'poi_catalog_service.dart';
 import 'poi_package_installer.dart';
 import 'reminder_coordinator.dart';
 import 'remote_manifest_loader.dart';
-import 'restore_recovery_bootstrap.dart';
 import 'storage_inspector.dart';
 
 /// Process-wide service container for cross-feature infrastructure.
@@ -96,10 +95,6 @@ class AppSystemServices {
 
   Future<void> initialize() async {
     if (_initializationStarted) return;
-
-    // A pending restore journal means canonical local data may be only
-    // partially replaced. Recover it before any derived service reads state.
-    await recoverInterruptedRestoreIfNeeded();
     _initializationStarted = true;
 
     try {
