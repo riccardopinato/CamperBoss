@@ -109,9 +109,25 @@ class _SqlVehicleProfileStore implements VehicleProfileStore {
       ..remove('id');
 
     final savedId = profile.id ?? existing?.id;
-    final id = savedId == null
-        ? await db.insert(AppDatabase.vehicleProfilesTable, values)
-        : await _updateProfile(db, savedId, values);
+    late final int id;
+    if (savedId == null) {
+      id = await db.insert(AppDatabase.vehicleProfilesTable, values);
+    } else {
+      final updated = await db.update(
+        AppDatabase.vehicleProfilesTable,
+        values,
+        where: 'id = ?',
+        whereArgs: [savedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.vehicleProfilesTable,
+          <String, Object?>{'id': savedId, ...values},
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = savedId;
+    }
     return profile.copyWith(
       id: id,
       updatedAt: profile.updatedAt ?? DateTime.now(),
