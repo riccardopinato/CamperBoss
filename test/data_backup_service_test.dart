@@ -1039,6 +1039,16 @@ class _TestFileStorageService implements DocumentStorageService {
       }
     }
   }
+
+  @override
+  Future<List<String>> listManagedFiles() async {
+    if (!await directory.exists()) return const [];
+    return directory
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .map((file) => file.path)
+        .toList(growable: false);
+  }
 }
 
 _MemoryState _memoryState({
