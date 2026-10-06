@@ -67,6 +67,9 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
   Set<String> _openableOfflineRegionIds = const {};
   Map<String, MapLibrePoiCluster> _clustersById = const {};
 
+  bool get _usesOfflineStyle =>
+      _offlineManager.isSupported && MapEngineV2Config.offlineStyleUrl != null;
+
   @override
   void initState() {
     super.initState();
@@ -401,8 +404,7 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         Positioned.fill(
           child: widget.renderMap
               ? MapLibreMap(
-                  styleString: _offlineManager.isSupported &&
-                          MapEngineV2Config.offlineStyleUrl != null
+                  styleString: _usesOfflineStyle
                       ? MapEngineV2Config.offlineStyleUrl!
                       : MapEngineV2Config.styleUrl,
                   initialCameraPosition: CameraPosition(
@@ -481,10 +483,11 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
                   ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                Text(
-                  MapEngineV2Config.attribution,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                if (!_usesOfflineStyle)
+                  Text(
+                    MapEngineV2Config.attribution,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Text(
