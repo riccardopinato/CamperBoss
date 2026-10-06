@@ -209,6 +209,8 @@ class DataBackupService implements BackupService {
     UserStateBackupService? userStateBackupService,
     DataIntegrityService? integrityService,
     DocumentStorageService? fileStorageService,
+    Directory? recoveryDirectory,
+    Future<void> Function()? recoveryReconcile,
     String appVersion = '0.1.0',
   })  : _profileRepository =
             profileRepository ?? LocalVehicleProfileRepository(),
@@ -245,6 +247,8 @@ class DataBackupService implements BackupService {
             ),
         _fileStorageService =
             fileStorageService ?? createDocumentStorageService(),
+        _recoveryDirectoryOverride = recoveryDirectory,
+        _recoveryReconcile = recoveryReconcile,
         _appVersion = appVersion;
 
   static const format = 'camperboss-backup';
@@ -270,7 +274,12 @@ class DataBackupService implements BackupService {
   final UserStateBackupService _userStateBackupService;
   final DataIntegrityService _integrityService;
   final DocumentStorageService _fileStorageService;
+  final Directory? _recoveryDirectoryOverride;
+  final Future<void> Function()? _recoveryReconcile;
   final String _appVersion;
+
+  static const restoreJournalFileName =
+      'camperboss_restore_journal.json';
 
   @override
   Future<BackupResult> createBackup(BackupOptions options) async {
@@ -602,9 +611,10 @@ class DataBackupService implements BackupService {
       throw StateError('Backup is not valid: ${inspection.errors.join(', ')}');
     }
 
+    final recoveryDirectory = await _restoreRecoveryDirectory();
     final automaticBackup = await createBackup(
       BackupOptions(
-        outputDirectory: File(path).parent,
+        outputDirectory: recoveryDirectory,
         includeFiles: true,
         createdAt: DateTime.now(),
       ),
@@ -617,6 +627,7 @@ class DataBackupService implements BackupService {
     }
     final archiveInput = InputFileStream(path);
     _MaterializedRestore? materialized;
+    var mutationStarted = false;
     try {
       final archive = ZipDecoder().decodeStream(archiveInput);
       _validateArchiveBounds(archive);
@@ -626,6 +637,12 @@ class DataBackupService implements BackupService {
         inspection.manifest!,
         snapshot,
       );
+
+      // Persist recovery intent before the first destructive write. If the
+      // process dies from this point onward, startup restores this snapshot.
+      await _writeRestoreJournal(automaticBackup, strategy);
+      mutationStarted = true;
+
       final result = strategy == RestoreStrategy.replaceAll
           ? await _replaceAll(materialized.snapshot)
           : await _merge(materialized.snapshot);
@@ -639,6 +656,10 @@ class DataBackupService implements BackupService {
         );
       }
 
+      // A successful commit is complete only after the durable recovery marker
+      // is removed; otherwise startup would intentionally roll it back.
+      await _clearRestoreJournal();
+
       return RestoreResult(
         strategy: strategy,
         restoredRecords: result.restored,
@@ -648,16 +669,20 @@ class DataBackupService implements BackupService {
       );
     } catch (error, stackTrace) {
       if (materialized != null) {
-        // Rollback is safety-critical. Cleanup must never prevent it from
-        // running when the filesystem is already unhealthy.
         try {
           await _fileStorageService.deleteFiles(materialized.copiedPaths);
         } catch (_) {
-          // Best effort. The safety snapshot below restores canonical state.
+          // Best effort. Canonical rollback below remains authoritative.
         }
+      }
+      if (mutationStarted) {
         try {
           await _restoreSafetySnapshot(automaticBackup);
+          await _recoveryReconcile?.call();
+          await _clearRestoreJournal();
         } catch (rollbackError) {
+          // Keep the journal and safety archive in place. Startup recovery can
+          // retry after a crash, process kill or transient notification error.
           throw StateError(
             'Restore failed and automatic rollback failed. '
             'Safety backup: ${automaticBackup.path}. '
@@ -668,6 +693,94 @@ class DataBackupService implements BackupService {
       Error.throwWithStackTrace(error, stackTrace);
     } finally {
       archiveInput.closeSync();
+    }
+  }
+
+  Future<bool> recoverInterruptedRestore() async {
+    final journal = await _restoreJournalFile();
+    if (!await journal.exists()) return false;
+
+    Map<String, Object?> payload;
+    try {
+      payload = Map<String, Object?>.from(
+        jsonDecode(await journal.readAsString()) as Map,
+      );
+    } catch (error) {
+      throw StateError('Restore recovery journal is malformed: $error');
+    }
+
+    final safetyPath = payload['safetyBackupPath'] as String?;
+    if (safetyPath == null || safetyPath.trim().isEmpty) {
+      throw StateError('Restore recovery journal has no safety backup path');
+    }
+
+    final inspection = await inspectBackup(safetyPath);
+    if (!inspection.isValid || inspection.manifest == null) {
+      throw StateError(
+        'Interrupted restore cannot recover from invalid safety backup: '
+        '${inspection.errors.join(', ')}',
+      );
+    }
+
+    final backup = BackupResult(
+      path: safetyPath,
+      manifest: inspection.manifest!,
+      recordCount:
+          inspection.recordCounts.values.fold<int>(0, (sum, value) => sum + value),
+      fileCount: inspection.fileCount,
+      missingFiles: inspection.missingFiles,
+    );
+    await _restoreSafetySnapshot(backup);
+    await _recoveryReconcile?.call();
+    await _clearRestoreJournal();
+    return true;
+  }
+
+  Future<Directory> _restoreRecoveryDirectory() async {
+    final override = _recoveryDirectoryOverride;
+    if (override != null) {
+      await override.create(recursive: true);
+      return override;
+    }
+    final support = await getApplicationSupportDirectory();
+    final directory = Directory(
+      p.join(support.path, 'camperboss', 'restore_recovery'),
+    );
+    await directory.create(recursive: true);
+    return directory;
+  }
+
+  Future<File> _restoreJournalFile() async {
+    final directory = await _restoreRecoveryDirectory();
+    return File(p.join(directory.path, restoreJournalFileName));
+  }
+
+  Future<void> _writeRestoreJournal(
+    BackupResult backup,
+    RestoreStrategy strategy,
+  ) async {
+    final journal = await _restoreJournalFile();
+    final staged = File('${journal.path}.tmp');
+    await staged.writeAsString(
+      jsonEncode({
+        'format': format,
+        'schemaVersion': schemaVersion,
+        'strategy': strategy.name,
+        'safetyBackupPath': backup.path,
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+      flush: true,
+    );
+    if (await journal.exists()) {
+      await journal.delete();
+    }
+    await staged.rename(journal.path);
+  }
+
+  Future<void> _clearRestoreJournal() async {
+    final journal = await _restoreJournalFile();
+    if (await journal.exists()) {
+      await journal.delete();
     }
   }
 
@@ -1189,15 +1302,17 @@ class DataBackupService implements BackupService {
           counters.conflicts++;
         }
       } else {
-        await _profileRepository.saveProfile(incoming);
+        await _profileRepository.saveProfile(
+          existing == null ? incoming : incoming.copyWith(id: existing.id),
+        );
         counters.restored++;
       }
     }
-    await _mergeInt(
+
+    final conflictingTripIds = await _mergeInt(
       incoming: snapshot.trips,
       current: current.trips,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _tripRepository.saveTrip,
       counters: counters,
     );
@@ -1205,7 +1320,6 @@ class DataBackupService implements BackupService {
       incoming: snapshot.checklist,
       current: current.checklist,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _checklistRepository.saveItem,
       counters: counters,
     );
@@ -1213,7 +1327,6 @@ class DataBackupService implements BackupService {
       incoming: snapshot.journal,
       current: current.journal,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _journalRepository.saveEntry,
       counters: counters,
     );
@@ -1221,15 +1334,13 @@ class DataBackupService implements BackupService {
       incoming: snapshot.maintenance,
       current: current.maintenance,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _maintenanceRepository.saveRecord,
       counters: counters,
     );
-    await _mergeInt(
+    final conflictingDocumentIds = await _mergeInt(
       incoming: snapshot.documents,
       current: current.documents,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _documentRepository.saveDocument,
       counters: counters,
     );
@@ -1239,6 +1350,10 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.occurredAt,
       save: _financeRepository.saveExpense,
+      shouldSkip: (item) =>
+          (item.tripId != null && conflictingTripIds.contains(item.tripId)) ||
+          (item.documentId != null &&
+              conflictingDocumentIds.contains(item.documentId)),
       counters: counters,
     );
     await _mergeString(
@@ -1247,11 +1362,30 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.date,
       save: _financeRepository.saveFuelEntry,
+      shouldSkip: (item) =>
+          (item.tripId != null && conflictingTripIds.contains(item.tripId)) ||
+          conflictingDocumentIds.contains(item.documentId),
       counters: counters,
     );
+    final currentBudgets = {
+      for (final budget in current.budgets) budget.tripId: budget,
+    };
     for (final budget in snapshot.budgets) {
-      await _financeRepository.saveTripBudget(budget);
-      counters.restored++;
+      if (conflictingTripIds.contains(budget.tripId)) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      final existingBudget = currentBudgets[budget.tripId];
+      if (existingBudget == null) {
+        await _financeRepository.saveTripBudget(budget);
+        counters.restored++;
+        continue;
+      }
+      counters.skipped++;
+      if (_canonical(budget) != _canonical(existingBudget)) {
+        counters.conflicts++;
+      }
     }
     await _mergeString(
       incoming: snapshot.bookings,
@@ -1259,6 +1393,10 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.startsAt ?? item.endsAt,
       save: _financeRepository.saveBooking,
+      shouldSkip: (item) =>
+          conflictingTripIds.contains(item.tripId) ||
+          (item.documentId != null &&
+              conflictingDocumentIds.contains(item.documentId)),
       counters: counters,
     );
     await _mergeString(
@@ -1267,6 +1405,8 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
       save: _travelHistoryService.saveTrack,
+      shouldSkip: (item) =>
+          item.tripId != null && conflictingTripIds.contains(item.tripId),
       counters: counters,
     );
     await _mergeString(
@@ -1275,6 +1415,8 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
       save: _travelHistoryService.saveMemory,
+      shouldSkip: (item) =>
+          item.tripId != null && conflictingTripIds.contains(item.tripId),
       counters: counters,
     );
     return counters;
@@ -1341,30 +1483,37 @@ class DataBackupService implements BackupService {
     return counters;
   }
 
-  Future<void> _mergeInt<T extends Object>({
+  Future<Set<int>> _mergeInt<T extends Object>({
     required List<T> incoming,
     required List<T> current,
     required int? Function(T item) idOf,
-    required DateTime? Function(T item) updatedAtOf,
     required Future<Object?> Function(T item) save,
     required _RestoreCounters counters,
   }) async {
     final byId = {
       for (final item in current)
-        if (idOf(item) != null) idOf(item): item
+        if (idOf(item) != null) idOf(item)!: item,
     };
+    final conflictingIds = <int>{};
+
     for (final item in incoming) {
       final id = idOf(item);
       final existing = id == null ? null : byId[id];
-      if (existing != null &&
-          !_isIncomingNewer(updatedAtOf(item), updatedAtOf(existing))) {
+      if (existing != null) {
         counters.skipped++;
-        if (_canonical(item) != _canonical(existing)) counters.conflicts++;
+        if (_canonical(item) != _canonical(existing)) {
+          // Integer IDs are installation-local auto-increment values, not
+          // cross-device identities. Never overwrite a local row solely
+          // because an unrelated backup row reused the same integer.
+          counters.conflicts++;
+          conflictingIds.add(id!);
+        }
         continue;
       }
       await save(item);
       counters.restored++;
     }
+    return conflictingIds;
   }
 
   Future<void> _mergeString<T extends Object>({
@@ -1373,10 +1522,16 @@ class DataBackupService implements BackupService {
     required String Function(T item) idOf,
     required DateTime? Function(T item) updatedAtOf,
     required Future<Object?> Function(T item) save,
+    bool Function(T item)? shouldSkip,
     required _RestoreCounters counters,
   }) async {
     final byId = {for (final item in current) idOf(item): item};
     for (final item in incoming) {
+      if (shouldSkip?.call(item) == true) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
       final existing = byId[idOf(item)];
       if (existing != null &&
           !_isIncomingNewer(updatedAtOf(item), updatedAtOf(existing))) {
@@ -1538,6 +1693,7 @@ class DataBackupService implements BackupService {
     if (value is VehicleDocument) return jsonEncode(value.toMap());
     if (value is Expense) return jsonEncode(value.toMap());
     if (value is FuelEntry) return jsonEncode(value.toMap());
+    if (value is TripBudget) return jsonEncode(value.toMap());
     if (value is TripBooking) return jsonEncode(value.toMap());
     if (value is GpxTrack) return jsonEncode(value.toMap());
     if (value is TravelMemory) return jsonEncode(value.toMap());
