@@ -115,20 +115,6 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     return savedRecord;
   }
 
-  Future<int> _updateRecord(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.maintenanceRecordsTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteRecord(int id) async {
     final records = await listRecords();
