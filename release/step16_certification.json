@@ -1,13 +1,16 @@
 {
   "schemaVersion": 1,
   "step": "16",
-  "activePlatforms": ["android", "web"],
+  "activePlatforms": [
+    "android",
+    "web"
+  ],
   "ios": {
     "status": "DEFERRED",
     "blocksRelease": false,
     "iapInScope": false
   },
-  "softwareScope": "IMPLEMENTED",
+  "softwareScope": "IMPLEMENTED_AND_HARDENED",
   "finalVerdict": "BLOCKED",
   "blockedBy": [
     "PLAY_INTERNAL_EVIDENCE",
@@ -17,5 +20,19 @@
     "ANDROID_PERFORMANCE_RUNTIME_EVIDENCE",
     "WEB_RUNTIME_EVIDENCE",
     "VISUAL_ASSET_QA"
-  ]
+  ],
+  "snapshotDate": "2026-10-06",
+  "automatedEvidence": {
+    "requiredOnFinalHead": [
+      "FLUTTER_ANALYZE",
+      "RELEASE_INTEGRATION_CONTRACTS",
+      "FULL_TESTS_WITH_COVERAGE",
+      "SUPPLY_CHAIN_SECRET_SAST_TRUST_BOUNDARIES",
+      "FASTLANE_IMMUTABLE_ARTIFACT_CONTRACT",
+      "ANDROID_QA_RELEASE_ARTIFACT",
+      "WEB_RELEASE_ARTIFACT",
+      "FINAL_P0_P1_REVIEW"
+    ],
+    "status": "REVALIDATE_ON_FINAL_HEAD"
+  }
 }
