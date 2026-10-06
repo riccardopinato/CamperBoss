@@ -18,3 +18,8 @@ ios/Flutter/Flutter.podspec
 *.log
 *.tmp
 CamperBoss_export.zip
+
+# Android release signing (local/CI generated only)
+android/key.properties
+android/app/*.jks
+android/app/*.keystore

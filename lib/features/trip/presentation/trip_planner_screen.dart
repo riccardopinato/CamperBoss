@@ -1,19 +1,23 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/config/routing_config.dart';
+import '../../../core/localization/locale_formatters.dart';
 import '../../../core/services/camper_routing_profile_resolver.dart';
+import '../../../core/services/geocoding_service.dart';
 import '../../../core/services/routing_service.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/services/trip_deletion_service.dart';
 import '../../../data/models/route_preview.dart';
 import '../../../data/models/trip_plan.dart';
 import '../../../data/models/vehicle_profile.dart';
+import '../../../data/repositories/local_finance_repository.dart';
 import '../../../data/repositories/local_route_preview_repository.dart';
 import '../../../data/repositories/local_trip_repository.dart';
 import '../../../data/repositories/local_vehicle_profile_repository.dart';
 import '../../finance/presentation/finance_screen.dart';
+import '../../map/presentation/maplibre_overlay_map.dart';
+import '../../../core/services/travel_history_service.dart';
 import 'travel_history_screen.dart';
 import '../../../shared/widgets/action_tile.dart';
 import '../../../shared/widgets/metric_tile.dart';
@@ -29,7 +33,11 @@ class TripPlannerScreen extends StatefulWidget {
     this.routingService,
     this.vehicleProfileRepository,
     this.routingProfileResolver = const CamperRoutingProfileResolver(),
+    this.geocodingService = const GeocodingService(),
+    this.deletionService,
+    this.initialTripId,
     this.isRoutingConfigured,
+    this.renderMaps = true,
     super.key,
   });
 
@@ -38,7 +46,11 @@ class TripPlannerScreen extends StatefulWidget {
   final RoutingService? routingService;
   final VehicleProfileRepository? vehicleProfileRepository;
   final CamperRoutingProfileResolver routingProfileResolver;
+  final GeocodingService geocodingService;
+  final TripDeletionService? deletionService;
+  final int? initialTripId;
   final bool? isRoutingConfigured;
+  final bool renderMaps;
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -50,9 +62,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   late final RoutePreviewRepository _routePreviewRepository =
       widget.routePreviewRepository ?? LocalRoutePreviewRepository();
   late final RoutingService _routingService = widget.routingService ??
-      OpenRouteServiceRoutingService(apiKey: RoutingConfig.orsApiKey);
+      OpenRouteServiceRoutingService(
+        apiKey: RoutingConfig.orsApiKey,
+        baseUri: RoutingConfig.serviceBaseUrl,
+        requireApiKey: RoutingConfig.requiresClientApiKey,
+      );
   late final VehicleProfileRepository _vehicleProfileRepository =
       widget.vehicleProfileRepository ?? LocalVehicleProfileRepository();
+  late final TripDeletionService _deletionService =
+      widget.deletionService ??
+          TripDeletionService(
+            tripRepository: _repository,
+            routePreviewRepository: _routePreviewRepository,
+            financeRepository:
+                widget.repository == null ? LocalFinanceRepository() : null,
+            historyService: widget.repository == null
+                ? TravelHistoryService()
+                : null,
+          );
   late final bool _isRoutingConfigured =
       widget.isRoutingConfigured ?? RoutingConfig.isOpenRouteServiceConfigured;
 
@@ -92,10 +119,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         vehicleProfile = null;
       }
       if (!mounted) return;
+      final requestedIndex = widget.initialTripId == null
+          ? -1
+          : trips.indexWhere((trip) => trip.id == widget.initialTripId);
       setState(() {
         _trips = trips;
         _vehicleProfile = vehicleProfile;
-        _selectedIndex = 0;
+        _selectedIndex = requestedIndex >= 0 ? requestedIndex : 0;
         _isLoading = false;
       });
       await _loadRoutePreviewForSelectedTrip();
@@ -103,7 +133,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Trip planner unavailable';
+        _error = 'trip_error_unavailable'.tr();
       });
     }
   }
@@ -112,7 +142,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final result = await showModalBottomSheet<TripPlan>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _TripEditor(trip: trip),
+      builder: (context) => _TripEditor(
+        trip: trip,
+        geocodingService: widget.geocodingService,
+      ),
     );
 
     if (result == null) return;
@@ -134,7 +167,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       await _loadRoutePreviewForSelectedTrip();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Trip save failed');
+      setState(() => _error = 'trip_error_save'.tr());
     }
   }
 
@@ -143,6 +176,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final id = trip?.id;
     if (trip == null || id == null) return;
 
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('trip_delete_title'.tr()),
+            content: Text(
+              'trip_delete_body'.tr(namedArgs: {'title': trip.title}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('delete'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
     final previous = _trips;
     setState(() {
       _trips = _trips.where((entry) => entry.id != id).toList();
@@ -150,13 +205,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
 
     try {
-      await _repository.deleteTrip(id);
-      await _routePreviewRepository.deleteRouteForTrip(id);
+      await _deletionService.deleteTrip(id);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _trips = previous;
-        _error = 'Trip delete failed';
+        _error = 'trip_error_delete'.tr();
       });
     }
   }
@@ -180,7 +234,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     final request = _routeRequestFor(trip);
     if (trip == null || request == null || _isRouteLoading) return;
     if (!_isRoutingConfigured) {
-      setState(() => _error = 'Routing not configured');
+      setState(() => _error = 'trip_routing_not_configured'.tr());
       return;
     }
 
@@ -193,9 +247,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       final result = await _routingService.calculateRoute(request);
       final currentRequest = _routeRequestFor(_selectedTrip);
       if (currentRequest == null || !result.matches(currentRequest)) {
-        throw const RouteFailure(
+        throw RouteFailure(
           RouteFailureType.staleTrip,
-          'Trip changed while routing',
+          'trip_routing_trip_changed'.tr(),
         );
       }
       await _routePreviewRepository.saveRoute(result);
@@ -206,7 +260,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       setState(() => _error = failure.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Route calculation failed');
+      setState(() => _error = 'trip_route_failed'.tr());
     } finally {
       if (mounted) {
         setState(() => _isRouteLoading = false);
@@ -219,7 +273,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     if (trip == null || id == null) return null;
     return widget.routingProfileResolver.applyVehicleProfile(
       tripId: id,
-      waypoints: parseRouteWaypoints(trip.stages),
+      waypoints: [
+        for (final stage in trip.resolvedStages)
+          if (stage.isGeocoded)
+            RouteWaypoint(
+              name: stage.name,
+              latitude: stage.latitude!,
+              longitude: stage.longitude!,
+            ),
+      ],
       vehicle: _vehicleProfile,
     );
   }
@@ -243,24 +305,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         !_isRouteLoading;
 
     return ScreenScaffold(
-      title: 'Trip planner',
-      subtitle: 'Create trips, stages, stops, costs, notes, and dates.',
+      title: 'trip_title'.tr(),
+      subtitle: 'trip_subtitle'.tr(),
       children: [
         PremiumCard(
           child: Row(
             children: [
               Expanded(
                 child: ResourceBar(
-                  label: 'Planner completion',
+                  label: 'trip_completion'.tr(),
                   value: progress,
                   detail: trip == null
-                      ? 'No trip selected'
-                      : '${trip.stages.length} stages saved locally',
+                      ? 'trip_no_selected'.tr()
+                      : 'trip_stages_saved'.tr(namedArgs: {'count': trip.stages.length.toString()}),
                 ),
               ),
               const SizedBox(width: 12),
               IconButton.filled(
-                tooltip: 'Add trip',
+                tooltip: 'trip_add'.tr(),
                 onPressed: () => _openEditor(),
                 icon: const Icon(Icons.add),
               ),
@@ -283,20 +345,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'No trips yet',
+                  'trip_empty_title'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Create your first real itinerary. CamperBoss no longer creates sample trips automatically.',
-                ),
+                Text('trip_empty_body'.tr()),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () => _openEditor(),
                   icon: const Icon(Icons.add_road_outlined),
-                  label: const Text('Create trip'),
+                  label: Text('trip_create'.tr()),
                 ),
               ],
             ),
@@ -328,12 +388,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 child: FilledButton.icon(
                   onPressed: () => _openEditor(trip: trip),
                   icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit trip'),
+                  label: Text('trip_edit'.tr()),
                 ),
               ),
               const SizedBox(width: 12),
               IconButton.outlined(
-                tooltip: 'Delete trip',
+                tooltip: 'trip_delete'.tr(),
                 onPressed: _deleteSelectedTrip,
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -349,7 +409,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               );
             },
             icon: const Icon(Icons.account_balance_wallet_outlined),
-            label: const Text('Budget & bookings'),
+            label: Text('trip_budget_bookings'.tr()),
           ),
           const SizedBox(height: 12),
           FilledButton.tonalIcon(
@@ -361,7 +421,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               );
             },
             icon: const Icon(Icons.route_outlined),
-            label: const Text('GPX, memories & stats'),
+            label: Text('trip_history_action'.tr()),
           ),
           const SizedBox(height: 16),
           _TripMetrics(trip: trip),
@@ -376,13 +436,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             routeFailure: routeFailure,
             canCalculate: canCalculateRoute,
             onCalculate: _calculateRoute,
+            renderMap: widget.renderMaps,
           ),
           const SizedBox(height: 16),
           for (final stage in trip.stages) ...[
             ActionTile(
               icon: _iconForStage(stage),
               title: stage,
-              subtitle: trip.overnightStop ?? 'Saved stage',
+              subtitle: trip.overnightStop ?? 'trip_saved_stage'.tr(),
             ),
             const SizedBox(height: 12),
           ],
@@ -441,6 +502,7 @@ class _RoutePreviewCard extends StatelessWidget {
     required this.routeFailure,
     required this.canCalculate,
     required this.onCalculate,
+    required this.renderMap,
   });
 
   final RouteRequest? request;
@@ -452,6 +514,7 @@ class _RoutePreviewCard extends StatelessWidget {
   final RouteFailure? routeFailure;
   final bool canCalculate;
   final VoidCallback onCalculate;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +529,7 @@ class _RoutePreviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Route preview',
+                  'trip_route_preview'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -496,20 +559,25 @@ class _RoutePreviewCard extends StatelessWidget {
           _RoutingProfileBanner(request: request),
           const SizedBox(height: 12),
           if (!isRoutingConfigured)
-            const Text('Routing not configured')
+            Text('trip_routing_not_configured'.tr())
           else if (routeFailure != null)
             Text(routeFailure!.message)
           else if (isSavedRouteStale)
-            const Text('Saved route is obsolete after stage changes')
+            Text('trip_route_stale'.tr())
           else if (isSavedRouteCurrent)
-            Text('Saved offline - updated ${_dateLabel(route!.calculatedAt)}')
+            Text(
+              'trip_route_saved_updated'.tr(
+                namedArgs: {'date': _dateLabel(route!.calculatedAt)},
+              ),
+            )
           else
-            const Text('No saved route preview yet'),
+            Text('trip_route_none'.tr()),
           if (route != null) ...[
             const SizedBox(height: 12),
             _RouteMap(
               geometry: route.geometry,
               waypoints: request?.waypoints ?? const [],
+              renderMap: renderMap,
             ),
             const SizedBox(height: 12),
             Row(
@@ -517,7 +585,7 @@ class _RoutePreviewCard extends StatelessWidget {
                 Expanded(
                   child: MetricTile(
                     icon: Icons.straighten_outlined,
-                    label: 'Distance',
+                    label: 'trip_distance'.tr(),
                     value: _distanceLabel(route.totalDistanceMeters),
                     detail: route.provider,
                   ),
@@ -526,9 +594,9 @@ class _RoutePreviewCard extends StatelessWidget {
                 Expanded(
                   child: MetricTile(
                     icon: Icons.schedule_outlined,
-                    label: 'Duration',
+                    label: 'trip_duration'.tr(),
                     value: _durationLabel(route.totalDurationSeconds),
-                    detail: 'Estimated drive',
+                    detail: 'trip_estimated_drive'.tr(),
                   ),
                 ),
               ],
@@ -568,21 +636,14 @@ class _RoutePreviewCard extends StatelessWidget {
     );
   }
 
-  static String _dateLabel(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
+  static String _dateLabel(DateTime date) => localizedDate(date);
 
   static String _distanceLabel(double meters) {
-    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
-    return '${meters.round()} m';
+    return localizedDistanceMeters(meters);
   }
 
   static String _durationLabel(double seconds) {
-    final minutes = (seconds / 60).round();
-    if (minutes < 60) return '$minutes min';
-    final hours = minutes ~/ 60;
-    final rest = minutes % 60;
-    return rest == 0 ? '$hours h' : '$hours h $rest min';
+    return localizedDurationSeconds(seconds.round());
   }
 }
 
@@ -666,68 +727,45 @@ class _RouteMap extends StatelessWidget {
   const _RouteMap({
     required this.geometry,
     required this.waypoints,
+    required this.renderMap,
   });
 
   final List<LatLng> geometry;
   final List<RouteWaypoint> waypoints;
+  final bool renderMap;
 
   @override
   Widget build(BuildContext context) {
-    final center = geometry.isEmpty
-        ? const LatLng(45.6049, 10.6351)
-        : geometry[geometry.length ~/ 2];
-
     return AspectRatio(
       aspectRatio: 1.7,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 9.5,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-            ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.camperboss.camperboss',
-            ),
+        child: MapLibreOverlayMap(
+          renderMap: renderMap,
+          paths: [
             if (geometry.length > 1)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: geometry,
-                    color: AppColors.gold,
-                    strokeWidth: 5,
-                  ),
-                ],
-              ),
-            MarkerLayer(
-              markers: [
-                for (final waypoint in waypoints)
-                  Marker(
-                    point: waypoint.point,
-                    width: 42,
-                    height: 42,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.surface,
-                        border: Border.all(color: AppColors.gold, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.place, color: AppColors.gold),
+              MapLibreOverlayPath(
+                id: 'route-preview',
+                points: [
+                  for (final point in geometry)
+                    MapLibreOverlayPoint(
+                      id: 'route-${point.latitude}-${point.longitude}',
+                      latitude: point.latitude,
+                      longitude: point.longitude,
                     ),
-                  ),
-              ],
-            ),
+                ],
+                colorHex: '#E6B85C',
+                width: 5,
+              ),
+          ],
+          points: [
+            for (var index = 0; index < waypoints.length; index++)
+              MapLibreOverlayPoint(
+                id: 'waypoint:$index',
+                latitude: waypoints[index].latitude,
+                longitude: waypoints[index].longitude,
+                kind: 'waypoint',
+              ),
           ],
         ),
       ),
@@ -752,29 +790,29 @@ class _TripMetrics extends StatelessWidget {
       children: [
         MetricTile(
           icon: Icons.local_gas_station_outlined,
-          label: 'Cost',
+          label: 'trip_cost'.tr(),
           value: trip.estimatedCost == null
-              ? 'TBD'
-              : 'EUR ${trip.estimatedCost!.round()}',
-          detail: trip.overnightStop ?? 'No stop selected',
+              ? 'trip_tbd'.tr()
+              : localizedCurrency(trip.estimatedCost!, currencyCode: 'EUR'),
+          detail: trip.overnightStop ?? 'trip_no_stop'.tr(),
         ),
         MetricTile(
           icon: Icons.event_outlined,
-          label: 'Dates',
+          label: 'trip_dates'.tr(),
           value: _dateRange,
-          detail: 'Editable trip window',
+          detail: 'trip_dates_detail'.tr(),
         ),
         MetricTile(
           icon: Icons.route_outlined,
-          label: 'Stages',
+          label: 'trip_stages'.tr(),
           value: '${trip.stages.length}',
-          detail: 'Saved route points',
+          detail: 'trip_saved_route_points'.tr(),
         ),
         MetricTile(
           icon: Icons.height_outlined,
-          label: 'Progress',
+          label: 'trip_progress'.tr(),
           value: '${(trip.progress * 100).round()}%',
-          detail: 'Planner readiness',
+          detail: 'trip_progress_detail'.tr(),
         ),
       ],
     );
@@ -783,17 +821,21 @@ class _TripMetrics extends StatelessWidget {
   String get _dateRange {
     final start = trip.startDate;
     final end = trip.endDate;
-    if (start == null && end == null) return 'Unset';
-    final startText = start == null ? '?' : '${start.month}/${start.day}';
-    final endText = end == null ? '?' : '${end.month}/${end.day}';
-    return '$startText-$endText';
+    if (start == null && end == null) return 'trip_unset'.tr();
+    final startText = start == null ? '?' : localizedDate(start);
+    final endText = end == null ? '?' : localizedDate(end);
+    return '$startText – $endText';
   }
 }
 
 class _TripEditor extends StatefulWidget {
-  const _TripEditor({this.trip});
+  const _TripEditor({
+    required this.geocodingService,
+    this.trip,
+  });
 
   final TripPlan? trip;
+  final GeocodingService geocodingService;
 
   @override
   State<_TripEditor> createState() => _TripEditorState();
@@ -809,6 +851,8 @@ class _TripEditorState extends State<_TripEditor> {
   late final TextEditingController _notesController;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isResolvingStages = false;
+  String? _stageResolutionStatus;
 
   @override
   void initState() {
@@ -859,18 +903,87 @@ class _TripEditorState extends State<_TripEditor> {
     });
   }
 
+  Future<void> _resolveStages() async {
+    if (_isResolvingStages) return;
+    final lines = _stagesController.text
+        .split('\n')
+        .map((stage) => stage.trim())
+        .where((stage) => stage.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return;
+
+    setState(() {
+      _isResolvingStages = true;
+      _stageResolutionStatus = null;
+    });
+
+    final resolved = <String>[];
+    var unresolved = 0;
+    try {
+      for (final line in lines) {
+        final parsed = TripStage.fromLegacy(line);
+        if (parsed.isGeocoded) {
+          resolved.add(parsed.legacyLabel);
+          continue;
+        }
+
+        try {
+          final results = await widget.geocodingService.search(
+            parsed.name,
+            language: context.locale.languageCode,
+          );
+          if (results.isEmpty) {
+            unresolved++;
+            resolved.add(line);
+            continue;
+          }
+          final location = results.first;
+          resolved.add(
+            TripStage(
+              name: location.name,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            ).legacyLabel,
+          );
+        } catch (_) {
+          unresolved++;
+          resolved.add(line);
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _stagesController.text = resolved.join('\n');
+        _stageResolutionStatus = unresolved == 0
+            ? 'trip_geocode_all_resolved'.tr()
+            : 'trip_geocode_unresolved'.tr(
+                namedArgs: {'count': unresolved.toString()},
+              );
+      });
+    } finally {
+      if (mounted) setState(() => _isResolvingStages = false);
+    }
+  }
+
   void _save() {
     final title = _titleController.text.trim();
     final destination = _destinationController.text.trim();
-    final summary = _summaryController.text.trim();
-    if (title.isEmpty || summary.isEmpty) return;
+    final rawSummary = _summaryController.text.trim();
+    if (title.isEmpty) return;
+    final summary = rawSummary.isNotEmpty
+        ? rawSummary
+        : (destination.isNotEmpty ? destination : title);
 
     final stages = _stagesController.text
         .split('\n')
         .map((stage) => stage.trim())
         .where((stage) => stage.isNotEmpty)
         .toList();
-    final cost = double.tryParse(_costController.text.trim());
+    final stageDetails =
+        stages.map(TripStage.fromLegacy).toList(growable: false);
+    final cost = double.tryParse(
+      _costController.text.trim().replaceAll(',', '.'),
+    );
     final notes = _notesController.text.trim();
     final overnightStop = _overnightController.text.trim();
     final progress = (stages.length / 6).clamp(0.0, 1.0);
@@ -885,6 +998,7 @@ class _TripEditorState extends State<_TripEditor> {
         startDate: _startDate,
         endDate: _endDate,
         stages: stages,
+        stageDetails: stageDetails,
         overnightStop: overnightStop.isEmpty ? null : overnightStop,
         estimatedCost: cost,
         notes: notes.isEmpty ? null : notes,
@@ -908,45 +1022,19 @@ class _TripEditorState extends State<_TripEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.trip == null ? 'Add trip' : 'Edit trip',
+              widget.trip == null ? 'trip_add'.tr() : 'trip_edit'.tr(),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _titleController,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Title'),
+              decoration: InputDecoration(labelText: 'common_title'.tr()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _destinationController,
-              decoration: const InputDecoration(labelText: 'Destination'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _summaryController,
-              decoration: const InputDecoration(labelText: 'Summary'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _stagesController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Stages',
-                hintText: 'One stop per line, e.g. Verona | 45.4384, 10.9916',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _overnightController,
-              decoration: const InputDecoration(labelText: 'Overnight stop'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _costController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Estimated cost'),
+              decoration: InputDecoration(labelText: 'trip_destination'.tr()),
             ),
             const SizedBox(height: 12),
             Row(
@@ -955,7 +1043,7 @@ class _TripEditorState extends State<_TripEditor> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickDate(start: true),
                     icon: const Icon(Icons.event),
-                    label: Text(_dateLabel(_startDate, fallback: 'Start')),
+                    label: Text(_dateLabel(_startDate, fallback: 'trip_start'.tr())),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -963,24 +1051,86 @@ class _TripEditorState extends State<_TripEditor> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickDate(start: false),
                     icon: const Icon(Icons.event_available),
-                    label: Text(_dateLabel(_endDate, fallback: 'End')),
+                    label: Text(_dateLabel(_endDate, fallback: 'trip_end'.tr())),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _notesController,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Notes'),
+            const SizedBox(height: 8),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              maintainState: true,
+              initiallyExpanded: widget.trip != null,
+              title: Text(
+                'trip_hub_planner'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('trip_hub_planner_body'.tr()),
+              children: [
+                TextField(
+                  controller: _summaryController,
+                  decoration: InputDecoration(labelText: 'trip_summary'.tr()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _stagesController,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: 'trip_stages'.tr(),
+                    hintText: 'trip_stages_help'.tr(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _isResolvingStages ? null : _resolveStages,
+                    icon: _isResolvingStages
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.location_searching_outlined),
+                    label: Text('trip_geocode_stages'.tr()),
+                  ),
+                ),
+                if (_stageResolutionStatus != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _stageResolutionStatus!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _overnightController,
+                  decoration:
+                      InputDecoration(labelText: 'trip_overnight_stop'.tr()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _costController,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      InputDecoration(labelText: 'trip_estimated_cost'.tr()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notesController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(labelText: 'common_notes'.tr()),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
             const SizedBox(height: 20),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: _save,
-                child: const Text('Save'),
+                child: Text('common_save'.tr()),
               ),
             ),
           ],
@@ -991,6 +1141,6 @@ class _TripEditorState extends State<_TripEditor> {
 
   String _dateLabel(DateTime? date, {required String fallback}) {
     if (date == null) return fallback;
-    return '${date.year}-${date.month}-${date.day}';
+    return localizedDate(date);
   }
 }

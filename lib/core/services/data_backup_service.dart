@@ -1,13 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'data_integrity_service.dart';
+import 'document_storage_service.dart';
+import 'travel_history_service.dart';
+import 'user_state_backup_service.dart';
+import '../../data/models/app_reminder.dart';
 import '../../data/models/checklist_item.dart';
 import '../../data/models/finance_models.dart';
 import '../../data/models/journal_entry.dart';
@@ -20,6 +25,8 @@ import '../../data/repositories/local_checklist_repository.dart';
 import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_journal_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
+import '../../data/repositories/local_reminder_repository.dart';
+import '../../data/repositories/local_route_preview_repository.dart';
 import '../../data/repositories/local_travel_history_repository.dart';
 import '../../data/repositories/local_trip_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
@@ -35,11 +42,15 @@ class BackupOptions {
     this.outputDirectory,
     this.includeFiles = true,
     this.createdAt,
+    this.onProgress,
+    this.shouldCancel,
   });
 
   final Directory? outputDirectory;
   final bool includeFiles;
   final DateTime? createdAt;
+  final void Function(double progress)? onProgress;
+  final bool Function()? shouldCancel;
 }
 
 class BackupResult {
@@ -56,6 +67,13 @@ class BackupResult {
   final int recordCount;
   final int fileCount;
   final List<String> missingFiles;
+}
+
+class BackupCancelledException implements Exception {
+  const BackupCancelledException();
+
+  @override
+  String toString() => 'Backup cancelled';
 }
 
 class BackupInspection {
@@ -137,17 +155,20 @@ class BackupManifestFile {
     required this.path,
     required this.sha256,
     required this.size,
+    this.sourcePath,
   });
 
   final String path;
   final String sha256;
   final int size;
+  final String? sourcePath;
 
   Map<String, Object?> toMap() {
     return {
       'path': path,
       'sha256': sha256,
       'size': size,
+      if (sourcePath != null) 'sourcePath': sourcePath,
     };
   }
 
@@ -156,6 +177,7 @@ class BackupManifestFile {
       path: map['path'] as String,
       sha256: map['sha256'] as String,
       size: (map['size'] as num?)?.toInt() ?? 0,
+      sourcePath: map['sourcePath'] as String?,
     );
   }
 }
@@ -181,6 +203,14 @@ class DataBackupService implements BackupService {
     VehicleDocumentRepository? documentRepository,
     FinanceRepository? financeRepository,
     TravelHistoryRepository? travelHistoryRepository,
+    TravelHistoryService? travelHistoryService,
+    ReminderRepository? reminderRepository,
+    RoutePreviewRepository? routeRepository,
+    UserStateBackupService? userStateBackupService,
+    DataIntegrityService? integrityService,
+    DocumentStorageService? fileStorageService,
+    Directory? recoveryDirectory,
+    Future<void> Function()? recoveryReconcile,
     String appVersion = '0.1.0',
   })  : _profileRepository =
             profileRepository ?? LocalVehicleProfileRepository(),
@@ -195,10 +225,40 @@ class DataBackupService implements BackupService {
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _travelHistoryRepository =
             travelHistoryRepository ?? LocalTravelHistoryRepository(),
+        _travelHistoryService = travelHistoryService ??
+            TravelHistoryService(
+              repository:
+                  travelHistoryRepository ?? LocalTravelHistoryRepository(),
+            ),
+        _reminderRepository = reminderRepository ?? LocalReminderRepository(),
+        _routeRepository = routeRepository ?? LocalRoutePreviewRepository(),
+        _userStateBackupService =
+            userStateBackupService ?? UserStateBackupService(),
+        _integrityService = integrityService ??
+            DataIntegrityService(
+              tripRepository: tripRepository,
+              financeRepository: financeRepository,
+              journalRepository: journalRepository,
+              documentRepository: documentRepository,
+              maintenanceRepository: maintenanceRepository,
+              travelHistoryRepository: travelHistoryRepository,
+              reminderRepository: reminderRepository,
+              routeRepository: routeRepository,
+            ),
+        _fileStorageService =
+            fileStorageService ?? createDocumentStorageService(),
+        _recoveryDirectoryOverride = recoveryDirectory,
+        _recoveryReconcile = recoveryReconcile,
         _appVersion = appVersion;
 
   static const format = 'camperboss-backup';
-  static const schemaVersion = 1;
+  static const schemaVersion = 3;
+  static const _supportedSchemaVersions = {1, 2, 3};
+  static const maxArchiveFileBytes = 256 * 1024 * 1024;
+  static const maxArchiveEntries = 5000;
+  static const maxArchiveEntryBytes = 128 * 1024 * 1024;
+  static const maxExpandedArchiveBytes = 768 * 1024 * 1024;
+  static const maxStructuredPayloadBytes = 16 * 1024 * 1024;
 
   final VehicleProfileRepository _profileRepository;
   final TripRepository _tripRepository;
@@ -208,78 +268,222 @@ class DataBackupService implements BackupService {
   final VehicleDocumentRepository _documentRepository;
   final FinanceRepository _financeRepository;
   final TravelHistoryRepository _travelHistoryRepository;
+  final TravelHistoryService _travelHistoryService;
+  final ReminderRepository _reminderRepository;
+  final RoutePreviewRepository _routeRepository;
+  final UserStateBackupService _userStateBackupService;
+  final DataIntegrityService _integrityService;
+  final DocumentStorageService _fileStorageService;
+  final Directory? _recoveryDirectoryOverride;
+  final Future<void> Function()? _recoveryReconcile;
   final String _appVersion;
+
+  static const restoreJournalFileName =
+      'camperboss_restore_journal.json';
 
   @override
   Future<BackupResult> createBackup(BackupOptions options) async {
     final createdAt = options.createdAt ?? DateTime.now();
     final snapshot = await _loadSnapshot();
     final payloads = _buildDataPayloads(snapshot);
-    final archive = Archive();
-    final manifestFiles = <BackupManifestFile>[];
-
-    for (final entry in payloads.entries) {
-      final bytes = utf8.encode(_prettyJson(entry.value));
-      archive.addFile(ArchiveFile(entry.key, bytes.length, bytes));
-      manifestFiles.add(_manifestFile(entry.key, bytes));
-    }
-
+    final sourcePaths = options.includeFiles
+        ? (_collectFilePaths(snapshot)
+            .where((path) => path.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort())
+        : <String>[];
     final missingFiles = <String>[];
-    var fileCount = 0;
-    if (options.includeFiles) {
-      for (final filePath in _collectFilePaths(snapshot)) {
-        final file = File(filePath);
-        if (!await file.exists()) {
-          missingFiles.add(filePath);
-          continue;
-        }
-        final bytes = await file.readAsBytes();
-        final backupPath = _backupPathForFile(filePath);
-        archive.addFile(ArchiveFile(backupPath, bytes.length, bytes));
-        manifestFiles.add(_manifestFile(backupPath, bytes));
-        fileCount++;
-      }
-    }
-
-    final manifest = BackupManifest(
-      format: format,
-      schemaVersion: schemaVersion,
-      appVersion: _appVersion,
-      createdAt: createdAt,
-      files: manifestFiles..sort((a, b) => a.path.compareTo(b.path)),
-    );
-    final manifestBytes = utf8.encode(_prettyJson(manifest.toMap()));
-    archive.addFile(
-      ArchiveFile('manifest.json', manifestBytes.length, manifestBytes),
-    );
+    final manifestFiles = <BackupManifestFile>[];
 
     final outputDirectory =
         options.outputDirectory ?? await _defaultDirectory();
     await outputDirectory.create(recursive: true);
     final fileName = 'camperboss_backup_${_dateStamp(createdAt)}.zip';
     final output = await _uniqueFile(outputDirectory, fileName);
-    final encoded = ZipEncoder().encode(archive);
-    await output.writeAsBytes(encoded, flush: true);
+    final stage =
+        await Directory.systemTemp.createTemp('camperboss_backup_stage_');
+    final encoder = ZipFileEncoder();
+    var encoderOpened = false;
+    var fileCount = 0;
+    var completed = 0;
+    var expandedBytes = 0;
+    final totalEntries = payloads.length + sourcePaths.length + 1;
+    if (totalEntries > maxArchiveEntries) {
+      throw StateError('Backup contains too many archive entries');
+    }
+    final totalWork = totalEntries;
 
-    return BackupResult(
-      path: output.path,
-      manifest: manifest,
-      recordCount: snapshot.recordCount,
-      fileCount: fileCount,
-      missingFiles: missingFiles,
-    );
+    void checkCancelled() {
+      if (options.shouldCancel?.call() == true) {
+        throw const BackupCancelledException();
+      }
+    }
+
+    void reportProgress() {
+      options.onProgress?.call(
+        totalWork == 0 ? 1 : (completed / totalWork).clamp(0.0, 1.0),
+      );
+    }
+
+    try {
+      checkCancelled();
+      encoder.create(output.path);
+      encoderOpened = true;
+
+      var payloadIndex = 0;
+      for (final entry in payloads.entries) {
+        checkCancelled();
+        final staged = File(
+          p.join(stage.path, 'payload_${payloadIndex++}.json'),
+        );
+        await staged.writeAsString(
+          _prettyJson(entry.value),
+          encoding: utf8,
+          flush: true,
+        );
+        final payloadBytes = await staged.length();
+        _checkCreateEntryBounds(
+          payloadBytes,
+          expandedBytes,
+          entry.key,
+          structured: true,
+        );
+        expandedBytes += payloadBytes;
+        manifestFiles.add(
+          await _manifestFileFromDisk(staged, entry.key),
+        );
+        await encoder.addFile(staged, entry.key);
+        completed++;
+        reportProgress();
+      }
+
+      for (final filePath in sourcePaths) {
+        checkCancelled();
+        final file = File(filePath);
+        if (!await file.exists()) {
+          missingFiles.add(filePath);
+          completed++;
+          reportProgress();
+          continue;
+        }
+        final backupPath = _backupPathForFile(filePath);
+        final sourceBytes = await file.length();
+        _checkCreateEntryBounds(
+          sourceBytes,
+          expandedBytes,
+          backupPath,
+        );
+        expandedBytes += sourceBytes;
+        manifestFiles.add(
+          await _manifestFileFromDisk(
+            file,
+            backupPath,
+            sourcePath: filePath,
+          ),
+        );
+        await encoder.addFile(file, backupPath);
+        fileCount++;
+        completed++;
+        reportProgress();
+      }
+
+      checkCancelled();
+      final manifest = BackupManifest(
+        format: format,
+        schemaVersion: schemaVersion,
+        appVersion: _appVersion,
+        createdAt: createdAt,
+        files: manifestFiles..sort((a, b) => a.path.compareTo(b.path)),
+      );
+      final manifestFile = File(p.join(stage.path, 'manifest.json'));
+      await manifestFile.writeAsString(
+        _prettyJson(manifest.toMap()),
+        encoding: utf8,
+        flush: true,
+      );
+      final manifestBytes = await manifestFile.length();
+      _checkCreateEntryBounds(
+        manifestBytes,
+        expandedBytes,
+        'manifest.json',
+        structured: true,
+      );
+      expandedBytes += manifestBytes;
+      await encoder.addFile(manifestFile, 'manifest.json');
+      completed++;
+      reportProgress();
+
+      await encoder.close();
+      encoderOpened = false;
+      if (await output.length() > maxArchiveFileBytes) {
+        throw StateError(
+          'Backup exceeds the maximum supported archive size',
+        );
+      }
+      options.onProgress?.call(1);
+
+      return BackupResult(
+        path: output.path,
+        manifest: manifest,
+        recordCount: snapshot.recordCount,
+        fileCount: fileCount,
+        missingFiles: missingFiles,
+      );
+    } catch (_) {
+      if (encoderOpened) {
+        try {
+          await encoder.close();
+        } catch (_) {
+          // The incomplete archive is deleted below.
+        }
+      }
+      if (await output.exists()) {
+        await output.delete();
+      }
+      rethrow;
+    } finally {
+      if (await stage.exists()) {
+        await stage.delete(recursive: true);
+      }
+    }
   }
 
   @override
   Future<BackupInspection> inspectBackup(String path) async {
     final errors = <String>[];
+    final archiveFile = File(path);
+    if (!await archiveFile.exists()) {
+      return const BackupInspection(
+        isValid: false,
+        manifest: null,
+        recordCounts: {},
+        fileCount: 0,
+        missingFiles: [],
+        errors: ['Backup file does not exist'],
+      );
+    }
+    if (await archiveFile.length() > maxArchiveFileBytes) {
+      return const BackupInspection(
+        isValid: false,
+        manifest: null,
+        recordCounts: {},
+        fileCount: 0,
+        missingFiles: [],
+        errors: ['Backup exceeds the maximum supported archive size'],
+      );
+    }
     final missingFiles = <String>[];
     BackupManifest? manifest;
     Archive? archive;
+    InputFileStream? archiveInput;
 
     try {
-      archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
+      archiveInput = InputFileStream(path);
+      archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
     } catch (_) {
+      archiveInput?.closeSync();
       return BackupInspection(
         isValid: false,
         manifest: null,
@@ -295,10 +499,10 @@ class DataBackupService implements BackupService {
       errors.add('manifest.json is missing');
     } else {
       try {
+        final decodedManifest =
+            _decodeStructuredArchiveFile(manifestFile, 'manifest.json');
         manifest = BackupManifest.fromMap(
-          Map<String, Object?>.from(
-            jsonDecode(utf8.decode(_bytes(manifestFile))) as Map,
-          ),
+          Map<String, Object?>.from(decodedManifest as Map),
         );
       } catch (_) {
         errors.add('manifest.json is malformed');
@@ -307,19 +511,65 @@ class DataBackupService implements BackupService {
 
     if (manifest != null) {
       if (manifest.format != format) errors.add('Unsupported backup format');
-      if (manifest.schemaVersion != schemaVersion) {
+      if (!_supportedSchemaVersions.contains(manifest.schemaVersion)) {
         errors.add('Unsupported schema version');
       }
+      final seenPaths = <String>{};
+      final seenSources = <String>{};
       for (final entry in manifest.files) {
+        final normalizedPath = p.posix.normalize(entry.path);
+        if (entry.path != normalizedPath ||
+            entry.path.contains('\\') ||
+            p.posix.isAbsolute(entry.path) ||
+            normalizedPath.startsWith('../') ||
+            normalizedPath == '..' ||
+            !seenPaths.add(normalizedPath)) {
+          errors.add('Unsafe or duplicate manifest path: ${entry.path}');
+          continue;
+        }
+        final sourcePath = entry.sourcePath;
+        if (sourcePath != null &&
+            sourcePath.isNotEmpty &&
+            !seenSources.add(sourcePath)) {
+          errors.add('Duplicate source path in manifest: $sourcePath');
+          continue;
+        }
         final archived = archive.findFile(entry.path);
         if (archived == null) {
           missingFiles.add(entry.path);
           continue;
         }
-        final bytes = _bytes(archived);
-        final actual = sha256.convert(bytes).toString();
+        final actual = _sha256ArchiveFile(archived);
         if (actual != entry.sha256) {
           errors.add('Hash mismatch: ${entry.path}');
+        }
+      }
+
+      if (manifest.schemaVersion == schemaVersion) {
+        final declaredPaths =
+            manifest.files.map((entry) => entry.path).toList(growable: false);
+        for (final requiredPath in _dataPaths) {
+          final manifestCount =
+              declaredPaths.where((path) => path == requiredPath).length;
+          final archiveCount = archive.files
+              .where(
+                (file) =>
+                    file.isFile &&
+                    file.name == requiredPath,
+              )
+              .length;
+          if (manifestCount != 1) {
+            errors.add(
+              'Required data payload must appear exactly once in manifest: '
+              '$requiredPath',
+            );
+          }
+          if (archiveCount != 1) {
+            errors.add(
+              'Required data payload must appear exactly once in archive: '
+              '$requiredPath',
+            );
+          }
         }
       }
     }
@@ -329,7 +579,7 @@ class DataBackupService implements BackupService {
       final file = archive.findFile(dataPath);
       if (file == null) continue;
       try {
-        final decoded = jsonDecode(utf8.decode(_bytes(file)));
+        final decoded = _decodeStructuredArchiveFile(file, dataPath);
         recordCounts[dataPath] = decoded is List ? decoded.length : 0;
       } catch (_) {
         errors.add('Malformed data file: $dataPath');
@@ -340,6 +590,7 @@ class DataBackupService implements BackupService {
         .where((file) => file.isFile && file.name.startsWith('files/'))
         .length;
 
+    archiveInput.closeSync();
     return BackupInspection(
       isValid: errors.isEmpty && missingFiles.isEmpty,
       manifest: manifest,
@@ -360,21 +611,58 @@ class DataBackupService implements BackupService {
       throw StateError('Backup is not valid: ${inspection.errors.join(', ')}');
     }
 
+    final recoveryDirectory = await _restoreRecoveryDirectory();
     final automaticBackup = await createBackup(
       BackupOptions(
-        outputDirectory: File(path).parent,
+        outputDirectory: recoveryDirectory,
         includeFiles: true,
         createdAt: DateTime.now(),
       ),
     );
-    final before = await _loadSnapshot();
-
+    if (automaticBackup.missingFiles.isNotEmpty) {
+      throw StateError(
+        'Safety backup is incomplete; restore aborted before mutating data. '
+        'Missing files: ${automaticBackup.missingFiles.join(', ')}',
+      );
+    }
+    final archiveInput = InputFileStream(path);
+    _MaterializedRestore? materialized;
+    var journalWritten = false;
+    var canonicalMutationStarted = false;
     try {
-      final archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
+      final archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
       final snapshot = _snapshotFromArchive(archive);
+
+      // Persist recovery intent before durable restore media is materialized.
+      await _writeRestoreJournal(automaticBackup, strategy);
+      journalWritten = true;
+
+      materialized = await _materializeSnapshotFiles(
+        archive,
+        inspection.manifest!,
+        snapshot,
+      );
+
+      canonicalMutationStarted = true;
+
       final result = strategy == RestoreStrategy.replaceAll
-          ? await _replaceAll(snapshot)
-          : await _merge(snapshot);
+          ? await _replaceAll(materialized.snapshot)
+          : await _merge(materialized.snapshot);
+
+      await _cleanupUnreferencedMaterializedFiles(materialized);
+      final integrity = await _integrityService.audit();
+      if (!integrity.isClean) {
+        throw StateError(
+          'Restored data failed integrity audit: '
+          '${integrity.issues.map((item) => item.code).toSet().join(', ')}',
+        );
+      }
+
+      // A successful commit is complete only after the durable recovery marker
+      // is removed; otherwise startup would intentionally roll it back.
+      await _clearRestoreJournal();
+
       return RestoreResult(
         strategy: strategy,
         restoredRecords: result.restored,
@@ -382,9 +670,190 @@ class DataBackupService implements BackupService {
         conflicts: result.conflicts,
         automaticBackupPath: automaticBackup.path,
       );
+    } catch (error, stackTrace) {
+      if (materialized != null) {
+        try {
+          await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        } catch (_) {
+          // Best effort. Recovery cleanup scans all managed files below.
+        }
+      }
+
+      if (canonicalMutationStarted) {
+        try {
+          await _restoreSafetySnapshot(automaticBackup);
+        } catch (rollbackError) {
+          // Canonical rollback did not complete: retain the journal so startup
+          // recovery can retry from the durable safety snapshot.
+          throw StateError(
+            'Restore failed and automatic rollback failed. '
+            'Safety backup: ${automaticBackup.path}. '
+            'Rollback error: $rollbackError',
+          );
+        }
+
+        // Canonical data is safe again. Clear the marker before derived
+        // reconciliation so reminder failures cannot replay stale data later.
+        await _clearRestoreJournal();
+        try {
+          await _cleanupUnreferencedManagedFiles();
+        } catch (_) {
+          // Orphan media cleanup is best-effort after canonical rollback.
+        }
+        try {
+          await _recoveryReconcile?.call();
+        } catch (_) {
+          // AppSystemServices retries derived reminders after recovery.
+        }
+      } else if (journalWritten) {
+        // Canonical data was not mutated, but media copying may have started.
+        try {
+          await _cleanupUnreferencedManagedFiles();
+        } catch (_) {
+          // Current canonical references remain authoritative.
+        }
+        await _clearRestoreJournal();
+      }
+
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      archiveInput.closeSync();
+    }
+  }
+
+  Future<bool> recoverInterruptedRestore() async {
+    final journal = await _restoreJournalFile();
+    if (!await journal.exists()) return false;
+
+    Map<String, Object?> payload;
+    try {
+      payload = Map<String, Object?>.from(
+        jsonDecode(await journal.readAsString()) as Map,
+      );
+    } catch (error) {
+      throw StateError('Restore recovery journal is malformed: $error');
+    }
+
+    final safetyPath = payload['safetyBackupPath'] as String?;
+    if (safetyPath == null || safetyPath.trim().isEmpty) {
+      throw StateError('Restore recovery journal has no safety backup path');
+    }
+
+    final inspection = await inspectBackup(safetyPath);
+    if (!inspection.isValid || inspection.manifest == null) {
+      throw StateError(
+        'Interrupted restore cannot recover from invalid safety backup: '
+        '${inspection.errors.join(', ')}',
+      );
+    }
+
+    final backup = BackupResult(
+      path: safetyPath,
+      manifest: inspection.manifest!,
+      recordCount:
+          inspection.recordCounts.values.fold<int>(0, (sum, value) => sum + value),
+      fileCount: inspection.fileCount,
+      missingFiles: inspection.missingFiles,
+    );
+    await _restoreSafetySnapshot(backup);
+
+    // Canonical rollback succeeded. Clear the marker first so a derived
+    // reminder failure can never cause a second rollback on next launch.
+    await _clearRestoreJournal();
+    try {
+      await _cleanupUnreferencedManagedFiles();
     } catch (_) {
-      await _replaceAll(before);
-      rethrow;
+      // Orphan cleanup is repairable and must not brick startup.
+    }
+    try {
+      await _recoveryReconcile?.call();
+    } catch (_) {
+      // AppSystemServices retries reminder reconciliation after the gate.
+    }
+    return true;
+  }
+
+  Future<Directory> _restoreRecoveryDirectory() async {
+    final override = _recoveryDirectoryOverride;
+    if (override != null) {
+      await override.create(recursive: true);
+      return override;
+    }
+    final support = await getApplicationSupportDirectory();
+    final directory = Directory(
+      p.join(support.path, 'camperboss', 'restore_recovery'),
+    );
+    await directory.create(recursive: true);
+    return directory;
+  }
+
+  Future<File> _restoreJournalFile() async {
+    final directory = await _restoreRecoveryDirectory();
+    return File(p.join(directory.path, restoreJournalFileName));
+  }
+
+  Future<void> _writeRestoreJournal(
+    BackupResult backup,
+    RestoreStrategy strategy,
+  ) async {
+    final journal = await _restoreJournalFile();
+    final staged = File('${journal.path}.tmp');
+    await staged.writeAsString(
+      jsonEncode({
+        'format': format,
+        'schemaVersion': schemaVersion,
+        'strategy': strategy.name,
+        'safetyBackupPath': backup.path,
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+      flush: true,
+    );
+    if (await journal.exists()) {
+      await journal.delete();
+    }
+    await staged.rename(journal.path);
+  }
+
+  Future<void> _clearRestoreJournal() async {
+    final journal = await _restoreJournalFile();
+    if (await journal.exists()) {
+      await journal.delete();
+    }
+  }
+
+  Future<void> _cleanupUnreferencedManagedFiles() async {
+    final managed = await _fileStorageService.listManagedFiles();
+    if (managed.isEmpty) return;
+
+    final current = await _loadSnapshot();
+    final referenced = _collectFilePaths(current).toSet();
+    final orphaned = managed.where((path) => !referenced.contains(path));
+    await _fileStorageService.deleteFiles(orphaned);
+  }
+
+  Future<void> _restoreSafetySnapshot(BackupResult backup) async {
+    final archiveInput = InputFileStream(backup.path);
+    try {
+      final archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
+      final snapshot = _snapshotFromArchive(archive);
+      final materialized = await _materializeSnapshotFiles(
+        archive,
+        backup.manifest,
+        snapshot,
+      );
+      try {
+        await _replaceAll(materialized.snapshot);
+      } catch (_) {
+        try {
+          await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        } catch (_) {
+          // Rollback state remains authoritative even if orphan cleanup fails.
+        }
+        rethrow;
+      }
+    } finally {
+      archiveInput.closeSync();
     }
   }
 
@@ -578,6 +1047,8 @@ class DataBackupService implements BackupService {
     }
     return _BackupSnapshot(
       profile: profile,
+      reminderSettings: await _reminderRepository.loadSettings(),
+      userState: await _userStateBackupService.capture(),
       trips: trips,
       checklist: await _checklistRepository.listItems(),
       journal: await _journalRepository.listEntries(),
@@ -618,6 +1089,13 @@ class DataBackupService implements BackupService {
           snapshot.tracks.map((item) => item.toMap()).toList(),
       'data/travel_memories.json':
           snapshot.memories.map((item) => item.toMap()).toList(),
+      'data/settings.json': [
+        {
+          if (snapshot.reminderSettings != null)
+            'reminderSettings': snapshot.reminderSettings!.toMap(),
+          if (snapshot.userState != null) 'keyValues': snapshot.userState,
+        },
+      ],
     };
   }
 
@@ -625,15 +1103,30 @@ class DataBackupService implements BackupService {
     List<Map<String, Object?>> rows(String name) {
       final file = archive.findFile(name);
       if (file == null) return const [];
-      final decoded = jsonDecode(utf8.decode(_bytes(file))) as List<dynamic>;
+      final decoded =
+          _decodeStructuredArchiveFile(file, name) as List<dynamic>;
       return decoded
           .map((item) => Map<String, Object?>.from(item as Map))
           .toList(growable: false);
     }
 
     final vehicles = rows('data/vehicles.json');
+    final settingsRows = rows('data/settings.json');
+    final settings = settingsRows.isEmpty ? null : settingsRows.first;
+    final rawReminderSettings = settings?['reminderSettings'];
+    final rawKeyValues = settings?['keyValues'];
     return _BackupSnapshot(
       profile: vehicles.isEmpty ? null : VehicleProfile.fromMap(vehicles.first),
+      reminderSettings: rawReminderSettings is Map
+          ? ReminderSettings.fromMap(
+              Map<String, Object?>.from(rawReminderSettings),
+            )
+          : null,
+      userState: rawKeyValues is Map
+          ? rawKeyValues.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            )
+          : null,
       trips: rows('data/trips.json').map(TripPlan.fromMap).toList(),
       checklist:
           rows('data/checklist.json').map(CamperChecklistItem.fromMap).toList(),
@@ -652,8 +1145,145 @@ class DataBackupService implements BackupService {
     );
   }
 
+  Future<_MaterializedRestore> _materializeSnapshotFiles(
+    Archive archive,
+    BackupManifest manifest,
+    _BackupSnapshot snapshot,
+  ) async {
+    final sourceToArchive = <String, String>{
+      for (final entry in manifest.files)
+        if (entry.sourcePath != null && entry.sourcePath!.isNotEmpty)
+          entry.sourcePath!: entry.path,
+    };
+    final legacyByBasename = <String, List<String>>{};
+    if (manifest.schemaVersion == 1) {
+      for (final entry in manifest.files.where(
+        (entry) => entry.path.startsWith('files/'),
+      )) {
+        legacyByBasename
+            .putIfAbsent(p.basename(entry.path), () => <String>[])
+            .add(entry.path);
+      }
+    }
+
+    final copiedPaths = <String>[];
+    final remap = <String, String>{};
+    final stage =
+        await Directory.systemTemp.createTemp('camperboss_restore_stage_');
+    try {
+      final referencedPaths = _collectFilePaths(snapshot)
+          .where((path) => path.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      for (final originalPath in referencedPaths) {
+        var archivePath = sourceToArchive[originalPath];
+        if (archivePath == null && manifest.schemaVersion == 1) {
+          final candidates = legacyByBasename[p.basename(originalPath)];
+          if (candidates != null && candidates.length == 1) {
+            archivePath = candidates.single;
+          }
+        }
+        if (archivePath == null) {
+          throw StateError(
+            'Backup cannot remap referenced file: $originalPath',
+          );
+        }
+
+        final archived = archive.findFile(archivePath);
+        if (archived == null) {
+          throw StateError('Backup file missing during restore: $archivePath');
+        }
+        final staged = File(
+          p.join(
+            stage.path,
+            '${remap.length}_${_safeFileName(p.basename(originalPath))}',
+          ),
+        );
+        final output = OutputFileStream(staged.path);
+        try {
+          archived.writeContent(output, freeMemory: true);
+        } finally {
+          output.closeSync();
+        }
+        final privatePath =
+            await _fileStorageService.copyIntoPrivateDocuments(staged.path);
+        remap[originalPath] = privatePath;
+        copiedPaths.add(privatePath);
+      }
+
+      return _MaterializedRestore(
+        snapshot: _remapSnapshotPaths(snapshot, remap),
+        copiedPaths: copiedPaths,
+      );
+    } catch (_) {
+      await _fileStorageService.deleteFiles(copiedPaths);
+      rethrow;
+    } finally {
+      if (stage.existsSync()) {
+        await stage.delete(recursive: true);
+      }
+    }
+  }
+
+  _BackupSnapshot _remapSnapshotPaths(
+    _BackupSnapshot snapshot,
+    Map<String, String> remap,
+  ) {
+    String mapPath(String value) => remap[value] ?? value;
+    String? mapOptionalPath(String? value) =>
+        value == null ? null : mapPath(value);
+
+    return _BackupSnapshot(
+      profile: snapshot.profile,
+      reminderSettings: snapshot.reminderSettings,
+      userState: snapshot.userState,
+      trips: snapshot.trips,
+      checklist: snapshot.checklist,
+      journal: snapshot.journal,
+      maintenance: [
+        for (final item in snapshot.maintenance)
+          item.copyWith(
+            attachmentPaths:
+                item.attachmentPaths.map(mapPath).toList(growable: false),
+          ),
+      ],
+      documents: [
+        for (final item in snapshot.documents)
+          item.copyWith(
+            localFilePath: mapPath(item.localFilePath),
+            thumbnailPath: mapOptionalPath(item.thumbnailPath),
+            pagePaths: item.pagePaths.map(mapPath).toList(growable: false),
+            pdfPath: mapOptionalPath(item.pdfPath),
+          ),
+      ],
+      expenses: snapshot.expenses,
+      fuelEntries: snapshot.fuelEntries,
+      budgets: snapshot.budgets,
+      bookings: snapshot.bookings,
+      tracks: [
+        for (final item in snapshot.tracks)
+          item.copyWith(localFilePath: mapOptionalPath(item.localFilePath)),
+      ],
+      memories: [
+        for (final item in snapshot.memories)
+          item.copyWith(
+            localPhotoPaths:
+                item.localPhotoPaths.map(mapPath).toList(growable: false),
+          ),
+      ],
+    );
+  }
+
   Future<_RestoreCounters> _replaceAll(_BackupSnapshot snapshot) async {
     final current = await _loadSnapshot();
+    // Route previews are derived cache and are intentionally not part of the
+    // portable backup. Purge them before replacing canonical trip data so the
+    // post-restore integrity audit cannot observe stale route orphans.
+    for (final route in await _routeRepository.listRoutes()) {
+      await _routeRepository.deleteRouteForTrip(route.tripId);
+    }
+    await _reminderRepository.replaceAllReminders(const []);
     for (final item in current.bookings) {
       await _financeRepository.deleteBooking(item.id);
     }
@@ -686,10 +1316,10 @@ class DataBackupService implements BackupService {
       if (id != null) await _tripRepository.deleteTrip(id);
     }
     for (final item in current.memories) {
-      await _travelHistoryRepository.deleteMemory(item.id);
+      await _travelHistoryService.deleteMemory(item);
     }
     for (final item in current.tracks) {
-      await _travelHistoryRepository.deleteTrack(item.id);
+      await _travelHistoryService.deleteTrack(item);
     }
     await _profileRepository.deleteProfile();
     return _saveAll(snapshot);
@@ -698,15 +1328,95 @@ class DataBackupService implements BackupService {
   Future<_RestoreCounters> _merge(_BackupSnapshot snapshot) async {
     final current = await _loadSnapshot();
     final counters = _RestoreCounters();
-    if (snapshot.profile != null) {
-      await _profileRepository.saveProfile(snapshot.profile!);
+    // Reminders are derived from restored entities. Clear stale rows; the
+    // process-wide ReminderCoordinator rebuilds them after restore.
+    await _reminderRepository.replaceAllReminders(const []);
+    if (snapshot.reminderSettings != null) {
+      await _reminderRepository.saveSettings(snapshot.reminderSettings!);
       counters.restored++;
     }
-    await _mergeInt(
+    if (snapshot.userState != null) {
+      final merged = await _userStateBackupService.mergePreservingExisting(
+        snapshot.userState!,
+      );
+      counters.restored += merged.restored;
+      counters.skipped += merged.skipped;
+      counters.conflicts += merged.conflicts;
+    }
+    if (snapshot.profile != null) {
+      final incoming = snapshot.profile!;
+      final existing = current.profile;
+      if (existing != null &&
+          !_isIncomingNewer(incoming.updatedAt, existing.updatedAt)) {
+        counters.skipped++;
+        if (_canonical(incoming) != _canonical(existing)) {
+          counters.conflicts++;
+        }
+      } else {
+        await _profileRepository.saveProfile(
+          existing == null ? incoming : incoming.copyWith(id: existing.id),
+        );
+        counters.restored++;
+      }
+    }
+
+    final incomingVehicleId = snapshot.profile?.id;
+    final effectiveVehicleId = current.profile?.id ?? incomingVehicleId;
+
+    int? remapVehicleId(int? value) {
+      if (value == null ||
+          incomingVehicleId == null ||
+          effectiveVehicleId == null ||
+          value != incomingVehicleId) {
+        return value;
+      }
+      return effectiveVehicleId;
+    }
+
+    final incomingDocuments = <VehicleDocument>[];
+    for (final item in snapshot.documents) {
+      if (item.vehicleId != null && incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingDocuments.add(
+        item.vehicleId == null
+            ? item
+            : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
+      );
+    }
+
+    final incomingExpenses = <Expense>[];
+    for (final item in snapshot.expenses) {
+      if (item.vehicleId != null && incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingExpenses.add(
+        item.vehicleId == null
+            ? item
+            : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
+      );
+    }
+
+    final incomingFuelEntries = <FuelEntry>[];
+    for (final item in snapshot.fuelEntries) {
+      if (incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingFuelEntries.add(
+        item.copyWith(vehicleId: remapVehicleId(item.vehicleId)!),
+      );
+    }
+
+    final conflictingTripIds = await _mergeInt(
       incoming: snapshot.trips,
       current: current.trips,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _tripRepository.saveTrip,
       counters: counters,
     );
@@ -714,7 +1424,6 @@ class DataBackupService implements BackupService {
       incoming: snapshot.checklist,
       current: current.checklist,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _checklistRepository.saveItem,
       counters: counters,
     );
@@ -722,7 +1431,6 @@ class DataBackupService implements BackupService {
       incoming: snapshot.journal,
       current: current.journal,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _journalRepository.saveEntry,
       counters: counters,
     );
@@ -730,37 +1438,58 @@ class DataBackupService implements BackupService {
       incoming: snapshot.maintenance,
       current: current.maintenance,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _maintenanceRepository.saveRecord,
       counters: counters,
     );
-    await _mergeInt(
-      incoming: snapshot.documents,
+    final conflictingDocumentIds = await _mergeInt(
+      incoming: incomingDocuments,
       current: current.documents,
       idOf: (item) => item.id,
-      updatedAtOf: (item) => item.updatedAt,
       save: _documentRepository.saveDocument,
       counters: counters,
     );
     await _mergeString(
-      incoming: snapshot.expenses,
+      incoming: incomingExpenses,
       current: current.expenses,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.occurredAt,
       save: _financeRepository.saveExpense,
+      shouldSkip: (item) =>
+          (item.tripId != null && conflictingTripIds.contains(item.tripId)) ||
+          (item.documentId != null &&
+              conflictingDocumentIds.contains(item.documentId)),
       counters: counters,
     );
     await _mergeString(
-      incoming: snapshot.fuelEntries,
+      incoming: incomingFuelEntries,
       current: current.fuelEntries,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.date,
       save: _financeRepository.saveFuelEntry,
+      shouldSkip: (item) =>
+          (item.tripId != null && conflictingTripIds.contains(item.tripId)) ||
+          conflictingDocumentIds.contains(item.documentId),
       counters: counters,
     );
+    final currentBudgets = {
+      for (final budget in current.budgets) budget.tripId: budget,
+    };
     for (final budget in snapshot.budgets) {
-      await _financeRepository.saveTripBudget(budget);
-      counters.restored++;
+      if (conflictingTripIds.contains(budget.tripId)) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      final existingBudget = currentBudgets[budget.tripId];
+      if (existingBudget == null) {
+        await _financeRepository.saveTripBudget(budget);
+        counters.restored++;
+        continue;
+      }
+      counters.skipped++;
+      if (_canonical(budget) != _canonical(existingBudget)) {
+        counters.conflicts++;
+      }
     }
     await _mergeString(
       incoming: snapshot.bookings,
@@ -768,6 +1497,10 @@ class DataBackupService implements BackupService {
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.startsAt ?? item.endsAt,
       save: _financeRepository.saveBooking,
+      shouldSkip: (item) =>
+          conflictingTripIds.contains(item.tripId) ||
+          (item.documentId != null &&
+              conflictingDocumentIds.contains(item.documentId)),
       counters: counters,
     );
     await _mergeString(
@@ -775,7 +1508,9 @@ class DataBackupService implements BackupService {
       current: current.tracks,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
-      save: _travelHistoryRepository.saveTrack,
+      save: _travelHistoryService.saveTrack,
+      shouldSkip: (item) =>
+          item.tripId != null && conflictingTripIds.contains(item.tripId),
       counters: counters,
     );
     await _mergeString(
@@ -783,7 +1518,9 @@ class DataBackupService implements BackupService {
       current: current.memories,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.updatedAt ?? item.createdAt,
-      save: _travelHistoryRepository.saveMemory,
+      save: _travelHistoryService.saveMemory,
+      shouldSkip: (item) =>
+          item.tripId != null && conflictingTripIds.contains(item.tripId),
       counters: counters,
     );
     return counters;
@@ -791,6 +1528,14 @@ class DataBackupService implements BackupService {
 
   Future<_RestoreCounters> _saveAll(_BackupSnapshot snapshot) async {
     final counters = _RestoreCounters();
+    if (snapshot.reminderSettings != null) {
+      await _reminderRepository.saveSettings(snapshot.reminderSettings!);
+      counters.restored++;
+    }
+    if (snapshot.userState != null) {
+      await _userStateBackupService.restore(snapshot.userState!);
+      counters.restored++;
+    }
     if (snapshot.profile != null) {
       await _profileRepository.saveProfile(snapshot.profile!);
       counters.restored++;
@@ -832,40 +1577,47 @@ class DataBackupService implements BackupService {
       counters.restored++;
     }
     for (final item in snapshot.tracks) {
-      await _travelHistoryRepository.saveTrack(item);
+      await _travelHistoryService.saveTrack(item);
       counters.restored++;
     }
     for (final item in snapshot.memories) {
-      await _travelHistoryRepository.saveMemory(item);
+      await _travelHistoryService.saveMemory(item);
       counters.restored++;
     }
     return counters;
   }
 
-  Future<void> _mergeInt<T extends Object>({
+  Future<Set<int>> _mergeInt<T extends Object>({
     required List<T> incoming,
     required List<T> current,
     required int? Function(T item) idOf,
-    required DateTime? Function(T item) updatedAtOf,
     required Future<Object?> Function(T item) save,
     required _RestoreCounters counters,
   }) async {
     final byId = {
       for (final item in current)
-        if (idOf(item) != null) idOf(item): item
+        if (idOf(item) != null) idOf(item)!: item,
     };
+    final conflictingIds = <int>{};
+
     for (final item in incoming) {
       final id = idOf(item);
       final existing = id == null ? null : byId[id];
-      if (existing != null &&
-          !_isIncomingNewer(updatedAtOf(item), updatedAtOf(existing))) {
+      if (existing != null) {
         counters.skipped++;
-        if (_canonical(item) != _canonical(existing)) counters.conflicts++;
+        if (_canonical(item) != _canonical(existing)) {
+          // Integer IDs are installation-local auto-increment values, not
+          // cross-device identities. Never overwrite a local row solely
+          // because an unrelated backup row reused the same integer.
+          counters.conflicts++;
+          conflictingIds.add(id!);
+        }
         continue;
       }
       await save(item);
       counters.restored++;
     }
+    return conflictingIds;
   }
 
   Future<void> _mergeString<T extends Object>({
@@ -874,10 +1626,16 @@ class DataBackupService implements BackupService {
     required String Function(T item) idOf,
     required DateTime? Function(T item) updatedAtOf,
     required Future<Object?> Function(T item) save,
+    bool Function(T item)? shouldSkip,
     required _RestoreCounters counters,
   }) async {
     final byId = {for (final item in current) idOf(item): item};
     for (final item in incoming) {
+      if (shouldSkip?.call(item) == true) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
       final existing = byId[idOf(item)];
       if (existing != null &&
           !_isIncomingNewer(updatedAtOf(item), updatedAtOf(existing))) {
@@ -888,6 +1646,20 @@ class DataBackupService implements BackupService {
       await save(item);
       counters.restored++;
     }
+  }
+
+  Future<void> _cleanupUnreferencedMaterializedFiles(
+    _MaterializedRestore materialized,
+  ) async {
+    if (materialized.copiedPaths.isEmpty) return;
+    final current = await _loadSnapshot();
+    final referenced = _collectFilePaths(current).toSet();
+    final orphaned = materialized.copiedPaths
+        .where((path) => !referenced.contains(path))
+        .toList(growable: false);
+    if (orphaned.isEmpty) return;
+    await _fileStorageService.deleteFiles(orphaned);
+    materialized.copiedPaths.removeWhere(orphaned.contains);
   }
 
   bool _isIncomingNewer(DateTime? incoming, DateTime? existing) {
@@ -917,19 +1689,99 @@ class DataBackupService implements BackupService {
     final name = p.basename(filePath);
     final directory =
         filePath.toLowerCase().contains('thumb') ? 'thumbnails' : 'documents';
-    return 'files/$directory/${_safeFileName(name)}';
+    final digest =
+        sha256.convert(utf8.encode(filePath)).toString().substring(0, 16);
+    return 'files/$directory/${digest}_${_safeFileName(name)}';
   }
 
-  BackupManifestFile _manifestFile(String path, List<int> bytes) {
+  void _checkCreateEntryBounds(
+    int bytes,
+    int expandedSoFar,
+    String path, {
+    bool structured = false,
+  }) {
+    final limit =
+        structured ? maxStructuredPayloadBytes : maxArchiveEntryBytes;
+    if (bytes < 0 || bytes > limit) {
+      throw StateError('Backup entry exceeds safe limit: $path');
+    }
+    if (expandedSoFar + bytes > maxExpandedArchiveBytes) {
+      throw StateError('Backup expanded size exceeds the safe limit');
+    }
+  }
+
+  Future<BackupManifestFile> _manifestFileFromDisk(
+    File file,
+    String archivePath, {
+    String? sourcePath,
+  }) async {
+    final digest = await sha256.bind(file.openRead()).first;
     return BackupManifestFile(
-      path: path,
-      sha256: sha256.convert(bytes).toString(),
-      size: bytes.length,
+      path: archivePath,
+      sha256: digest.toString(),
+      size: await file.length(),
+      sourcePath: sourcePath,
     );
   }
 
-  List<int> _bytes(ArchiveFile file) {
-    return file.content;
+  void _validateArchiveBounds(Archive archive) {
+    if (archive.files.length > maxArchiveEntries) {
+      throw const FormatException('Backup contains too many archive entries');
+    }
+    var expandedBytes = 0;
+    for (final file in archive.files) {
+      if (!file.isFile) continue;
+      final size = file.size;
+      if (size < 0 || size > maxArchiveEntryBytes) {
+        throw const FormatException(
+          'Backup entry exceeds the safe extraction limit',
+        );
+      }
+      expandedBytes += size;
+      if (expandedBytes > maxExpandedArchiveBytes) {
+        throw const FormatException(
+          'Backup expanded size exceeds the safe extraction limit',
+        );
+      }
+    }
+  }
+
+  String _sha256ArchiveFile(ArchiveFile file) {
+    final stream = file.getContent();
+    if (stream == null) {
+      throw const FormatException('Archive entry has no readable content');
+    }
+    final output = _DigestCollector();
+    final input = sha256.startChunkedConversion(output);
+    try {
+      while (!stream.isEOS) {
+        final remaining = stream.length;
+        if (remaining <= 0) break;
+        final count = remaining > 64 * 1024 ? 64 * 1024 : remaining;
+        input.add(stream.readBytes(count).toUint8List());
+      }
+      input.close();
+      final digest = output.value;
+      if (digest == null) {
+        throw const FormatException('Archive entry hash could not be computed');
+      }
+      return digest.toString();
+    } finally {
+      stream.closeSync();
+    }
+  }
+
+  Object? _decodeStructuredArchiveFile(ArchiveFile file, String path) {
+    if (file.size < 0 || file.size > maxStructuredPayloadBytes) {
+      throw FormatException(
+        'Structured backup payload exceeds safe limit: $path',
+      );
+    }
+    final bytes = file.readBytes();
+    if (bytes == null) {
+      throw FormatException('Structured backup payload is unreadable: $path');
+    }
+    return jsonDecode(utf8.decode(bytes));
   }
 
   String _prettyJson(Object? value) {
@@ -945,6 +1797,7 @@ class DataBackupService implements BackupService {
     if (value is VehicleDocument) return jsonEncode(value.toMap());
     if (value is Expense) return jsonEncode(value.toMap());
     if (value is FuelEntry) return jsonEncode(value.toMap());
+    if (value is TripBudget) return jsonEncode(value.toMap());
     if (value is TripBooking) return jsonEncode(value.toMap());
     if (value is GpxTrack) return jsonEncode(value.toMap());
     if (value is TravelMemory) return jsonEncode(value.toMap());
@@ -1008,9 +1861,21 @@ class DataBackupService implements BackupService {
   }
 }
 
+class _MaterializedRestore {
+  const _MaterializedRestore({
+    required this.snapshot,
+    required this.copiedPaths,
+  });
+
+  final _BackupSnapshot snapshot;
+  final List<String> copiedPaths;
+}
+
 class _BackupSnapshot {
   const _BackupSnapshot({
     required this.profile,
+    this.reminderSettings,
+    this.userState,
     required this.trips,
     required this.checklist,
     required this.journal,
@@ -1025,6 +1890,8 @@ class _BackupSnapshot {
   });
 
   final VehicleProfile? profile;
+  final ReminderSettings? reminderSettings;
+  final Map<String, String>? userState;
   final List<TripPlan> trips;
   final List<CamperChecklistItem> checklist;
   final List<JournalEntry> journal;
@@ -1039,6 +1906,7 @@ class _BackupSnapshot {
 
   int get recordCount {
     return (profile == null ? 0 : 1) +
+        (reminderSettings == null && userState == null ? 0 : 1) +
         trips.length +
         checklist.length +
         journal.length +
@@ -1059,6 +1927,18 @@ class _RestoreCounters {
   var conflicts = 0;
 }
 
+class _DigestCollector implements Sink<Digest> {
+  Digest? value;
+
+  @override
+  void add(Digest data) {
+    value = data;
+  }
+
+  @override
+  void close() {}
+}
+
 const _dataPaths = [
   'data/vehicles.json',
   'data/trips.json',
@@ -1072,4 +1952,5 @@ const _dataPaths = [
   'data/bookings.json',
   'data/gpx_tracks.json',
   'data/travel_memories.json',
+  'data/settings.json',
 ];

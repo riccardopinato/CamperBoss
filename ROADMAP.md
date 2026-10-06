@@ -278,13 +278,422 @@ Esito:
 
 ## STEP 16 — Release Core
 
-Stato: `CURRENT`
+Stato: `BLOCKED`
 
-- monetizzazione reale dietro entitlement, senza CTA finte;
+Obiettivi:
+
+- eliminare paywall, piani e CTA di acquisto finti;
+- mantenere un boundary di entitlement provider-agnostic, senza scegliere ora RevenueCat o altri provider;
 - privacy/backup Android e iOS verificati per documenti e dati sensibili;
 - localizzazione completa, inclusa opzione lingua Sistema/Automatico;
 - CI/release checks, AppLab/device QA e size audit;
-- hardening degli stati offline, errore e recovery.
+- hardening degli stati offline, errore e recovery;
+- deploy Web stabile per la verifica da PC.
+
+Implementato:
+
+- monetizzazione reale rinviata per decisione di prodotto; nessun SDK di billing/RevenueCat incluso nel Release Core;
+- interfaccia di entitlement neutra mantenuta dormiente per il futuro, senza piani o checkout esposti nella UI;
+- download mappe offline non bloccato da un paywall prematuro;
+- lingua Sistema/Automatico e cataloghi IT/EN/DE/FR/ES/PT allineati;
+- backup Android disabilitato per dati privati, cleartext disabilitato e data extraction rules;
+- bridge iOS per escludere i documenti privati dal backup cloud automatico;
+- deploy Web Pages stabile;
+- build gate Android/iOS/Web e audit dimensioni bundle;
+- test di parita traduzioni e comportamento monetizzazione differita;
+- stati errore offline con retry esplicito e azioni sicure;
+- recovery dei download quando il sistema operativo perde il task, ricostruito solo da metadati cached compatibili;
+- progetto iOS corretto con file reference esplicita per il bridge privacy;
+- workflow Release Core pubblica APK ARM64 per 1 giorno e cancella run superati;
+- vecchio workflow Map Engine V2 mantenuto solo manuale per evitare build duplicate;
+- Step 16C Foundation Repair completato: superfici condivise theme-aware, rimozione fallback/localita simulate, Home e meteo basati solo su dati reali, setup senza profilo demo, notifiche con recovery esplicito, profilo/manutenzione/documenti hardenizzati, conferme distruttive e pulizia delle etichette debug della Mappa;
+- Step 16D Core Functional Repair completato: MapLibre unificato, persistenza viewport/offline, planner e storico su MapLibre, tappe strutturate/geocodificate, cancellazione viaggio a cascata, statistiche multicurrency corrette, allegati manutenzione reali, deep-link ricerca locale;
+- Step 16E Offline & System Integration completato: service graph condiviso, verita offline basata su regione completa + viewport persistito, verifica pacchetti guide, reminder centralizzati, indice ricerca auto-refresh e audit integrita cross-domain;
+- Step 16F UX & Product Polish completato: Home first-run, Smart Map map-first, editor Camper/Viaggio progressivi, griglie responsive e rimozione duplicazioni di navigazione;
+- cataloghi IT/EN/DE/FR/ES/PT riallineati e test di parita aggiornati;
+- Step 16G automated certification completata sul commit app `e88d586fc41e31c5175050f7934a383e5e480c1d`: `flutter analyze` PASS, `flutter test` 113/113 PASS, Android ARM64 release PASS, iOS release no-codesign PASS, Web release PASS, privacy assertions PASS;
+- artifact Android `camperboss-arm64-release-apk`, ID `11229115224`, APK `48,029,264` byte (~45.8 MiB), sotto la soglia warning 80 MiB;
+- iOS `Runner.app` ~82 MiB (`flutter` report 85.3 MB); Web release ~43 MiB;
+- evidence bundle: `docs/release/step-16g-evidence.md`.
+
+Blocchi esterni di certificazione:
+
+- completare prova fisica MapLibre offline: scaricare una regione, riavviare l'app, disattivare la rete e verificare riapertura della regione;
+- completare device/AppLab QA finale su Android/iPhone/Web secondo `docs/release/release-core-checklist.md`.
+
+Step 16 resta `BLOCKED`. L'audit Master v20 / Golden Rules del 2026-10-03 ha riaperto anche gate tecnici e di governance oltre ai gate manuali: Product Truth/main, backup e data safety, POI/offline truth, supply-chain/delivery, localizzazione, privacy/licenze, performance e QA runtime. I dettagli sono in `docs/audit/master-v20-heavy-audit-2026-10-03.md`. Non promuovere STEP 17 finché STEP 16J–16Q e i gate device/AppLab non sono chiusi.
+
+## STEP 16H — Master v20 Factory Hardening
+
+Stato: `BLOCKED`
+
+Obiettivo:
+
+- allineare CamperBoss alla gerarchia Master Prompt v20 senza riscrivere il core già certificato;
+- registrare provenienza e riuso di Golden/donor/OSS;
+- introdurre configurazione CodeRabbit Flutter per review PR;
+- predisporre Fastlane con pipeline Android build-once verso Play Internal Testing;
+- correggere il restore dei file fisici nel backup, mantenendo safety snapshot e rollback;
+- estendere l'Evidence Bundle senza anticipare STEP 17.
+
+Vincoli:
+
+- nessun merge della catena STEP 16 finché i gate manuali Release Core restano aperti;
+- nessuna chiave o service-account nel repository;
+- Play delivery attivabile solo con signing key e service account configurati;
+- CodeRabbit e Fastlane restano integrazioni verificabili, non sostituti di analyze/test/build;
+- nessuna ricerca OSS retroattiva artificiale quando esiste già un donor interno appropriato.
+
+Esito audit 2026-10-03:
+
+- implementazione candidata presente in `step-16h-master-v20-hardening`; Flutter CI e build Android/iOS/Web risultano verdi;
+- CodeRabbit carica la configurazione, ma il gate di review non è ancora certificato end-to-end sulla catena finale;
+- la lane Fastlane/Play non è stata eseguita e va corretta/verificata la discovery del `Fastfile` sotto `android/fastlane`;
+- Play Internal Testing resta bloccato da secret/signing/service account e dalla policy di versionCode;
+- i difetti di backup/data safety emersi dall'audit sono spostati nello STEP 16K.
+
+## STEP 16I — Lifecycle & Media Safety
+
+Stato: `DONE`
+
+Obiettivo:
+
+- applicare il Batch Data Safety audit ai file locali realmente posseduti dall'app;
+- impedire cancellazioni premature quando più entità condividono lo stesso file;
+- rimuovere file orfani quando un documento, una manutenzione, una memoria o una traccia sostituisce/rimuove un allegato;
+- far passare anche restore/merge backup attraverso i boundary di lifecycle dei media;
+- formalizzare una policy entity-by-entity per hard delete, archive, trash e purge senza introdurre soft-delete indiscriminato.
+
+Scope:
+
+- Vehicle Documents: cleanup reference-safe su update/delete;
+- Maintenance: cleanup reference-safe su update/delete;
+- Travel History: cleanup reference-safe di foto e GPX condivisi;
+- Backup/Restore: lifecycle dei media coordinato tramite TravelHistoryService;
+- regression tests dedicati per shared GPX e foto condivise.
+
+Vincolo:
+
+- non viene dichiarato un Universal Trash implementato; il cestino resta una scelta di prodotto da applicare solo alle entità per cui restore/undo crea valore reale.
+
+Esito:
+
+- cleanup reference-safe implementato per documenti, manutenzione, foto Memories e GPX condivisi;
+- backup restore instradato attraverso il lifecycle media; test regression aggiunti;
+- Flutter CI e Release Core Android/iOS/Web PASS sul commit `3bec9e5857dad94258d0cff32dfa23beba336417`;
+- i gap più ampi di atomicità, Trash/Restore e referential integrity sono riaperti nello STEP 16K.
+
+## STEP 16J — Product Truth, governance e baseline di release
+
+Stato: `DONE`
+
+Fonte: audit Master Prompt v20 / Golden Rules 2026-10-03.
+
+Obiettivi bloccanti:
+
+- riallineare `main`, oggi fermo allo STEP 15, con la catena validata STEP 16D→16I solo dopo i gate previsti; eliminare/chiudere la vecchia PR #4 e consolidare la catena #5→#10 senza blind merge;
+- impedire che la Web Preview venga presentata come attuale finché GitHub Pages continua a deployare esclusivamente `main` stale;
+- correggere Product Truth documentale: `AGENTS.md`, `README.md`, `PENDING_ISSUES.md`, `docs/IMPLEMENTATION_STATUS.md` e ROADMAP devono descrivere l'implementazione reale e la gerarchia Master v20;
+- rimuovere la contraddizione REUSE-FIRST vs la regola legacy “non copiare moduli esterni; reimplementa” in `AGENTS.md`;
+- verificare/proteggere `main` con required checks/review/no direct release pushes; nessun ruleset repository è attualmente configurato, mentre la branch protection classica resta da verificare;
+- chiudere il gate CodeRabbit sulla PR finale e registrare review/evidence reali;
+- fare repository-hygiene audit del repo pubblico: dossier, estratti, `chat con grok.txt`, mock/demo residui e materiale che non deve essere pubblico;
+- mantenere una sola voce `CURRENT` e registrare esplicitamente le eccezioni autorizzate dall'utente alla sequenza degli step.
+
+Criterio di uscita:
+
+- una baseline canonica, tracciabile e coerente tra Master/Product Truth, repository, PR stack, `main`, Pages ed Evidence Bundle.
+
+Esito 2026-10-03:
+
+- Product Truth riallineata in AGENTS/README/IMPLEMENTATION_STATUS/PENDING_ISSUES e dossier audit; residui non necessari rimossi dal candidate tree;
+- vecchia PR STEP 16 Release Core chiusa come superseded; PR stack corrente mantenuta senza merge prematuro;
+- ruleset repository assenti; branch-protection classica non verificabile dal connector e resta gate di enforcement finale nello STEP 16Q;
+- autorizzazione utente registrata per esecuzione sequenziale 16J→16Q.
+
+## STEP 16K — Backup Recovery v2 + atomicità + lifecycle dati
+
+Stato: `DONE`
+
+Problemi da risolvere tutti:
+
+- il restore `replaceAll` e le cascade cross-domain sono sequenze di repository, non una singola transazione/unit-of-work atomica come richiesto dalla spec STEP 9;
+- creare una UI reale Backup/Inspect/Restore/Export raggiungibile dall'app: oggi `DataBackupService` non costituisce una feature utente completa;
+- includere nel backup le impostazioni e gli stati utente mancanti o dichiararli esplicitamente fuori scope: reminder settings, preferenza lingua, onboarding, guide favorites/progress, map state e altri state store rilevanti;
+- correggere il leak del merge: i file fisici materializzati per record poi `skipped` non devono rimanere orfani;
+- il restore legacy schema v1 non deve saltare silenziosamente file ambigui/non mappabili lasciando path del device sorgente;
+- aggiungere staging completo, validazione di ogni path referenziato, commit/rollback verificabile e post-restore integrity audit;
+- gestire backup grandi senza caricare ZIP, documenti e foto interamente in RAM; aggiungere progress/cancel/size guard e stress test;
+- applicare la stessa protezione all'export ZIP foto e ai GPX di grandi dimensioni;
+- rendere atomica o recuperabile la cancellazione viaggio con finance/history/media/route;
+- impedire dangling `document_id` in spese, carburante e prenotazioni quando si elimina un documento;
+- estendere `DataIntegrityService` a GPX/Memories→Trip, route preview→Trip, budget→Trip, reminder→source, media path, offline registry e duplicate identity mancanti;
+- rimuovere reminder repository stale durante `reconcile`: oggi le sorgenti eliminate possono lasciare record locali e in alcuni flussi essere rischedulate;
+- serializzare/controllare le write read-modify-write di `LocalJsonCollection` e map state sul Web per evitare lost update concorrenti;
+- definire e implementare entity-by-entity hard delete / archive / Trash / Restore / Purge per Trip, Documenti, Manutenzione, Journal e Memories; niente soft-delete indiscriminato;
+- certificare i contratti Golden Batch Data Safety: Trash preserva media, Purge abilita GC, backup include il lifecycle scelto, restore usa staging + validation + safety snapshot + commit.
+
+Criterio di uscita:
+
+- nessuna perdita o orphan silenzioso in restore/merge/delete, recovery testata anche su failure injection e dataset grandi.
+
+Esito:
+
+- Backup Recovery v3: remap file rigoroso, safety snapshot/rollback, cleanup orfani, state backup, integrity audit post-restore, streaming/progress/cancel e guard dimensionale; cascade viaggio recuperabile, document delete protetto da riferimenti, reminder canonici e write locali serializzate.
+- Test: Flutter CI `37115776142` PASS sul commit `cffb9aa37f5f49ffa2b87e2817d65e45bf1a17af`; regression dedicate a concorrenza, stale reminders, rollback cascade e document references.
+- PR: #12 `STEP 16K: Data Safety & Recovery v2`; nessun merge eseguito.
+
+## Sequenza consigliata per chiudere il Release Core
+
+1. **16L — Map/POI/Offline:** correggere prima le capability che l'utente usa direttamente e che oggi hanno ancora Product Truth incompleta.
+2. **16M — Delivery:** rendere CI/build/versioning deterministici prima di produrre altri candidate artifact.
+3. **16N — UX/platform parity:** localizzazione, accessibilità, iOS/Web e branding dopo che i flussi core sono stabili.
+4. **16O — Trust boundaries:** chiudere provider, privacy, licenze e routing production boundary senza aggiungere account/cloud obbligatori.
+5. **16P — Performance:** misurare la baseline finale con AppLab e stress test; eventuali regressioni tornano allo step proprietario.
+6. **16Q — Certification:** una sola matrice completa AppLab/device/Web, release PR canonica verso `main`, Pages e verdetto finale.
+
+Regola operativa: correggere automaticamente i problemi software riproducibili; lasciare `BLOCKED` solo ciò che richiede hardware, credenziali/store o verifica legale esterna. Non avviare STEP 17 AI finché 16Q non chiude il Release Core.
+
+## STEP 16L — Map / POI / Offline Product Truth
+
+Stato: `DONE`
+
+Priorità: chiudere prima la verità del prodotto cartografico, poi certificare offline/storage. Non aggiungere nuove feature mappa finché questa base non è affidabile.
+
+### 16L-A — POI production supply
+
+- una fresh install deve avere un percorso reale e documentato per ottenere POI, oppure la UI deve dichiarare chiaramente che nessun catalogo è installato;
+- introdurre un adapter provider-neutral per catalogo POI, manifest/versione, attribution, update e import atomico;
+- scegliere la sorgente produttiva solo dopo verifica di licenza/caching/distribuzione nello STEP 16O;
+- nessun dataset demo o fixture nel runtime; `mock_camper_repository.dart` va rimosso dal release source o confinato ai test;
+- mantenere filtri e repository locale/offline già esistenti come boundary stabile.
+
+### 16L-B — Storage/offline truth
+
+- sostituire il budget fisso da 5 GiB con spazio libero reale del device quando la piattaforma lo consente; il budget applicativo resta una policy separata e visibile;
+- unificare accounting di pacchetti offline, regioni native MapLibre e media gestiti dall'app;
+- preflight prima dei download pesanti, blocco sicuro su spazio insufficiente, handling ENOSPC/interruzione e riconciliazione al riavvio;
+- nessuna regione deve risultare pronta senza stato MapLibre completo + viewport persistito;
+- mantenere separati cache temporanea, contenuti installati e file utente.
+
+### 16L-C — Map semantics + runtime harness
+
+- eliminare distanza fittizia dal centro tecnico `42.5, 12.5`: senza posizione reale la UI mostra POI senza distanza oppure richiede un punto esplicito;
+- aggiornare i flow Maestro/AppLab eliminando Lake Garda, vecchio entry point Preview e tap a coordinate fragili;
+- usare AppLab `riccardopinato/AppLab` come donor/harness, baseline `6774654ba8cdf589872e11f54019b557e4ec45f0`, riusando solo i moduli necessari;
+- smoke runtime mirato in questo step: launch, map load, filtri, install/cache POI, restart e recovery; la certificazione completa resta nello STEP 16Q;
+- preparare il critical path offline: download regione → restart → rete off → reopen/zoom/pan, senza dichiararlo PASS finché il runtime non lo dimostra.
+
+Criterio di uscita:
+
+- fresh install senza demo; POI/provider truth esplicita; storage reale o fallback dichiarato; nessuna distanza inventata; flow AppLab aggiornati e smoke map/offline ripetibile.
+
+Esito:
+
+- Risultato: catalogo POI provider-neutral esposto nella UI senza fixture runtime; storage usa spazio device reale quando disponibile senza budget fisso implicito; MapLibre mantiene il fallback tecnico solo per il renderer e non inventa piu distanze; harness Maestro/AppLab aggiornato con policy network/restart.
+- Test: regressioni widget/unit aggiornate; il push finale richiede `flutter analyze` + `flutter test` via CI. Il runtime fisico no-network resta evidence obbligatoria dello STEP 16Q e non viene dichiarato PASS qui.
+- Commit: `fix(map): close STEP 16L product truth gaps`.
+
+## STEP 16M — Supply chain, CI/CD, Fastlane e release identity
+
+Stato: `BLOCKED — PLAY INTERNAL EVIDENCE`
+
+Problemi da risolvere tutti:
+
+- ampliare i trigger PR CI da solo `ready_for_review` a opened/synchronize/reopened/ready_for_review, evitando PR aggiornate senza nuovi check;
+- pin delle GitHub Actions a commit SHA approvati e processo di aggiornamento controllato;
+- fissare una versione Flutter/Dart riproducibile invece del solo `channel: stable`;
+- introdurre `Gemfile.lock` e risoluzione Ruby/Fastlane deterministica;
+- correggere/verificare l'esecuzione Fastlane: il workflow parte dalla root mentre il `Fastfile` è sotto `android/fastlane`;
+- testare la lane senza ricostruire il bundle: deve caricare lo stesso AAB hashato prodotto una sola volta;
+- introdurre versioning release/versionCode monotono: `pubspec.yaml` è ancora `0.1.0+1`;
+- hard-fail del percorso Play se manca release signing; il fallback debug è ammesso solo per APK QA esplicitamente marcati;
+- aggiungere dependency/license audit, secret scanning e SAST/code scanning compatibili con il progetto;
+- potenziare static analysis: `analysis_options.yaml` non può restare limitato a `prefer_single_quotes`;
+- aggiungere coverage/integration gates, non solo analyze + unit/widget tests;
+- portare retention Evidence/QA oltre 1 giorno per i candidate artifact;
+- certificare Play Internal Testing con signing key, service account, track/version e hash AAB nell'Evidence Bundle.
+
+Implementato:
+
+- trigger PR completi anche per stacked STEP 16; GitHub Actions pin a SHA immutabili;
+- Flutter fissato a 3.47.6 con `pubspec.lock` verificato contro drift;
+- Fastlane 2.240.1 + Bundler 4.0.22 con `Gemfile.lock` source-controlled;
+- Fastlane eseguito da `android/`, con dry-run CI che verifica l'hash e non contiene build;
+- release identity `0.2.0+16` con ledger monotono e contract test cross-layer;
+- percorso Play con signing hard-fail; debug-signing consentito solo per artifact QA esplicitamente marcati;
+- dependency/license audit, secret scan, project-specific SAST, coverage gate e release integration contracts;
+- artifact/evidence retention 30 giorni;
+- workflow Play build-once: build e upload sono job distinti, l'AAB viene scaricato e confrontato via SHA-256 prima di Fastlane;
+- deploy Pages e platform builds usano toolchain/versioni/pin coerenti e producono provenance.
+
+Blocco residuo esterno:
+
+- serve eseguire realmente `Android Internal Delivery` con upload key e `PLAY_SERVICE_ACCOUNT_JSON`, verificando track `internal`, versionCode 16 e SHA-256 dell'AAB nell'Evidence Bundle. Finché questa evidenza non esiste, STEP 16M non è DONE e nessun Play upload viene dichiarato PASS.
+
+Criterio di uscita:
+
+- source → PR review → deterministic CI → immutable artifact → Internal Testing è riproducibile, tracciato e non usa build differenti.
+
+## STEP 16N — Localizzazione, accessibilità, iOS capability e Web quality
+
+Stato: `DONE`
+
+Problemi da risolvere tutti:
+
+- eliminare stringhe UI hard-coded in Map, MapLibre preview, Finance, Trip Planner e altre superfici; il test attuale verifica solo parità delle chiavi JSON e non copertura del codice;
+- passare la lingua corrente al geocoder: oggi `GeocodingService.search` usa inglese di default;
+- formattare date, numeri, distanze, valute e unità secondo locale invece di concatenazioni manuali;
+- aggiungere test che intercettino literal UI non autorizzati e coverage reale IT/EN/DE/FR/ES/PT;
+- correggere Product Truth documenti: la scansione documenti nativa è Android-only; iOS ha import/OCR ma non lo scanner dichiarato nello STEP 4;
+- decidere/implementare una vera scansione iOS oppure correggere tutte le promesse di feature;
+- rendere reale lo stato permesso notifiche su iOS: oggi `getPermissionState()` restituisce sempre `unavailable`;
+- gestire in modo visibile il fallback timezone UTC invece di spostare silenziosamente i reminder;
+- completare accessibility audit: screen reader, semantics, focus order, contrast, tap target, Dynamic Type/textScale 200%, dark mode e keyboard;
+- correggere metadati Web/PWA ancora da template (“A new Flutter project”, `camperboss` lowercase) e valutare la forzatura `portrait-primary` per desktop/tablet;
+- definire chiaramente la parità Web: import documenti/media non supportato dai current stub; non fingere feature native;
+- verificare browser back/refresh/deep-link e quota/error recovery del local storage;
+- allineare branding, display name, icon/splash/store assets e capitalizzazione CamperBoss;
+- decidere la copertura reale della ricerca locale: oggi non indicizza expense, fuel, budget, checklist, GPX e Memories; o estenderla o descriverne correttamente lo scope.
+
+Implementato:
+
+- localizzazione strutturale delle superfici Map/MapLibre, Finance, Trip Planner, Travel History, Checklist, Offline Guides e Search;
+- geocoder Map e tappe Planner alimentato dalla lingua applicazione corrente;
+- formatter condivisi locale-aware per date, numeri, distanza, valuta e dimensioni storage; valuta Finance basata su `NumberFormat`;
+- gate automatico EN/IT/DE/FR/ES/PT: parità chiavi, placeholder e literal UI non autorizzati sulle superfici core;
+- scanner documenti dichiarato e mantenuto Android-only; iOS conserva import immagini/PDF + OCR, Web non simula capture nativa;
+- permission state iOS notifiche letto realmente dal plugin; fallback timezone UTC esposto visibilmente nella UI;
+- touch target Material padded, contrast gate sui colori testo core, semantica mappa localizzata e nessun clamp del text scaling;
+- metadata Web/PWA ripuliti dal template, brand CamperBoss coerente e blocco `portrait-primary` rimosso;
+- routing Web top-level URL-addressable per `/`, `/map`, `/trips`, `/camper`, `/more`, con fallback per route sconosciuta;
+- recovery test per write storage fallito: dati precedenti preservati e coda di scrittura riutilizzabile;
+- ricerca locale estesa a expense, fuel, budget context, checklist, GPX e Memories; revision bump aggiunto a checklist e travel history per evitare indice stale.
+
+Evidenza ancora esterna/runtime:
+
+- TalkBack, focus order/keyboard reale, textScale 200% sulle schermate complete e visual contrast su device;
+- browser reale: back/refresh/deep-link, quota localStorage e graceful recovery;
+- visual QA di icon/splash/store assets;
+- iOS import/OCR/notifiche su runtime Apple compatibile.
+- il gate CI iOS compila una build Debug per simulatore senza firma, perché Flutter non supporta Release su iOS Simulator; Release device, firma e provisioning restano evidenza esterna STEP 16Q/store delivery.
+
+Queste prove confluiscono nel gate finale STEP 16Q; finché non esistono, STEP 16N non viene dichiarato DONE.
+
+Criterio di uscita:
+
+- nessuna promessa di capability non vera e UX verificata su lingue, accessibilità, iOS e Web.
+
+## STEP 16O — Security, privacy, licensing e trust boundaries
+
+Stato: `DONE`
+
+Problemi da risolvere tutti:
+
+- definire strategia produttiva per OpenRouteService: una chiave passata via `--dart-define` finisce nel client e non è un secret difendibile; usare proxy/token/provider adatto a public client oppure un'altra architettura approvata;
+- creare threat model formale per database, SharedPreferences/localStorage, documenti, backup e dati posizione; decidere esplicitamente se serve cifratura at-rest oltre al sandbox;
+- mantenere backup OS Android disabilitato e verificare l'esclusione iOS per tutte le classi di media sensibili, non solo vehicle documents;
+- produrre data inventory e privacy policy/disclosure per Open-Meteo, OpenRouteService, map/tile provider, Google ML Kit e altre chiamate/SDK;
+- completare provenance/license ledger di package, asset, guide, provider e donor; distinguere COPY / ADAPT / IDEA ONLY;
+- verificare ToS/licenze per uso offline, caching, attribution e distribuzione dei contenuti;
+- decidere se e quando aggiungere Google Sign-In/backup cloud opzionale: mai rendere account o cloud requisito per il core local-first;
+- nessun secret, key, service account o materiale personale deve entrare nel repo pubblico o negli artifact/log;
+- aggiungere audit dei file non-code pubblici e della history prima della release.
+
+Implementato:
+
+- routing release vincolato a proxy HTTPS approvato; nessuna chiave ORS client trattata come secret di produzione;
+- accesso ORS diretto limitato allo sviluppo con opt-in esplicito;
+- Open-Meteo pubblico consentito solo in distribuzione non commerciale; per futura monetizzazione endpoint/proxy commerciali espliciti con credenziali upstream solo server-side;
+- online map e bulk offline separati; offline richiede style/provider HTTPS approvato e blocca host pubblici condivisi noti;
+- response-size guard su routing/meteo/geocoding;
+- threat model, data inventory e provider/license ledger;
+- audit history/file pubblici e trust-boundary gate nella CI;
+- Google Sign-In/cloud restano opzionali e fuori dal core local-first.
+
+Criterio di uscita:
+
+- ogni boundary locale/rete/cloud/store ha ownership, minacce, dati inviati, licenza e recovery documentati.
+
+## STEP 16P — Performance, memoria, batteria e stress
+
+Stato: `DONE`
+
+Problemi da risolvere tutti:
+
+- usare AppLab come harness principale per persistence/restart, network-offline, storage/data-integrity, resource-pressure/process-death e performance; non duplicare i suoi runner dentro CamperBoss;
+- benchmark cold/warm start, jank/FPS MapLibre, memoria, CPU e battery impact su device medio e alto;
+- stress backup/restore con molti record e allegati grandi, OCR multipagina e photo export;
+- stress GPX con molte migliaia di punti e Memories con molte foto;
+- stress ricerca/index rebuild su dataset ampio e guide/manuali estesi;
+- misurare MapLibre offline durante download/riapertura, low-memory/process death e storage quasi pieno;
+- mantenere APK/IPA/Web size budget con breakdown delle dipendenze e regressione per release;
+- non introdurre AI finché questa baseline non è misurata, perché servirà da controllo per RAM/battery/size del futuro STEP 17.
+
+Implementato:
+
+- stress regression ripetibile per clustering 10k POI, GPX 5k punti e indice ricerca 5k documenti;
+- evidence JSON generato dalla suite;
+- budget hard Android ARM64 QA APK <= 80 MiB;
+- budget hard Web aggregate <= 65 MB;
+- matrice AppLab runtime Android/Web formalizzata;
+- baseline non-AI congelata; FPS/RAM/batteria/device restano misure runtime del 16Q e non vengono simulate in CI.
+
+Criterio di uscita:
+
+- baseline automatica ripetibile presente; misure fisiche confluiscono nel gate finale 16Q.
+
+## STEP 16Q — AppLab / device / Web certification finale
+
+Stato: `BLOCKED — EXTERNAL RUNTIME / STORE EVIDENCE`
+
+Gate obbligatori:
+
+- eseguire i flow Maestro/AppLab preparati negli step precedenti sulla UI corrente; niente coordinate fragili, dati demo o assertion su testi non localizzati;
+- Android release: first launch, locale, CRUD, document import/OCR, reminder permission, routing, backup/restore, MapLibre, process death e recovery;
+- offline critical path: scarica regione, relaunch, rete disabilitata, riapri regione e usa zoom/pan senza rete;
+- Web/Pages sul commit canonico: navigazione, local persistence, locale, responsive desktop, hash-route refresh/back/forward, graceful degradation native-only;
+- permission denied/denied-forever, no network, provider quota/error, corrupt backup, low storage e retry;
+- destructive flows e recovery: trip cascade, document references, Trash/Restore/Purge dove previsto;
+- creare una sola release-candidate PR finale dal head STEP 16Q verso `main`, verificare che il diff comprenda l'intera catena 16D→16Q e chiudere come superseded le PR stacked intermedie solo dopo il confronto;
+- eseguire CodeRabbit e tutti i required checks sulla PR finale verso `main`;
+- dopo merge controllato, rilanciare certification su `main`, deployare Pages e verificare che SHA Web, release evidence, APK/AAB e artifact appartengano alla stessa baseline;
+- evitare una full AppLab certification a ogni micro-commit: smoke mirati negli step 16L–16P, matrice completa soltanto qui;
+- produrre verdetto finale `CERTIFIED` / `NOT CERTIFIED` / `BLOCKED` senza trasformare un build PASS in runtime PASS.
+
+Implementato software/harness:
+
+- final static preflight machine-readable e `release/step16_certification.json`;
+- Maestro top-level smoke Android e matrice AppLab performance;
+- Product Truth Web: GitHub Pages usa hash route (`/CamperBoss/#/map`), non path rewrite fittizi;
+- iOS esplicitamente deferred e non bloccante, incluso StoreKit/IAP;
+- matrice certificazione completa in `docs/release/step-16q-certification.md`;
+- hardening finale backup/restore: ZIP bounded/streamed, payload canonici, safety snapshot durevole, restore journal persistente e recovery pre-first-frame dopo process death;
+- merge backup conservativo: gli ID integer auto-increment locali non sono trattati come identita cross-device; collisioni e dipendenze ambigue vengono preservate localmente e segnalate come conflitti;
+- vehicle profile singleton merge con remap dei riferimenti vehicle collegati;
+- budget merge non distruttivo in assenza di version metadata;
+- media cleanup reference-aware tra documenti, manutenzione, GPX e Memories;
+- export ZIP/CSV/PDF verso storage durevole senza buffering completo del file in RAM;
+- rollback restore riconcilia i reminder derivati prima di propagare l'errore;
+- regression coverage dedicata ai failure path sopra, oltre ai gate FULL esistenti.
+
+Stato software al 06/10/2026:
+
+- tutti i P0/P1 noti delle review precedenti sono stati corretti nel release-candidate branch;
+- analyze, integration contracts, test/coverage e build platform devono risultare verdi sul medesimo head finale prima del merge;
+- nessun PASS statico sostituisce i gate real-device/store elencati sotto.
+
+Gate esterni ancora bloccanti:
+
+- Google Play Internal con AAB firmato e SHA-256 della stessa build;
+- AppLab/device Android reale, accessibilità e performance;
+- prova MapLibre no-network con provider offline approvato;
+- Web Pages reale su SHA canonico: refresh/back/forward/quota/recovery;
+- visual QA icon/splash/store assets.
+
+Criterio di uscita:
+
+- STEP 16 può diventare `DONE` solo quando tutti i P0/P1 applicabili sono chiusi e i gate fisici sono dimostrati.
 
 ## STEP 17 — Local AI Micro Engine
 

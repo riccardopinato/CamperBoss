@@ -1,0 +1,38 @@
+language: en-US
+early_access: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_filters:
+    - "!**/*.g.dart"
+    - "!**/*.freezed.dart"
+    - "!**/*.mocks.dart"
+    - "!build/**"
+    - "!.dart_tool/**"
+    - "!android/.gradle/**"
+    - "!ios/Pods/**"
+  path_instructions:
+    - path: "lib/**/*.dart"
+      instructions: |
+        Review Flutter/Dart correctness with emphasis on async safety, mounted/context
+        use after awaits, Riverpod lifecycle, resource disposal, local-first data
+        integrity, privacy, error recovery, performance regressions and accidental
+        network/cloud coupling. Flag invented/demo data and silent destructive writes.
+    - path: "test/**/*.dart"
+      instructions: |
+        Check that tests assert observable behavior, persistence and failure/recovery
+        paths rather than implementation details. Flag flaky timing and missing
+        regression coverage for destructive or migration-sensitive changes.
+    - path: ".github/workflows/**"
+      instructions: |
+        Review least-privilege permissions, secret handling, artifact provenance,
+        build-once delivery, deterministic commands and accidental duplicate builds.
+    - path: "android/**"
+      instructions: |
+        Review signing/privacy configuration, exported components, cleartext traffic,
+        backup policy and release-only assumptions. Never suggest committing secrets.

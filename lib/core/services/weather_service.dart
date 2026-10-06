@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/provider_trust_config.dart';
+
 class WeatherSnapshot {
   const WeatherSnapshot({
     required this.location,
@@ -26,31 +28,47 @@ class WeatherSnapshot {
   final int weatherCode;
   final String time;
 
-  String get condition {
-    if (weatherCode == 0) return 'Clear';
-    if (weatherCode <= 3) return 'Cloudy';
-    if (weatherCode <= 67) return 'Rain risk';
-    if (weatherCode <= 77) return 'Snow risk';
-    if (weatherCode >= 95) return 'Storm risk';
-    return 'Mixed';
+  String get conditionKey {
+    if (weatherCode == 0) return 'weather_condition_clear';
+    if (weatherCode <= 3) return 'weather_condition_cloudy';
+    if (weatherCode <= 67) return 'weather_condition_rain';
+    if (weatherCode <= 77) return 'weather_condition_snow';
+    if (weatherCode >= 95) return 'weather_condition_storm';
+    return 'weather_condition_mixed';
   }
 }
 
 class WeatherService {
-  const WeatherService({http.Client? client}) : _client = client;
+  const WeatherService({http.Client? client, Uri? endpoint})
+      : _client = client,
+        _endpoint = endpoint;
 
   final http.Client? _client;
-
-  static const _endpoint = 'https://api.open-meteo.com/v1/forecast';
+  final Uri? _endpoint;
 
   Future<WeatherSnapshot> fetchCurrent({
-    double latitude = 45.6049,
-    double longitude = 10.6351,
-    String location = 'Lake Garda basecamp',
+    double? latitude,
+    double? longitude,
+    String? location,
   }) async {
+    if (latitude == null ||
+        longitude == null ||
+        location == null ||
+        location.trim().isEmpty) {
+      throw ArgumentError('A real location is required for live weather.');
+    }
+
+    final endpoint = _endpoint ?? ProviderTrustConfig.weatherEndpoint;
+    if (endpoint == null) {
+      throw StateError(
+        'Weather provider is not configured for commercial distribution.',
+      );
+    }
+
     final client = _client ?? http.Client();
-    final uri = Uri.parse(_endpoint).replace(
+    final uri = endpoint.replace(
       queryParameters: {
+        ...endpoint.queryParameters,
         'latitude': latitude.toString(),
         'longitude': longitude.toString(),
         'current': [
@@ -69,7 +87,10 @@ class WeatherService {
     try {
       final response = await client.get(uri).timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) {
-        throw StateError('Open-Meteo responded ${response.statusCode}');
+        throw StateError('Weather provider responded ${response.statusCode}');
+      }
+      if (response.bodyBytes.length > 1024 * 1024) {
+        throw StateError('Weather response exceeded safety limit');
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;

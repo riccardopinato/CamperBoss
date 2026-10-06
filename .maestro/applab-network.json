@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "required": false,
+  "offline_seconds": 2,
+  "recovery_timeout_seconds": 20,
+  "relaunch_while_offline": true
+}

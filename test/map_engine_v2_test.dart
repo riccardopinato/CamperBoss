@@ -2,8 +2,9 @@ import 'package:camperboss/core/services/maplibre_offline_region_manager.dart';
 import 'package:camperboss/data/models/camper_place.dart';
 import 'package:camperboss/features/map/domain/maplibre_poi_clusterer.dart';
 import 'package:camperboss/features/map/presentation/map_engine_v2_preview_screen.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'test_localization.dart';
 
 void main() {
   test('MapLibre clusterer groups nearby POIs and separates them at high zoom',
@@ -54,7 +55,7 @@ void main() {
     expect(request.maxZoom, greaterThanOrEqualTo(11.0));
   });
 
-  testWidgets('Map Engine V2 preview can render without native map in tests',
+  testWidgets('offline map preview can render without native map in tests',
       (tester) async {
     const places = [
       CamperPlace(
@@ -81,23 +82,21 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: MapEngineV2PreviewScreen(
-          places: places,
-          initialLatitude: 45.60,
-          initialLongitude: 10.63,
-          offlineManager: _UnsupportedOfflineManager(),
-          renderMap: false,
-        ),
+    await pumpLocalizedHome(
+      tester,
+      home: const MapEngineV2PreviewScreen(
+        places: places,
+        initialLatitude: 45.60,
+        initialLongitude: 10.63,
+        offlineManager: _UnsupportedOfflineManager(),
+        renderMap: false,
       ),
     );
-    await tester.pumpAndSettle();
 
-    expect(find.text('Map Engine V2'), findsOneWidget);
-    expect(find.text('MapLibre vector POC'), findsOneWidget);
-    expect(find.textContaining('2 POI'), findsOneWidget);
-    expect(find.text('online renderer'), findsOneWidget);
+    expect(find.text('Map'), findsOneWidget);
+    expect(find.text('Map & offline'), findsOneWidget);
+    expect(find.text('2 visible'), findsOneWidget);
+    expect(find.text('Online only'), findsOneWidget);
   });
 }
 

@@ -1,12 +1,19 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:camperboss/core/services/data_backup_service.dart';
+import 'package:camperboss/core/services/data_integrity_service.dart';
+import 'package:camperboss/core/services/user_state_backup_service.dart';
 import 'package:camperboss/core/services/document_services_models.dart';
+import 'package:camperboss/core/services/document_storage_service.dart';
+import 'package:camperboss/data/database/local_key_value_store_stub.dart';
+import 'package:camperboss/data/models/app_reminder.dart';
 import 'package:camperboss/data/models/checklist_item.dart';
 import 'package:camperboss/data/models/finance_models.dart';
 import 'package:camperboss/data/models/journal_entry.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
+import 'package:camperboss/data/models/route_preview.dart';
 import 'package:camperboss/data/models/travel_history_models.dart';
 import 'package:camperboss/data/models/trip_plan.dart';
 import 'package:camperboss/data/models/vehicle_document.dart';
@@ -15,6 +22,8 @@ import 'package:camperboss/data/repositories/local_checklist_repository.dart';
 import 'package:camperboss/data/repositories/local_finance_repository.dart';
 import 'package:camperboss/data/repositories/local_journal_repository.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
+import 'package:camperboss/data/repositories/local_route_preview_repository.dart';
+import 'package:camperboss/data/repositories/local_reminder_repository.dart';
 import 'package:camperboss/data/repositories/local_travel_history_repository.dart';
 import 'package:camperboss/data/repositories/local_trip_repository.dart';
 import 'package:camperboss/data/repositories/local_vehicle_document_repository.dart';
@@ -124,6 +133,157 @@ void main() {
     expect(inspection.errors, contains('Unsupported schema version'));
   });
 
+  test('schema v3 rejects a manifest/archive missing canonical payloads',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_missing_payload_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final service = _service();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final original =
+        ZipDecoder().decodeBytes(File(backup.path).readAsBytesSync());
+    final manifestFile = original.findFile('manifest.json')!;
+    final manifest = Map<String, dynamic>.from(
+      jsonDecode(utf8.decode(manifestFile.content)) as Map,
+    );
+    final files = List<Map<String, dynamic>>.from(
+      (manifest['files'] as List).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
+    )..removeWhere((item) => item['path'] == 'data/documents.json');
+    manifest['files'] = files;
+
+    final tampered = Archive();
+    for (final file in original.files) {
+      if (!file.isFile ||
+          file.name == 'manifest.json' ||
+          file.name == 'data/documents.json') {
+        continue;
+      }
+      tampered.addFile(ArchiveFile(file.name, file.size, file.content));
+    }
+    tampered.addFile(
+      ArchiveFile.string('manifest.json', jsonEncode(manifest)),
+    );
+    final path = '${temp.path}/missing-documents.zip';
+    File(path).writeAsBytesSync(ZipEncoder().encode(tampered));
+
+    final inspection = await service.inspectBackup(path);
+
+    expect(inspection.isValid, isFalse);
+    expect(
+      inspection.errors.join(' | '),
+      contains('data/documents.json'),
+    );
+  });
+  test('schema v3 rejects noncanonical aliases for required payloads',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_alias_payload_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final service = _service();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final original =
+        ZipDecoder().decodeBytes(File(backup.path).readAsBytesSync());
+    final manifestFile = original.findFile('manifest.json')!;
+    final manifest = Map<String, dynamic>.from(
+      jsonDecode(utf8.decode(manifestFile.content)) as Map,
+    );
+    final files = List<Map<String, dynamic>>.from(
+      (manifest['files'] as List).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
+    );
+    for (final item in files) {
+      if (item['path'] == 'data/documents.json') {
+        item['path'] = 'data/./documents.json';
+      }
+    }
+    manifest['files'] = files;
+
+    final tampered = Archive();
+    for (final file in original.files) {
+      if (!file.isFile || file.name == 'manifest.json') continue;
+      final name = file.name == 'data/documents.json'
+          ? 'data/./documents.json'
+          : file.name;
+      tampered.addFile(ArchiveFile(name, file.size, file.content));
+    }
+    tampered.addFile(
+      ArchiveFile.string('manifest.json', jsonEncode(manifest)),
+    );
+    final path = '${temp.path}/alias-documents.zip';
+    File(path).writeAsBytesSync(ZipEncoder().encode(tampered));
+
+    final inspection = await service.inspectBackup(path);
+
+    expect(inspection.isValid, isFalse);
+    expect(
+      inspection.errors.join(' | '),
+      contains('data/./documents.json'),
+    );
+  });
+
+  test('backup creation rejects media larger than the restore contract',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_oversize_backup_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final oversized = File('${temp.path}/oversized.bin');
+    final handle = oversized.openSync(mode: FileMode.write);
+    handle.truncateSync(DataBackupService.maxArchiveEntryBytes + 1);
+    handle.closeSync();
+    final service = _service(
+      documents: [
+        VehicleDocument(
+          id: 77,
+          category: 'other',
+          title: 'Oversized',
+          localFilePath: oversized.path,
+          mimeType: 'application/octet-stream',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+
+    await expectLater(
+      service.createBackup(BackupOptions(outputDirectory: temp)),
+      throwsStateError,
+    );
+  });
+
+  test('merge preserves a newer local vehicle profile', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_profile_merge_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final incoming = _profile.copyWith(
+      brand: 'Older backup',
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final local = _profile.copyWith(
+      brand: 'Newer local',
+      updatedAt: DateTime.utc(2026, 2, 1),
+    );
+    final backup = await _service(profile: incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final target = _memoryState(profile: local);
+
+    final result = await _serviceFrom(target).restoreBackup(
+      backup.path,
+      RestoreStrategy.merge,
+    );
+
+    expect(target.profile?.brand, 'Newer local');
+    expect(result.skippedRecords, greaterThanOrEqualTo(1));
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
   test('restore replaceAll replaces local records and creates safety backup',
       () async {
     final temp =
@@ -153,6 +313,260 @@ void main() {
     expect(target.trips.map((item) => item.title), ['Restored']);
     expect(result.restoredRecords, greaterThan(0));
     expect(File(result.automaticBackupPath).existsSync(), isTrue);
+  });
+
+  test('restore materializes archived files instead of keeping stale source paths',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_restore_files_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sourceFile = File('${temp.path}/invoice.pdf')
+      ..writeAsStringSync('invoice-from-backup');
+    final source = _memoryState(
+      documents: [
+        VehicleDocument(
+          id: 9,
+          category: 'invoice',
+          title: 'Portable invoice',
+          localFilePath: sourceFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final backup = await _serviceFrom(source).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    sourceFile.deleteSync();
+
+    final target = _memoryState();
+    final storage = _TestFileStorageService(privateDir);
+    await _serviceFrom(
+      target,
+      fileStorageService: storage,
+    ).restoreBackup(backup.path, RestoreStrategy.replaceAll);
+
+    expect(target.documents, hasLength(1));
+    final restoredPath = target.documents.single.localFilePath;
+    expect(restoredPath, isNot(sourceFile.path));
+    expect(File(restoredPath).existsSync(), isTrue);
+    expect(File(restoredPath).readAsStringSync(), 'invoice-from-backup');
+  });
+
+  test('failed replace restore rebuilds deleted files from the safety backup',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_restore_rollback_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _memoryState(
+      trips: [
+        const TripPlan(
+          id: 99,
+          title: 'Force restore failure',
+          summary: 'Incoming',
+          progress: 0,
+        ),
+      ],
+    );
+    final incomingBackup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final oldFile = File('${privateDir.path}/old_invoice.pdf')
+      ..writeAsStringSync('old-private-file');
+    final target = _memoryState(
+      documents: [
+        VehicleDocument(
+          id: 7,
+          category: 'invoice',
+          title: 'Old invoice',
+          localFilePath: oldFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final storage = _TestFileStorageService(privateDir);
+    var rollbackReconciled = false;
+    final service = _serviceFrom(
+      target,
+      fileStorageService: storage,
+      tripRepository: _FailOnceTripRepository(target),
+      documentRepository:
+          _DeletingMemoryDocumentRepository(target, storage),
+      recoveryReconcile: () async {
+        rollbackReconciled = true;
+      },
+    );
+
+    await expectLater(
+      service.restoreBackup(
+        incomingBackup.path,
+        RestoreStrategy.replaceAll,
+      ),
+      throwsStateError,
+    );
+
+    expect(oldFile.existsSync(), isFalse);
+    expect(target.trips, isEmpty);
+    expect(target.documents, hasLength(1));
+    final rolledBackPath = target.documents.single.localFilePath;
+    expect(rolledBackPath, isNot(oldFile.path));
+    expect(File(rolledBackPath).existsSync(), isTrue);
+    expect(File(rolledBackPath).readAsStringSync(), 'old-private-file');
+    expect(rollbackReconciled, isTrue);
+  });
+
+  test('rollback still runs when staged-file cleanup throws', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_cleanup_rollback_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incomingFile = File('${temp.path}/incoming.pdf')
+      ..writeAsStringSync('incoming');
+    final incoming = _memoryState(
+      trips: const [
+        TripPlan(id: 99, title: 'Incoming', summary: 'Backup', progress: 0),
+      ],
+      documents: [
+        VehicleDocument(
+          id: 10,
+          category: 'invoice',
+          title: 'Incoming document',
+          localFilePath: incomingFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final incomingBackup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Original', summary: 'Local', progress: 0),
+      ],
+    );
+    final storage = _FailingDeleteStorageService(privateDir);
+    final service = _serviceFrom(
+      target,
+      fileStorageService: storage,
+      tripRepository: _FailOnceTripRepository(target),
+    );
+
+    await expectLater(
+      service.restoreBackup(incomingBackup.path, RestoreStrategy.replaceAll),
+      throwsStateError,
+    );
+
+    expect(target.trips.single.title, 'Original');
+  });
+  test('replaceAll purges stale derived route previews before integrity audit',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_route_restore_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final source = _memoryState(
+      trips: const [
+        TripPlan(id: 42, title: 'Restored', summary: 'Backup', progress: 1),
+      ],
+    );
+    final backup = await _serviceFrom(source).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Old', summary: 'Local', progress: 0),
+      ],
+    );
+    final routes = _MemoryRouteRepository([
+      RouteResult(
+        tripId: 1,
+        waypointFingerprint: 'old-trip',
+        geometry: const [],
+        totalDistanceMeters: 0,
+        totalDurationSeconds: 0,
+        legs: const [],
+        provider: 'test',
+        calculatedAt: DateTime.utc(2026, 1, 1),
+      ),
+      RouteResult(
+        tripId: 999,
+        waypointFingerprint: 'orphan',
+        geometry: const [],
+        totalDistanceMeters: 0,
+        totalDurationSeconds: 0,
+        legs: const [],
+        provider: 'test',
+        calculatedAt: DateTime.utc(2026, 1, 2),
+      ),
+    ]);
+
+    await _serviceFrom(target, routeRepository: routes).restoreBackup(
+      backup.path,
+      RestoreStrategy.replaceAll,
+    );
+
+    expect(await routes.listRoutes(), isEmpty);
+    expect(target.trips.single.id, 42);
+  });
+
+  test('restore aborts before mutation when safety backup is incomplete',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_safety_guard_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _memoryState(
+      trips: const [
+        TripPlan(id: 2, title: 'Incoming', summary: 'Backup', progress: 0),
+      ],
+    );
+    final backup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final missingPath = '${temp.path}/missing-private.pdf';
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Keep me', summary: 'Local', progress: 0),
+      ],
+      documents: [
+        VehicleDocument(
+          id: 1,
+          category: 'insurance',
+          title: 'Missing attachment',
+          localFilePath: missingPath,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+
+    await expectLater(
+      _serviceFrom(target).restoreBackup(
+        backup.path,
+        RestoreStrategy.replaceAll,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Safety backup is incomplete'),
+        ),
+      ),
+    );
+
+    expect(target.trips.single.title, 'Keep me');
+    expect(target.documents.single.localFilePath, missingPath);
   });
 
   test('merge keeps newer local conflicts and restores new records', () async {
@@ -194,6 +608,388 @@ void main() {
     expect(target.trips.map((item) => item.title), ['Newer local', 'New trip']);
     expect(result.skippedRecords, 1);
     expect(result.conflicts, 1);
+  });
+
+  test('merge never overwrites ambiguous installation-local integer IDs',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_merge_id_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final source = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Unrelated backup trip',
+          summary: 'Different installation',
+          progress: 0.2,
+          updatedAt: DateTime.utc(2026, 3, 1),
+        ),
+      ],
+      bookings: [
+        const TripBooking(
+          id: 'backup-booking',
+          tripId: 1,
+          type: BookingType.campsite,
+          status: BookingStatus.confirmed,
+          title: 'Must not attach to local trip',
+          currencyCode: 'EUR',
+        ),
+      ],
+    );
+    final backup = await _serviceFrom(
+      source,
+      recoveryDirectory: Directory('${temp.path}/source-recovery'),
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final target = _memoryState(
+      trips: [
+        TripPlan(
+          id: 1,
+          title: 'Local trip',
+          summary: 'Keep local identity',
+          progress: 0.8,
+          updatedAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+    );
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/target-recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.trips.single.title, 'Local trip');
+    expect(target.bookings, isEmpty);
+    expect(result.skippedRecords, greaterThanOrEqualTo(2));
+    expect(result.conflicts, greaterThanOrEqualTo(2));
+  });
+
+  test('merge preserves an existing differing trip budget', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_budget_merge_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sharedTrip = TripPlan(
+      id: 5,
+      title: 'Shared trip',
+      summary: 'Same canonical trip',
+      progress: 0.5,
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final backup = await _service(
+      trips: [sharedTrip],
+      budgets: const [
+        TripBudget(
+          tripId: 5,
+          plannedAmountMinor: 10000,
+          currencyCode: 'EUR',
+        ),
+      ],
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final target = _memoryState(
+      trips: [sharedTrip],
+      budgets: const [
+        TripBudget(
+          tripId: 5,
+          plannedAmountMinor: 25000,
+          currencyCode: 'EUR',
+        ),
+      ],
+    );
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.budgets.single.plannedAmountMinor, 25000);
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
+
+  test('merge applies newer profile data to the existing singleton id',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_profile_id_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incoming = _profile.copyWith(
+      id: 1,
+      brand: 'Incoming newer',
+      updatedAt: DateTime.utc(2026, 3, 1),
+    );
+    final backup = await _service(
+      profile: incoming,
+      expenses: [
+        Expense(
+          id: 'vehicle-expense',
+          scope: ExpenseScope.vehicle,
+          vehicleId: 1,
+          category: ExpenseCategory.insurance,
+          amountMinor: 5000,
+          currencyCode: 'EUR',
+          occurredAt: DateTime.utc(2026, 2, 1),
+        ),
+      ],
+      fuel: [
+        FuelEntry(
+          id: 'vehicle-fuel',
+          vehicleId: 1,
+          date: DateTime.utc(2026, 2, 2),
+          odometerKm: 10000,
+          volumeMilliLitres: 40000,
+          totalCostMinor: 7000,
+          currencyCode: 'EUR',
+          fullTank: true,
+        ),
+      ],
+    ).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final local = _profile.copyWith(
+      id: 9,
+      brand: 'Local older',
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final target = _memoryState(profile: local);
+
+    await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.profile?.brand, 'Incoming newer');
+    expect(target.profile?.id, 9);
+    expect(target.expenses.single.vehicleId, 9);
+    expect(target.fuel.single.vehicleId, 9);
+  });
+
+  test('startup recovery restores a journaled safety snapshot', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_journal_recovery_test');
+    final recovery = Directory('${temp.path}/recovery')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final state = _memoryState(
+      trips: const [
+        TripPlan(
+          id: 1,
+          title: 'Pre-restore state',
+          summary: 'Safety snapshot',
+          progress: 0,
+        ),
+      ],
+    );
+    final creator = _serviceFrom(state, recoveryDirectory: recovery);
+    final safety = await creator.createBackup(
+      BackupOptions(outputDirectory: recovery),
+    );
+
+    state.trips
+      ..clear()
+      ..add(
+        const TripPlan(
+          id: 99,
+          title: 'Partial interrupted state',
+          summary: 'Must disappear',
+          progress: 0,
+        ),
+      );
+
+    final journal = File(
+      '${recovery.path}/${DataBackupService.restoreJournalFileName}',
+    );
+    journal.writeAsStringSync(
+      jsonEncode({
+        'format': DataBackupService.format,
+        'schemaVersion': DataBackupService.schemaVersion,
+        'strategy': RestoreStrategy.replaceAll.name,
+        'safetyBackupPath': safety.path,
+        'createdAt': DateTime.utc(2026, 10, 6).toIso8601String(),
+      }),
+      flush: true,
+    );
+
+    var reconciled = false;
+    final recoveryService = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+      recoveryReconcile: () async {
+        reconciled = true;
+      },
+    );
+
+    expect(await recoveryService.recoverInterruptedRestore(), isTrue);
+    expect(state.trips.single.title, 'Pre-restore state');
+    expect(reconciled, isTrue);
+    expect(journal.existsSync(), isFalse);
+  });
+
+  test('merge preserves sparse target user state and only fills missing keys',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_user_state_merge');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final sourceStore = MemoryKeyValueStore();
+    await sourceStore.write('camperboss.guideFavorites', 'backup-favorite');
+    await sourceStore.write('camperboss.guideProgress', 'backup-progress');
+    final sourceUserState = UserStateBackupService(store: sourceStore);
+    final backup = await _serviceFrom(
+      _memoryState(),
+      userStateBackupService: sourceUserState,
+      recoveryDirectory: Directory('${temp.path}/source-recovery'),
+    ).createBackup(BackupOptions(outputDirectory: temp));
+
+    final targetStore = MemoryKeyValueStore();
+    await targetStore.write(
+      'camperboss.onboardingProgress',
+      'local-onboarding',
+    );
+    await targetStore.write(
+      'camperboss.guideFavorites',
+      'local-favorite',
+    );
+    final targetUserState = UserStateBackupService(store: targetStore);
+
+    final result = await _serviceFrom(
+      _memoryState(),
+      userStateBackupService: targetUserState,
+      recoveryDirectory: Directory('${temp.path}/target-recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(
+      await targetStore.read('camperboss.onboardingProgress'),
+      'local-onboarding',
+    );
+    expect(
+      await targetStore.read('camperboss.guideFavorites'),
+      'local-favorite',
+    );
+    expect(
+      await targetStore.read('camperboss.guideProgress'),
+      'backup-progress',
+    );
+    expect(result.skippedRecords, greaterThanOrEqualTo(1));
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
+
+  test('merge rejects vehicle-linked rows when source profile is absent',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_vehicle_ref_merge');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final backup = await _service(
+      documents: const [
+        VehicleDocument(
+          id: 7,
+          vehicleId: 1,
+          category: 'insurance',
+          title: 'Ambiguous document',
+          localFilePath: '',
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+      expenses: [
+        Expense(
+          id: 'ambiguous-expense',
+          scope: ExpenseScope.vehicle,
+          vehicleId: 1,
+          category: ExpenseCategory.insurance,
+          amountMinor: 1000,
+          currencyCode: 'EUR',
+          occurredAt: DateTime.utc(2026, 1, 1),
+        ),
+      ],
+      fuel: [
+        FuelEntry(
+          id: 'ambiguous-fuel',
+          vehicleId: 1,
+          date: DateTime.utc(2026, 1, 2),
+          odometerKm: 1000,
+          volumeMilliLitres: 10000,
+          totalCostMinor: 2000,
+          currencyCode: 'EUR',
+          fullTank: true,
+        ),
+      ],
+    ).createBackup(
+      BackupOptions(outputDirectory: temp, includeFiles: false),
+    );
+
+    final target = _memoryState(profile: _profile.copyWith(id: 9));
+    final result = await _serviceFrom(
+      target,
+      recoveryDirectory: Directory('${temp.path}/recovery'),
+    ).restoreBackup(backup.path, RestoreStrategy.merge);
+
+    expect(target.documents, isEmpty);
+    expect(target.expenses, isEmpty);
+    expect(target.fuel, isEmpty);
+    expect(result.conflicts, greaterThanOrEqualTo(3));
+  });
+
+  test('startup recovery clears journal even when reminder reconcile fails',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_reconcile_recovery');
+    final recovery = Directory('${temp.path}/recovery')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final state = _memoryState(
+      trips: const [
+        TripPlan(
+          id: 1,
+          title: 'Safety state',
+          summary: 'Canonical',
+          progress: 0,
+        ),
+      ],
+    );
+    final creator = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+    );
+    final safety = await creator.createBackup(
+      BackupOptions(outputDirectory: recovery),
+    );
+
+    state.trips
+      ..clear()
+      ..add(
+        const TripPlan(
+          id: 2,
+          title: 'Partial state',
+          summary: 'Interrupted',
+          progress: 0,
+        ),
+      );
+
+    final journal = File(
+      '${recovery.path}/${DataBackupService.restoreJournalFileName}',
+    )..writeAsStringSync(
+        jsonEncode({
+          'format': DataBackupService.format,
+          'schemaVersion': DataBackupService.schemaVersion,
+          'strategy': RestoreStrategy.replaceAll.name,
+          'safetyBackupPath': safety.path,
+          'createdAt': DateTime.utc(2026, 10, 6).toIso8601String(),
+        }),
+        flush: true,
+      );
+
+    final service = _serviceFrom(
+      state,
+      recoveryDirectory: recovery,
+      recoveryReconcile: () async {
+        throw StateError('notification backend unavailable');
+      },
+    );
+
+    expect(await service.recoverInterruptedRestore(), isTrue);
+    expect(state.trips.single.title, 'Safety state');
+    expect(journal.existsSync(), isFalse);
   });
 
   test('exports CSV and PDF files', () async {
@@ -250,6 +1046,48 @@ void main() {
     expect(vehiclePdf.lengthSync(), greaterThan(0));
     expect(tripPdf.lengthSync(), greaterThan(0));
   });
+
+  test('backs up and inspects 1k trips within broad CI regression budget',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_backup_stress_test');
+    addTearDown(() => temp.delete(recursive: true));
+
+    final trips = List.generate(
+      1000,
+      (index) => TripPlan(
+        id: index + 1,
+        title: 'Stress trip $index',
+        summary: 'Local-first backup stress row $index',
+        progress: (index % 100) / 100,
+        destination: 'Destination ${index % 25}',
+        notes: 'Notes ' * 8,
+        stages: [
+          'Stage A $index',
+          'Stage B $index',
+        ],
+        updatedAt: DateTime(2026, 1, 1).add(Duration(minutes: index)),
+      ),
+      growable: false,
+    );
+    final service = _service(trips: trips);
+
+    final create = Stopwatch()..start();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    create.stop();
+
+    final inspect = Stopwatch()..start();
+    final inspection = await service.inspectBackup(backup.path);
+    inspect.stop();
+
+    expect(inspection.isValid, isTrue);
+    expect(inspection.recordCounts['data/trips.json'], 1000);
+    expect(File(backup.path).lengthSync(), greaterThan(0));
+    expect(create.elapsed, lessThan(const Duration(seconds: 15)));
+    expect(inspect.elapsed, lessThan(const Duration(seconds: 10)));
+  });
 }
 
 DataBackupService _service({
@@ -284,17 +1122,118 @@ DataBackupService _service({
   );
 }
 
-DataBackupService _serviceFrom(_MemoryState state) {
+DataBackupService _serviceFrom(
+  _MemoryState state, {
+  DocumentStorageService? fileStorageService,
+  TripRepository? tripRepository,
+  VehicleDocumentRepository? documentRepository,
+  RoutePreviewRepository? routeRepository,
+  Directory? recoveryDirectory,
+  Future<void> Function()? recoveryReconcile,
+  UserStateBackupService? userStateBackupService,
+}) {
+  final profile = _MemoryProfileRepository(state);
+  final trips = tripRepository ?? _MemoryTripRepository(state);
+  final checklist = _MemoryChecklistRepository(state);
+  final journal = _MemoryJournalRepository(state);
+  final maintenance = _MemoryMaintenanceRepository(state);
+  final documents = documentRepository ?? _MemoryDocumentRepository(state);
+  final finance = _MemoryFinanceRepository(state);
+  final history = _MemoryTravelHistoryRepository(state);
+  final reminders = _MemoryReminderRepository();
+  final routes = routeRepository ?? _MemoryRouteRepository();
+
   return DataBackupService(
-    profileRepository: _MemoryProfileRepository(state),
-    tripRepository: _MemoryTripRepository(state),
-    checklistRepository: _MemoryChecklistRepository(state),
-    journalRepository: _MemoryJournalRepository(state),
-    maintenanceRepository: _MemoryMaintenanceRepository(state),
-    documentRepository: _MemoryDocumentRepository(state),
-    financeRepository: _MemoryFinanceRepository(state),
-    travelHistoryRepository: _MemoryTravelHistoryRepository(state),
+    profileRepository: profile,
+    tripRepository: trips,
+    checklistRepository: checklist,
+    journalRepository: journal,
+    maintenanceRepository: maintenance,
+    documentRepository: documents,
+    financeRepository: finance,
+    travelHistoryRepository: history,
+    reminderRepository: reminders,
+    routeRepository: routes,
+    userStateBackupService: userStateBackupService ??
+        UserStateBackupService(store: MemoryKeyValueStore()),
+    integrityService: DataIntegrityService(
+      tripRepository: trips,
+      financeRepository: finance,
+      journalRepository: journal,
+      documentRepository: documents,
+      maintenanceRepository: maintenance,
+      travelHistoryRepository: history,
+      reminderRepository: reminders,
+      routeRepository: routes,
+    ),
+    fileStorageService:
+        fileStorageService ?? const _NoopDocumentStorageService(),
+    recoveryDirectory: recoveryDirectory ??
+        Directory.systemTemp.createTempSync('camperboss_restore_unit_'),
+    recoveryReconcile: recoveryReconcile,
   );
+}
+
+class _NoopDocumentStorageService implements DocumentStorageService {
+  const _NoopDocumentStorageService();
+
+  @override
+  Future<String> copyIntoPrivateDocuments(String pathOrUri) {
+    throw UnsupportedError('No media expected in this test');
+  }
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {}
+
+  @override
+  Future<List<String>> listManagedFiles() async => const [];
+}
+
+class _FailingDeleteStorageService extends _TestFileStorageService {
+  _FailingDeleteStorageService(super.directory);
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {
+    throw FileSystemException('forced staged cleanup failure');
+  }
+}
+class _TestFileStorageService implements DocumentStorageService {
+  _TestFileStorageService(this.directory);
+
+  final Directory directory;
+  int _counter = 0;
+
+  @override
+  Future<String> copyIntoPrivateDocuments(String pathOrUri) async {
+    final source = File(pathOrUri);
+    final name = source.uri.pathSegments.last;
+    final target = File(
+      '${directory.path}/restored_${_counter++}_$name',
+    );
+    await source.copy(target.path);
+    return target.path;
+  }
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {
+    for (final path in paths) {
+      if (path == null || path.isEmpty) continue;
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+  }
+
+  @override
+  Future<List<String>> listManagedFiles() async {
+    if (!await directory.exists()) return const [];
+    return directory
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .map((file) => file.path)
+        .toList(growable: false);
+  }
 }
 
 _MemoryState _memoryState({
@@ -397,6 +1336,34 @@ class _MemoryTripRepository implements TripRepository {
       state.trips[index] = trip;
     }
     return trip;
+  }
+}
+
+class _FailOnceTripRepository extends _MemoryTripRepository {
+  _FailOnceTripRepository(super.state);
+
+  bool _shouldFail = true;
+
+  @override
+  Future<TripPlan> saveTrip(TripPlan trip) async {
+    if (_shouldFail) {
+      _shouldFail = false;
+      throw StateError('forced restore failure');
+    }
+    return super.saveTrip(trip);
+  }
+}
+
+class _DeletingMemoryDocumentRepository
+    extends _MemoryDocumentRepository {
+  _DeletingMemoryDocumentRepository(super.state, this.storage);
+
+  final DocumentStorageService storage;
+
+  @override
+  Future<void> deleteDocument(VehicleDocument document) async {
+    await super.deleteDocument(document);
+    await storage.deleteFiles(document.filePaths);
   }
 }
 
@@ -636,6 +1603,81 @@ class _MemoryTravelHistoryRepository implements TravelHistoryRepository {
       state.tracks[index] = track;
     }
     return track;
+  }
+}
+
+
+
+class _MemoryRouteRepository implements RoutePreviewRepository {
+  _MemoryRouteRepository([List<RouteResult> routes = const []])
+      : routes = [...routes];
+
+  final List<RouteResult> routes;
+
+  @override
+  Future<List<RouteResult>> listRoutes() async => [...routes];
+
+  @override
+  Future<void> deleteRouteForTrip(int tripId) async {
+    routes.removeWhere((route) => route.tripId == tripId);
+  }
+
+  @override
+  Future<RouteResult?> loadRouteForTrip(int tripId) async {
+    for (final route in routes) {
+      if (route.tripId == tripId) return route;
+    }
+    return null;
+  }
+
+  @override
+  Future<RouteResult> saveRoute(RouteResult route) async {
+    await deleteRouteForTrip(route.tripId);
+    routes.add(route);
+    return route;
+  }
+}
+
+class _MemoryReminderRepository implements ReminderRepository {
+  ReminderSettings settings = const ReminderSettings();
+  final List<AppReminder> reminders = [];
+
+  @override
+  Future<void> deleteSourceReminders(
+    ReminderSourceType sourceType,
+    String sourceId,
+  ) async {
+    reminders.removeWhere(
+      (item) => item.sourceType == sourceType && item.sourceId == sourceId,
+    );
+  }
+
+  @override
+  Future<List<AppReminder>> listReminders() async => [...reminders];
+
+  @override
+  Future<ReminderSettings> loadSettings() async => settings;
+
+  @override
+  Future<void> replaceAllReminders(List<AppReminder> next) async {
+    reminders
+      ..clear()
+      ..addAll(next);
+  }
+
+  @override
+  Future<void> replaceSourceReminders(
+    ReminderSourceType sourceType,
+    String sourceId,
+    List<AppReminder> next,
+  ) async {
+    await deleteSourceReminders(sourceType, sourceId);
+    reminders.addAll(next);
+  }
+
+  @override
+  Future<void> saveSettings(ReminderSettings settings) async {
+    this.settings = settings;
   }
 }
 

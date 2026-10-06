@@ -52,15 +52,17 @@ enum HomeCockpitActionType {
 class HomeCockpitAction {
   const HomeCockpitAction({
     required this.type,
-    required this.title,
-    required this.detail,
+    required this.titleKey,
+    required this.detailKey,
     required this.priority,
+    this.args = const {},
   });
 
   final HomeCockpitActionType type;
-  final String title;
-  final String detail;
+  final String titleKey;
+  final String detailKey;
   final int priority;
+  final Map<String, String> args;
 }
 
 class HomeCockpitService {
@@ -271,8 +273,8 @@ class HomeCockpitService {
       actions.add(
         const HomeCockpitAction(
           type: HomeCockpitActionType.vehicle,
-          title: 'Set up your camper',
-          detail: 'Add dimensions, mass and mileage before route planning.',
+          titleKey: 'home_action_vehicle_title',
+          detailKey: 'home_action_vehicle_detail',
           priority: 100,
         ),
       );
@@ -282,8 +284,8 @@ class HomeCockpitService {
       actions.add(
         const HomeCockpitAction(
           type: HomeCockpitActionType.checklist,
-          title: 'Create a departure checklist',
-          detail: 'Readiness stays honest until you define your real routine.',
+          titleKey: 'home_action_checklist_create_title',
+          detailKey: 'home_action_checklist_create_detail',
           priority: 70,
         ),
       );
@@ -292,8 +294,13 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.checklist,
-          title: '$openCount checklist item${openCount == 1 ? '' : 's'} open',
-          detail: '$checklistCompleted of $checklistTotal checks completed.',
+          titleKey: 'home_action_checklist_open_title',
+          detailKey: 'home_action_checklist_open_detail',
+          args: {
+            'open': openCount.toString(),
+            'completed': checklistCompleted.toString(),
+            'total': checklistTotal.toString(),
+          },
           priority: 85,
         ),
       );
@@ -303,8 +310,9 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.documents,
-          title: '$expiredDocuments document${expiredDocuments == 1 ? '' : 's'} expired',
-          detail: 'Review vehicle documents before departure.',
+          titleKey: 'home_action_documents_expired_title',
+          detailKey: 'home_action_documents_expired_detail',
+          args: {'count': expiredDocuments.toString()},
           priority: 95,
         ),
       );
@@ -312,8 +320,9 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.documents,
-          title: '$documentsDueSoon document${documentsDueSoon == 1 ? '' : 's'} due soon',
-          detail: 'Expiry is within the next 30 days.',
+          titleKey: 'home_action_documents_due_title',
+          detailKey: 'home_action_documents_due_detail',
+          args: {'count': documentsDueSoon.toString()},
           priority: 80,
         ),
       );
@@ -321,8 +330,8 @@ class HomeCockpitService {
       actions.add(
         const HomeCockpitAction(
           type: HomeCockpitActionType.documents,
-          title: 'Document archive not configured',
-          detail: 'Add insurance, registration or other documents when useful.',
+          titleKey: 'home_action_documents_empty_title',
+          detailKey: 'home_action_documents_empty_detail',
           priority: 35,
         ),
       );
@@ -332,8 +341,9 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.maintenance,
-          title: '$overdueMaintenance maintenance item${overdueMaintenance == 1 ? '' : 's'} overdue',
-          detail: 'Review date or mileage based maintenance.',
+          titleKey: 'home_action_maintenance_overdue_title',
+          detailKey: 'home_action_maintenance_overdue_detail',
+          args: {'count': overdueMaintenance.toString()},
           priority: 95,
         ),
       );
@@ -341,8 +351,9 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.maintenance,
-          title: '$maintenanceDueSoon maintenance item${maintenanceDueSoon == 1 ? '' : 's'} due soon',
-          detail: 'Due within 30 days or 1,000 km.',
+          titleKey: 'home_action_maintenance_due_title',
+          detailKey: 'home_action_maintenance_due_detail',
+          args: {'count': maintenanceDueSoon.toString()},
           priority: 80,
         ),
       );
@@ -350,8 +361,8 @@ class HomeCockpitService {
       actions.add(
         const HomeCockpitAction(
           type: HomeCockpitActionType.maintenance,
-          title: 'Maintenance history not configured',
-          detail: 'Add your first service record when available.',
+          titleKey: 'home_action_maintenance_empty_title',
+          detailKey: 'home_action_maintenance_empty_detail',
           priority: 30,
         ),
       );
@@ -361,8 +372,8 @@ class HomeCockpitService {
       actions.add(
         const HomeCockpitAction(
           type: HomeCockpitActionType.trip,
-          title: 'No upcoming trip',
-          detail: 'Create a real itinerary when you are ready to travel.',
+          titleKey: 'home_action_trip_empty_title',
+          detailKey: 'home_action_trip_empty_detail',
           priority: 25,
         ),
       );
@@ -370,8 +381,9 @@ class HomeCockpitService {
       actions.add(
         HomeCockpitAction(
           type: HomeCockpitActionType.trip,
-          title: 'Complete ${activeTrip.title}',
-          detail: 'Add at least two geolocated stages for routing.',
+          titleKey: 'home_action_trip_incomplete_title',
+          detailKey: 'home_action_trip_incomplete_detail',
+          args: {'trip': activeTrip.title},
           priority: 65,
         ),
       );

@@ -1,5 +1,6 @@
 import 'package:archive/archive.dart';
 
+import '../../data/database/managed_media_reference_index.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/models/travel_history_models.dart';
 import '../../data/repositories/local_finance_repository.dart';
@@ -29,13 +30,18 @@ class TravelHistoryService {
     GpxService? gpxService,
     TravelMediaService? mediaService,
     TravelHistoryStatisticsService? statisticsService,
+    ManagedMediaReferenceIndex? mediaReferenceIndex,
   })  : _repository = repository ?? LocalTravelHistoryRepository(),
         _journalRepository = journalRepository ?? LocalJournalRepository(),
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _gpxService = gpxService ?? const GpxService(),
         _mediaService = mediaService ?? createTravelMediaService(),
         _statisticsService =
-            statisticsService ?? const TravelHistoryStatisticsService();
+            statisticsService ?? const TravelHistoryStatisticsService(),
+        _mediaReferenceIndex = mediaReferenceIndex ??
+            ((repository == null || repository is LocalTravelHistoryRepository)
+                ? ManagedMediaReferenceIndex()
+                : null);
 
   final TravelHistoryRepository _repository;
   final JournalRepository _journalRepository;
@@ -43,6 +49,7 @@ class TravelHistoryService {
   final GpxService _gpxService;
   final TravelMediaService _mediaService;
   final TravelHistoryStatisticsService _statisticsService;
+  final ManagedMediaReferenceIndex? _mediaReferenceIndex;
 
   Future<TravelHistoryBundle> load({int? tripId}) async {
     final tracks = await _repository.listTracks(tripId: tripId);
@@ -82,8 +89,7 @@ class TravelHistoryService {
       fallbackName: imported.fileName,
     );
     for (final track in parsed.tracks) {
-      await _repository
-          .saveTrack(track.copyWith(localFilePath: imported.localPath));
+      await saveTrack(track.copyWith(localFilePath: imported.localPath));
     }
     for (final memory in parsed.memories) {
       await _repository.saveMemory(memory);
@@ -122,26 +128,141 @@ class TravelHistoryService {
 
   Future<PhotoLocationCandidate?> importPhoto() => _mediaService.importPhoto();
 
-  Future<TravelMemory> saveMemory(TravelMemory memory) {
-    return _repository.saveMemory(memory);
+  Future<TravelMemory> saveMemory(TravelMemory memory) async {
+    final previous = await _memoryById(memory.id);
+    final saved = await _repository.saveMemory(memory);
+    if (previous != null && previous.localPhotoPaths.isNotEmpty) {
+      try {
+        await _deleteUnreferencedMemoryFiles(previous.localPhotoPaths);
+      } catch (_) {
+        // Save is committed; media garbage collection is best-effort.
+      }
+    }
+    return saved;
   }
 
-  Future<void> deleteMemory(TravelMemory memory) async {
+  Future<GpxTrack> saveTrack(GpxTrack track) async {
+    final previous = await _trackById(track.id);
+    final saved = await _repository.saveTrack(track);
+    if (previous?.localFilePath != null) {
+      try {
+        await _deleteUnreferencedTrackFiles([previous!.localFilePath]);
+      } catch (_) {
+        // Save is committed; media garbage collection is best-effort.
+      }
+    }
+    return saved;
+  }
+
+  Future<void> deleteMemory(
+    TravelMemory memory, {
+    bool deleteMedia = true,
+  }) async {
     await _repository.deleteMemory(memory.id);
-    await _mediaService.deleteFiles(memory.localPhotoPaths);
+    if (deleteMedia) {
+      try {
+        await cleanupUnreferencedMemoryFiles(memory.localPhotoPaths);
+      } catch (_) {
+        // Deletion is committed; cleanup must not break rollback/recovery.
+      }
+    }
   }
 
-  Future<void> deleteTrack(GpxTrack track) async {
+  Future<void> deleteTrack(
+    GpxTrack track, {
+    bool deleteMedia = true,
+  }) async {
     await _repository.deleteTrack(track.id);
-    await _mediaService.deleteFiles([track.localFilePath]);
+    if (deleteMedia) {
+      try {
+        await cleanupUnreferencedTrackFiles([track.localFilePath]);
+      } catch (_) {
+        // Deletion is committed; cleanup must not break rollback/recovery.
+      }
+    }
+  }
+
+  Future<void> cleanupUnreferencedMemoryFiles(Iterable<String?> paths) {
+    return _deleteUnreferencedMemoryFiles(paths);
+  }
+
+  Future<void> cleanupUnreferencedTrackFiles(Iterable<String?> paths) {
+    return _deleteUnreferencedTrackFiles(paths);
+  }
+
+  Future<TravelMemory?> _memoryById(String id) async {
+    final memories = await _repository.listMemories();
+    for (final memory in memories) {
+      if (memory.id == id) return memory;
+    }
+    return null;
+  }
+
+  Future<GpxTrack?> _trackById(String id) async {
+    final tracks = await _repository.listTracks();
+    for (final track in tracks) {
+      if (track.id == id) return track;
+    }
+    return null;
+  }
+
+  Future<void> _deleteUnreferencedMemoryFiles(
+    Iterable<String?> paths,
+  ) async {
+    final candidates = paths
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    if (candidates.isEmpty) return;
+
+    final globalReferences =
+        await _mediaReferenceIndex?.listReferencedPaths();
+    if (globalReferences != null) {
+      candidates.removeAll(globalReferences);
+    } else {
+      final remaining = await _repository.listMemories();
+      final referenced = <String>{
+        for (final memory in remaining) ...memory.localPhotoPaths,
+      };
+      candidates.removeAll(referenced);
+    }
+    if (candidates.isNotEmpty) {
+      await _mediaService.deleteFiles(candidates);
+    }
+  }
+
+  Future<void> _deleteUnreferencedTrackFiles(
+    Iterable<String?> paths,
+  ) async {
+    final candidates = paths
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    if (candidates.isEmpty) return;
+
+    final globalReferences =
+        await _mediaReferenceIndex?.listReferencedPaths();
+    if (globalReferences != null) {
+      candidates.removeAll(globalReferences);
+    } else {
+      final remaining = await _repository.listTracks();
+      final referenced = <String>{
+        for (final track in remaining)
+          if (track.localFilePath != null && track.localFilePath!.isNotEmpty)
+            track.localFilePath!,
+      };
+      candidates.removeAll(referenced);
+    }
+    if (candidates.isNotEmpty) {
+      await _mediaService.deleteFiles(candidates);
+    }
   }
 
   List<JournalEntry> _filterJournal(List<JournalEntry> entries, int? tripId) {
-    return tripId == null
-        ? entries
-        : entries
-            .where((entry) => entry.place != null && entry.place!.isNotEmpty)
-            .toList();
+    // JournalEntry does not currently carry a tripId. Including every entry
+    // with a place in a trip-specific summary produced false statistics.
+    // Until an explicit relation exists, only the all-trips view may use it.
+    return tripId == null ? entries : const <JournalEntry>[];
   }
 
   String _fileName(String path) {

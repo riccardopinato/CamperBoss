@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 abstract interface class DocumentStorageService {
   Future<String> copyIntoPrivateDocuments(String pathOrUri);
   Future<void> deleteFiles(Iterable<String?> paths);
+  Future<List<String>> listManagedFiles();
 }
 
 DocumentStorageService createDocumentStorageService() {
@@ -13,6 +15,8 @@ DocumentStorageService createDocumentStorageService() {
 }
 
 class LocalDocumentStorageService implements DocumentStorageService {
+  static const _privacyChannel = MethodChannel('com.camperboss/privacy');
+
   @override
   Future<String> copyIntoPrivateDocuments(String pathOrUri) async {
     final source = _fileFromPathOrUri(pathOrUri);
@@ -24,6 +28,19 @@ class LocalDocumentStorageService implements DocumentStorageService {
     final name = 'doc_${DateTime.now().microsecondsSinceEpoch}$extension';
     final target = File(p.join(directory.path, name));
     await source.copy(target.path);
+    if (Platform.isIOS) {
+      try {
+        await _privacyChannel.invokeMethod<void>(
+          'excludeFromBackup',
+          {'path': target.path},
+        );
+      } catch (_) {
+        if (target.existsSync()) {
+          await target.delete();
+        }
+        rethrow;
+      }
+    }
     return target.path;
   }
 
@@ -36,6 +53,17 @@ class LocalDocumentStorageService implements DocumentStorageService {
         await file.delete();
       }
     }
+  }
+
+  @override
+  Future<List<String>> listManagedFiles() async {
+    final directory = await _documentsDirectory();
+    if (!directory.existsSync()) return const [];
+    return directory
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .map((file) => file.path)
+        .toList(growable: false);
   }
 
   File _fileFromPathOrUri(String value) {

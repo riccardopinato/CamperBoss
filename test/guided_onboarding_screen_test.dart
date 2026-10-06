@@ -1,23 +1,43 @@
 import 'package:camperboss/core/services/onboarding_service.dart';
 import 'package:camperboss/data/models/guide_models.dart';
 import 'package:camperboss/features/onboarding/presentation/guided_onboarding_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('guided onboarding renders stepper and advances', (tester) async {
     final service = _FakeOnboardingService();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: GuidedOnboardingScreen(onboardingService: service),
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: GuidedOnboardingScreen(onboardingService: service),
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Guided onboarding'), findsOneWidget);
+    expect(find.text('Guided setup'), findsOneWidget);
     expect(find.text('Language and country'), findsOneWidget);
-    expect(find.text('Vehicle basics'), findsOneWidget);
+    expect(find.text('Vehicle profile'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Continue'),

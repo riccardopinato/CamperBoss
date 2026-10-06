@@ -1,0 +1,44 @@
+# CamperBoss STEP 16L targeted Map/POI/offline smoke.
+# No demo location, no legacy Preview entry point and no coordinate taps.
+# Full no-network region certification remains STEP 16Q.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    text: "^(Map|Mappa|Karte|Carte|Mapa)$"
+
+- extendedWaitUntil:
+    visible: "Smart map"
+    timeout: 20000
+
+- assertVisible: "Map"
+- takeScreenshot: "camperboss-16l-map-fresh"
+
+- tapOn: "Offline contents"
+- takeScreenshot: "camperboss-16l-offline-catalog"
+- back
+
+- scrollUntilVisible:
+    element:
+      text: "Filters"
+    direction: DOWN
+    timeout: 20000
+
+- assertVisible: "Camping"
+- tapOn: "Camping"
+- takeScreenshot: "camperboss-16l-map-filter-toggle"
+
+- stopApp
+- launchApp:
+    clearState: false
+
+- tapOn:
+    text: "^(Map|Mappa|Karte|Carte|Mapa)$"
+
+- extendedWaitUntil:
+    visible: "Smart map"
+    timeout: 20000
+
+- takeScreenshot: "camperboss-16l-map-restart"

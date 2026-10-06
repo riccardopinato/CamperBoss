@@ -6,23 +6,24 @@ import 'package:camperboss/features/trip/presentation/travel_history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 void main() {
   testWidgets(
       'travel history screen renders timeline summary and memory filters', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TravelHistoryScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: TravelHistoryScreen(
             initialTripId: 1,
             tripRepository: _FakeTripRepository(),
             historyService: _FakeTravelHistoryService(),
-          ),
+            renderMaps: false,
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Travel history'), findsOneWidget);
     expect(find.text('Import GPX'), findsOneWidget);

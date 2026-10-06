@@ -1,7 +1,9 @@
 import 'package:camperboss/data/models/vehicle_profile.dart';
 import 'package:camperboss/data/repositories/local_vehicle_profile_repository.dart';
 import 'package:camperboss/features/profile/presentation/profile_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeVehicleProfileStore implements VehicleProfileStore {
@@ -25,6 +27,13 @@ class FakeVehicleProfileStore implements VehicleProfileStore {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('profile screen edits and persists the vehicle profile',
       (tester) async {
     final store = FakeVehicleProfileStore(
@@ -50,9 +59,20 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ProfileScreen(
-          repository: LocalVehicleProfileRepository(store: store),
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: ProfileScreen(
+              repository: LocalVehicleProfileRepository(store: store),
+            ),
+          ),
         ),
       ),
     );

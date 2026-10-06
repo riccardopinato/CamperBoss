@@ -1,11 +1,14 @@
 import 'package:camperboss/core/services/geocoding_service.dart';
+import 'package:camperboss/core/services/maplibre_offline_region_manager.dart';
 import 'package:camperboss/core/state/selected_location.dart';
 import 'package:camperboss/data/models/camper_place.dart';
 import 'package:camperboss/data/repositories/local_poi_cache_repository.dart';
+import 'package:camperboss/features/map/presentation/map_engine_v2_preview_screen.dart';
 import 'package:camperboss/features/map/presentation/map_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'test_localization.dart';
 
 class FakePoiCacheRepository implements PoiCacheRepository {
   FakePoiCacheRepository(this.snapshot);
@@ -41,6 +44,8 @@ class FakePoiCacheRepository implements PoiCacheRepository {
 }
 
 void main() {
+  tearDown(() => selectedLocationController.value = null);
+
   testWidgets('map filters update POI list and cache controls work', (
     tester,
   ) async {
@@ -91,46 +96,66 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: SafeArea(
+          child: MapScreen(
               places: places,
               cacheRepository: cacheRepository,
+              mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+              renderMap: false,
               onOpenDirections: (_) async {
                 directionsCount++;
               },
-            ),
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1300));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
-    expect(find.text('Camping'), findsWidgets);
-    expect(find.text('GPL'), findsWidgets);
+    expect(find.byKey(const ValueKey('map-filter-camping')), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-filter-gpl')), findsOneWidget);
     expect(find.text('2 visible'), findsOneWidget);
 
-    await tester.tap(find.text('Camping'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('map-filter-camping')));
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Refresh'));
-    await tester.tap(find.text('Refresh'));
+    final refreshButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Refresh'),
+    );
+    refreshButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('2 items'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Delete'));
-    await tester.tap(find.text('Delete'));
+    final deleteButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Delete'),
+    );
+    deleteButton.onPressed!.call();
     await tester.pumpAndSettle();
     expect(find.textContaining('0 items'), findsOneWidget);
 
-    await tester.tap(find.text('Camping'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('map-filter-camping')),
+    );
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -1500));
+    await tester.tap(find.byKey(const ValueKey('map-filter-camping')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Camping Bella Vista'),
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Camping Bella Vista'), findsOneWidget);
     expect(find.text('GPL Service Ovest'), findsOneWidget);
@@ -140,111 +165,105 @@ void main() {
     expect(directionsCount, 1);
   });
 
-  testWidgets('cluster widget shows aggregated marker count', (tester) async {
-    selectedLocationController.value = const GeoLocationResult(
-      name: 'Lake Garda',
-      latitude: 45.6049,
-      longitude: 10.6351,
-      country: 'Italy',
-    );
-
-    final clusteredPlaces = List.generate(
-      12,
-      (index) => CamperPlace(
-        name: 'Cluster POI $index',
-        category: 'sosta',
-        type: 'Sosta camper',
-        distance: '1 km',
-        rating: '4.5',
-        tags: const ['24h'],
-        latitude: 45.6049 + (index / 100000),
-        longitude: 10.6351 + (index / 100000),
-      ),
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
-              places: clusteredPlaces,
-              cacheRepository: FakePoiCacheRepository(
-                const PoiCacheSnapshot(
-                  region: 'North Italy',
-                  itemCount: 0,
-                  sizeBytes: 0,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('12'), findsWidgets);
-  });
-
-  testWidgets('tapping a map marker keeps it selected outside the cluster', (
+  testWidgets('map does not invent distance without a real reference point', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    selectedLocationController.value = const GeoLocationResult(
-      name: 'Lake Garda',
-      latitude: 45.6049,
-      longitude: 10.6351,
-      country: 'Italy',
-    );
+    selectedLocationController.value = null;
 
     const places = [
       CamperPlace(
-        name: 'Area Sosta Lago',
-        category: 'sosta',
-        type: 'Sosta camper',
-        distance: '1 km',
-        rating: '4.8',
-        tags: ['24h'],
-        latitude: 45.65,
-        longitude: 10.69,
+        name: 'Unlocated stop',
+        category: 'camping',
+        type: 'Camping',
+        distance: '999 km',
+        rating: '4.2',
+        tags: [],
+        latitude: 45.0,
+        longitude: 10.0,
+        source: 'Local POI package',
       ),
     ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SafeArea(
-            child: MapScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: SafeArea(
+          child: MapScreen(
               places: places,
               cacheRepository: FakePoiCacheRepository(
                 const PoiCacheSnapshot(
-                  region: 'North Italy',
-                  itemCount: 0,
-                  sizeBytes: 0,
+                  region: 'Local package',
+                  itemCount: 1,
+                  sizeBytes: 1024,
                 ),
               ),
-            ),
+              mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+              renderMap: false,
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byType(FlutterMap));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FlutterMap),
-        matching: find.byIcon(Icons.rv_hookup),
-      ),
+    await tester.scrollUntilVisible(
+      find.text('Unlocated stop'),
+      420,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Area Sosta Lago'), findsWidgets);
-    expect(find.byTooltip('Close popup'), findsOneWidget);
-    expect(find.textContaining('Sosta'), findsWidgets);
+    expect(find.text('Unlocated stop'), findsOneWidget);
+    expect(find.text('Camping - Camping'), findsOneWidget);
+    expect(find.textContaining('999 km'), findsNothing);
   });
+
+  testWidgets('main map uses the unified MapLibre surface', (tester) async {
+    selectedLocationController.value = const GeoLocationResult(
+      name: 'Lake Garda',
+      latitude: 45.6049,
+      longitude: 10.6351,
+      country: 'Italy',
+    );
+
+    await pumpLocalizedHome(
+      tester,
+      home: MapScreen(
+          places: const [],
+          cacheRepository: FakePoiCacheRepository(
+            const PoiCacheSnapshot(
+              region: 'North Italy',
+              itemCount: 0,
+              sizeBytes: 0,
+            ),
+          ),
+          mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+          renderMap: false,
+      ),
+    );
+
+    expect(find.byType(MapEngineV2PreviewScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('primary-maplibre-map')), findsOneWidget);
+    expect(find.text('Map & offline'), findsOneWidget);
+    expect(find.textContaining('PMTiles'), findsNothing);
+  });
+}
+
+class _UnsupportedOfflineManager implements MapLibreOfflineRegionManager {
+  const _UnsupportedOfflineManager();
+
+  @override
+  bool get isSupported => false;
+
+  @override
+  Future<void> clearAmbientCache() async {}
+
+  @override
+  Future<void> delete(String regionId) async {}
+
+  @override
+  Stream<MapLibreOfflineRegionSnapshot> download(
+    MapLibreOfflineRegionRequest request,
+  ) async* {}
+
+  @override
+  Future<List<MapLibreOfflineRegionSnapshot>> listRegions() async => const [];
 }

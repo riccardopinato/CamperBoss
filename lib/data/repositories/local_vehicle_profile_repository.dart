@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/vehicle_profile.dart';
 
@@ -20,20 +21,36 @@ abstract interface class VehicleProfileStore {
 class LocalVehicleProfileRepository implements VehicleProfileRepository {
   LocalVehicleProfileRepository({
     VehicleProfileStore? store,
-  }) : _store = store ??
-            (kIsWeb ? _JsonVehicleProfileStore() : _SqlVehicleProfileStore());
+    DataRevisionStore? revisionStore,
+  })  : _store = store ??
+            (kIsWeb ? _JsonVehicleProfileStore() : _SqlVehicleProfileStore()),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final VehicleProfileStore _store;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<VehicleProfile?> loadProfile() => _store.loadProfile();
 
   @override
-  Future<VehicleProfile> saveProfile(VehicleProfile profile) =>
-      _store.saveProfile(profile);
+  Future<VehicleProfile> saveProfile(VehicleProfile profile) {
+    final errors = profile.validationErrors();
+    if (errors.isNotEmpty) {
+      throw ArgumentError(
+        'Invalid vehicle profile fields: ${errors.join(', ')}',
+      );
+    }
+    return _store.saveProfile(profile).then((saved) {
+      _revisionStore.bump();
+      return saved;
+    });
+  }
 
   @override
-  Future<void> deleteProfile() => _store.deleteProfile();
+  Future<void> deleteProfile() async {
+    await _store.deleteProfile();
+    _revisionStore.bump();
+  }
 }
 
 class _JsonVehicleProfileStore implements VehicleProfileStore {
@@ -92,27 +109,29 @@ class _SqlVehicleProfileStore implements VehicleProfileStore {
       ..remove('id');
 
     final savedId = profile.id ?? existing?.id;
-    final id = savedId == null
-        ? await db.insert(AppDatabase.vehicleProfilesTable, values)
-        : await _updateProfile(db, savedId, values);
+    late final int id;
+    if (savedId == null) {
+      id = await db.insert(AppDatabase.vehicleProfilesTable, values);
+    } else {
+      final updated = await db.update(
+        AppDatabase.vehicleProfilesTable,
+        values,
+        where: 'id = ?',
+        whereArgs: [savedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.vehicleProfilesTable,
+          <String, Object?>{'id': savedId, ...values},
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = savedId;
+    }
     return profile.copyWith(
       id: id,
       updatedAt: profile.updatedAt ?? DateTime.now(),
     );
-  }
-
-  Future<int> _updateProfile(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.vehicleProfilesTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
   }
 
   @override

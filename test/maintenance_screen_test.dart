@@ -4,7 +4,9 @@ import 'package:camperboss/data/models/vehicle_document.dart';
 import 'package:camperboss/data/models/maintenance_record.dart';
 import 'package:camperboss/data/repositories/local_maintenance_repository.dart';
 import 'package:camperboss/features/maintenance/presentation/maintenance_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeMaintenanceRepository implements MaintenanceRepository {
@@ -32,6 +34,9 @@ class FakeMaintenanceRepository implements MaintenanceRepository {
 }
 
 class FakeReminderSyncService implements ReminderSyncService {
+  FakeReminderSyncService({this.failMaintenanceSync = false});
+
+  bool failMaintenanceSync;
   final syncedMaintenance = <MaintenanceRecord>[];
   final deletedMaintenance = <String>[];
 
@@ -48,6 +53,7 @@ class FakeReminderSyncService implements ReminderSyncService {
 
   @override
   Future<void> syncMaintenance(MaintenanceRecord record) async {
+    if (failMaintenanceSync) throw StateError('forced reminder failure');
     syncedMaintenance.add(record);
   }
 
@@ -59,17 +65,35 @@ class FakeReminderSyncService implements ReminderSyncService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('maintenance screen saves service records with due intervals',
       (tester) async {
     final repository = FakeMaintenanceRepository();
     final reminders = FakeReminderSyncService();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MaintenanceScreen(
-            repository: repository,
-            reminderService: reminders,
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: Scaffold(
+              body: MaintenanceScreen(
+                repository: repository,
+                reminderService: reminders,
+              ),
+            ),
           ),
         ),
       ),
@@ -86,8 +110,7 @@ void main() {
     await tester.enterText(fields.at(3), 'Garage Rossi');
     await tester.enterText(fields.at(4), '12');
     await tester.enterText(fields.at(5), '15000');
-    await tester.enterText(fields.at(7), '/private/invoice.pdf');
-    await tester.enterText(fields.at(8), 'Use approved oil.');
+    await tester.enterText(fields.at(7), 'Use approved oil.');
 
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
@@ -97,7 +120,23 @@ void main() {
     expect(repository.records.single.intervalMonths, 12);
     expect(repository.records.single.intervalKilometers, 15000);
     expect(repository.records.single.nextDueMileage, 39000);
-    expect(repository.records.single.attachmentPaths, ['/private/invoice.pdf']);
+    expect(repository.records.single.attachmentPaths, isEmpty);
     expect(reminders.syncedMaintenance.single.title, 'Oil service');
+
+    reminders.failMaintenanceSync = true;
+    await tester.tap(find.text('Add service'));
+    await tester.pumpAndSettle();
+
+    final failureFields = find.byType(TextField);
+    await tester.enterText(failureFields.at(0), 'Committed service');
+    await tester.enterText(failureFields.at(1), '25000');
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.records, hasLength(2));
+    expect(repository.records.last.title, 'Committed service');
+    expect(find.text('Committed service'), findsOneWidget);
   });
+
 }

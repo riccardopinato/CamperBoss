@@ -1,7 +1,13 @@
+import 'provider_trust_config.dart';
+
 class RoutingConfig {
   const RoutingConfig._();
 
-  static const orsApiKey = String.fromEnvironment('ORS_API_KEY');
+  static String get orsApiKey => ProviderTrustConfig.orsApiKey;
+  static String get serviceBaseUrl => ProviderTrustConfig.routingBaseUrl;
+  static bool get requiresClientApiKey =>
+      ProviderTrustConfig.routingRequiresClientApiKey;
 
-  static bool get isOpenRouteServiceConfigured => orsApiKey.trim().isNotEmpty;
+  static bool get isOpenRouteServiceConfigured =>
+      ProviderTrustConfig.isRoutingConfigured;
 }

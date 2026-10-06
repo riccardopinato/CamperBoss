@@ -4,6 +4,8 @@ import 'package:camperboss/features/checklist/presentation/checklist_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 class FakeChecklistRepository implements ChecklistRepository {
   FakeChecklistRepository(this.items);
 
@@ -45,10 +47,10 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(
-      MaterialApp(home: ChecklistScreen(repository: repository)),
+    await pumpLocalizedHome(
+      tester,
+      home: ChecklistScreen(repository: repository),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Check water'), findsOneWidget);
     expect(find.text('0% completed across routines'), findsOneWidget);

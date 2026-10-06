@@ -51,30 +51,50 @@ class LocalOfflinePoiRepository implements PoiRepository {
 
   @override
   Future<int> importPackageFromJson(String packageId, String source) async {
+    final normalizedPackageId = packageId.trim();
+    if (normalizedPackageId.isEmpty) {
+      throw const FormatException('POI package id is required');
+    }
+
     final decoded = jsonDecode(source);
-    final places = _parsePlaces(packageId, decoded);
+    final places = _parsePlaces(normalizedPackageId, decoded);
     if (places.isEmpty) {
       throw const FormatException('POI package does not contain valid POI');
     }
-    await removePackage(packageId);
+
+    final nextPackageRows = <Map<String, Object?>>[];
+    final ids = <String>{};
     for (final place in places) {
-      await _collection.saveRow({
-        ...place.toMap(),
-        'id': place.id ??
-            '${place.packageId}:${place.name}:${place.latitude}:${place.longitude}',
-      });
+      final id = place.id ??
+          [
+            place.packageId,
+            place.name,
+            place.latitude.toString(),
+            place.longitude.toString(),
+          ].join(':');
+      if (!ids.add(id)) {
+        throw const FormatException('POI package contains duplicate ids');
+      }
+      nextPackageRows.add({...place.toMap(), 'id': id});
     }
+
+    final current = await _collection.listRows();
+    final next = <Map<String, Object?>>[
+      for (final row in current)
+        if (row['package_id'] != normalizedPackageId) row,
+      ...nextPackageRows,
+    ];
+    await _collection.replaceRows(next);
     return places.length;
   }
 
   @override
   Future<void> removePackage(String packageId) async {
     final rows = await _collection.listRows();
-    for (final row in rows) {
-      if (row['package_id'] == packageId) {
-        await _collection.deleteRow(row['id']);
-      }
-    }
+    final next = rows
+        .where((row) => row['package_id'] != packageId)
+        .toList(growable: false);
+    await _collection.replaceRows(next);
   }
 
   List<CamperPlace> _parsePlaces(String packageId, Object? decoded) {
@@ -100,6 +120,23 @@ class LocalOfflinePoiRepository implements PoiRepository {
     if (name == null || name.isEmpty) {
       throw const FormatException('POI name is required');
     }
+
+    final latitudeRaw = map['latitude'];
+    final longitudeRaw = map['longitude'];
+    if (latitudeRaw is! num || longitudeRaw is! num) {
+      throw const FormatException('POI coordinates are required');
+    }
+    final latitude = latitudeRaw.toDouble();
+    final longitude = longitudeRaw.toDouble();
+    if (!latitude.isFinite ||
+        !longitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      throw const FormatException('POI coordinates are invalid');
+    }
+
     final category = map['category'] as String? ?? 'servicePoint';
     final street = map['street'] as String?;
     final address = map['address'] as String?;
@@ -110,16 +147,20 @@ class LocalOfflinePoiRepository implements PoiRepository {
       category: _normalizeCategory(category),
       type: map['type'] as String? ?? category,
       distance: '',
-      rating: '',
-      tags: (map['tags'] as List<dynamic>? ?? const []).cast<String>(),
-      latitude: (map['latitude'] as num).toDouble(),
-      longitude: (map['longitude'] as num).toDouble(),
+      rating: map['rating']?.toString() ?? '',
+      tags: (map['tags'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(growable: false),
+      latitude: latitude,
+      longitude: longitude,
       address: street ?? address,
       city: map['city'] as String?,
       description: map['description'] as String?,
       services: _serviceList(map['services']),
       source: map['source'] as String?,
-      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(
+        (map['updatedAt'] ?? map['updated_at'])?.toString() ?? '',
+      ),
     );
   }
 
@@ -155,7 +196,9 @@ class LocalOfflinePoiRepository implements PoiRepository {
   }
 
   List<String> _serviceList(Object? services) {
-    if (services is List) return services.cast<String>();
+    if (services is List) {
+      return services.map((item) => item.toString()).toList(growable: false);
+    }
     if (services is Map) {
       return services.entries
           .where((entry) => entry.value == true)

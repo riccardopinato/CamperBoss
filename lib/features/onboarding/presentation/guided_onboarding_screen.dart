@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/offline_guides_service.dart';
@@ -6,6 +7,7 @@ import '../../../data/models/guide_models.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../profile/presentation/profile_screen.dart';
 
 class GuidedOnboardingScreen extends StatefulWidget {
   const GuidedOnboardingScreen({
@@ -22,12 +24,7 @@ class GuidedOnboardingScreen extends StatefulWidget {
 class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
   late final OnboardingService _service =
       widget.onboardingService ?? LocalOnboardingService();
-  final _vehicleTypeController = TextEditingController(text: 'Camper van');
-  final _lengthController = TextEditingController(text: '6.00');
-  final _widthController = TextEditingController(text: '2.10');
-  final _heightController = TextEditingController(text: '2.80');
-  final _maxMassController = TextEditingController(text: '3500');
-  final _mileageController = TextEditingController(text: '0');
+
   final _steps = const [
     'locale',
     'vehicle',
@@ -39,8 +36,8 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
   ];
 
   OnboardingProgress _progress = OnboardingProgress.empty;
-  String _localeCode = 'it';
-  String _countryCode = 'IT';
+  String _localeCode = 'en';
+  String _countryCode = 'EU';
   bool _grantLocation = false;
   bool _grantNotifications = false;
   bool _installChecklist = true;
@@ -62,32 +59,30 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
     _load();
   }
 
-  @override
-  void dispose() {
-    _vehicleTypeController.dispose();
-    _lengthController.dispose();
-    _widthController.dispose();
-    _heightController.dispose();
-    _maxMassController.dispose();
-    _mileageController.dispose();
-    super.dispose();
-  }
-
   Future<void> _load() async {
-    final progress = await _service.loadProgress();
-    if (!mounted) return;
-    setState(() {
-      _progress = progress.currentStepId == null && !progress.completed
-          ? progress.copyWith(currentStepId: _steps.first)
-          : progress;
-      _localeCode = progress.localeCode ?? 'it';
-      _countryCode = progress.countryCode ?? 'IT';
-      _installChecklist = progress.installChecklist;
-      _selectEssentialGuide = progress.selectedGuidePackageIds.contains(
-        LocalOfflineGuidesService.bundledPackageId,
-      );
-      _isLoading = false;
-    });
+    try {
+      final progress = await _service.loadProgress();
+      if (!mounted) return;
+      final deviceCode = context.locale.languageCode;
+      setState(() {
+        _progress = progress.currentStepId == null && !progress.completed
+            ? progress.copyWith(currentStepId: _steps.first)
+            : progress;
+        _localeCode = progress.localeCode ?? deviceCode;
+        _countryCode = progress.countryCode ?? 'EU';
+        _installChecklist = progress.installChecklist;
+        _selectEssentialGuide = progress.selectedGuidePackageIds.contains(
+          LocalOfflineGuidesService.bundledPackageId,
+        );
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _status = 'setup_error_load'.tr();
+      });
+    }
   }
 
   Future<void> _saveProgress({
@@ -111,21 +106,6 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
 
   Future<void> _continue() async {
     final stepId = _steps[_currentIndex];
-    switch (stepId) {
-      case 'vehicle':
-        await _service.saveVehicleDraft(
-          vehicleType: _vehicleTypeController.text.trim().isEmpty
-              ? 'Camper van'
-              : _vehicleTypeController.text.trim(),
-          length: double.tryParse(_lengthController.text.trim()) ?? 6,
-          width: double.tryParse(_widthController.text.trim()) ?? 2.1,
-          height: double.tryParse(_heightController.text.trim()) ?? 2.8,
-          maxMass: double.tryParse(_maxMassController.text.trim()) ?? 3500,
-          mileage: double.tryParse(_mileageController.text.trim()) ?? 0,
-        );
-      default:
-        break;
-    }
     await _service.completeStep(stepId);
     final nextIndex = (_currentIndex + 1).clamp(0, _steps.length - 1);
     await _saveProgress(currentStepId: _steps[nextIndex]);
@@ -144,8 +124,8 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
     setState(() {
       _grantLocation = granted;
       _status = granted
-          ? 'Location permission granted.'
-          : 'Location permission denied or unavailable.';
+          ? 'setup_location_granted'.tr()
+          : 'setup_location_denied'.tr();
     });
   }
 
@@ -155,9 +135,15 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
     setState(() {
       _grantNotifications = granted;
       _status = granted
-          ? 'Notification permission granted.'
-          : 'Notification permission denied or unavailable.';
+          ? 'setup_notifications_granted'.tr()
+          : 'setup_notifications_denied'.tr();
     });
+  }
+
+  Future<void> _openVehicleProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+    );
   }
 
   Future<void> _finish() async {
@@ -174,11 +160,10 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
       );
       await _service.finalize(completed);
       if (!mounted) return;
-      setState(() {
-        _progress = completed;
-        _status = 'Setup completed.';
-      });
       Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _status = 'setup_error_finish'.tr());
     } finally {
       if (mounted) setState(() => _isFinishing = false);
     }
@@ -191,9 +176,8 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
     }
 
     return ScreenScaffold(
-      title: 'Guided onboarding',
-      subtitle:
-          'Configure the basics, ask permissions contextually, and confirm any offline install before it starts.',
+      title: 'setup_title'.tr(),
+      subtitle: 'setup_subtitle'.tr(),
       children: [
         PremiumCard(
           child: Material(
@@ -204,31 +188,32 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
               physics: const NeverScrollableScrollPhysics(),
               steps: [
                 Step(
-                  title: const Text('Language and country'),
+                  title: Text('setup_language_country'.tr()),
                   content: Column(
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _localeCode,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'it', child: Text('Italiano')),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
+                        items: [
+                          DropdownMenuItem(value: 'en', child: Text('language_english'.tr())),
+                          DropdownMenuItem(value: 'it', child: Text('language_italian'.tr())),
+                          DropdownMenuItem(value: 'de', child: Text('language_german'.tr())),
+                          DropdownMenuItem(value: 'fr', child: Text('language_french'.tr())),
+                          DropdownMenuItem(value: 'es', child: Text('language_spanish'.tr())),
+                          DropdownMenuItem(value: 'pt', child: Text('language_portuguese'.tr())),
                         ],
                         onChanged: (value) {
-                          if (value != null)
-                            setState(() => _localeCode = value);
+                          if (value != null) setState(() => _localeCode = value);
                         },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: _countryCode,
-                        items: const [
-                          DropdownMenuItem(value: 'IT', child: Text('Italia')),
-                          DropdownMenuItem(value: 'EU', child: Text('Europa')),
+                        items: [
+                          DropdownMenuItem(value: 'IT', child: Text('setup_country_italy'.tr())),
+                          DropdownMenuItem(value: 'EU', child: Text('setup_country_europe'.tr())),
                         ],
                         onChanged: (value) {
-                          if (value != null)
-                            setState(() => _countryCode = value);
+                          if (value != null) setState(() => _countryCode = value);
                         },
                       ),
                     ],
@@ -236,78 +221,35 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
                   isActive: _currentIndex == 0,
                 ),
                 Step(
-                  title: const Text('Vehicle basics'),
+                  title: Text('setup_vehicle'.tr()),
                   content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
-                        controller: _vehicleTypeController,
-                        decoration:
-                            const InputDecoration(labelText: 'Vehicle type'),
-                      ),
+                      Text('setup_vehicle_body'.tr()),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _lengthController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Length (m)'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _widthController,
-                              decoration:
-                                  const InputDecoration(labelText: 'Width (m)'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _heightController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Height (m)'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _maxMassController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Max mass (kg)'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _mileageController,
-                        decoration:
-                            const InputDecoration(labelText: 'Current mileage'),
+                      FilledButton.icon(
+                        onPressed: _openVehicleProfile,
+                        icon: const Icon(Icons.directions_bus_outlined),
+                        label: Text('setup_vehicle_open'.tr()),
                       ),
                     ],
                   ),
                   isActive: _currentIndex == 1,
                 ),
                 Step(
-                  title: const Text('Location permission'),
+                  title: Text('setup_location'.tr()),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Ask for location only when the user wants current-position search and weather.',
-                      ),
+                      Text('setup_location_body'.tr()),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed: _askLocation,
                         icon: const Icon(Icons.my_location),
                         label: Text(
-                          _grantLocation ? 'Granted' : 'Explain and request',
+                          _grantLocation
+                              ? 'permission_granted'.tr()
+                              : 'permission_explain_request'.tr(),
                         ),
                       ),
                     ],
@@ -315,21 +257,19 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
                   isActive: _currentIndex == 2,
                 ),
                 Step(
-                  title: const Text('Reminder permission'),
+                  title: Text('setup_notifications'.tr()),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Ask for notifications only if the user wants document and booking reminders.',
-                      ),
+                      Text('setup_notifications_body'.tr()),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed: _askNotifications,
                         icon: const Icon(Icons.notifications_outlined),
                         label: Text(
                           _grantNotifications
-                              ? 'Granted'
-                              : 'Explain and request',
+                              ? 'permission_granted'.tr()
+                              : 'permission_explain_request'.tr(),
                         ),
                       ),
                     ],
@@ -337,48 +277,52 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
                   isActive: _currentIndex == 3,
                 ),
                 Step(
-                  title: const Text('Guide packages'),
+                  title: Text('setup_guides'.tr()),
                   content: CheckboxListTile(
                     value: _selectEssentialGuide,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Install CamperBoss Essential'),
-                    subtitle: const Text(
-                      'Emergency basics and responsible overnight reminders.',
-                    ),
+                    title: Text('setup_guides_install'.tr()),
+                    subtitle: Text('setup_guides_body'.tr()),
                     onChanged: (value) =>
                         setState(() => _selectEssentialGuide = value ?? false),
                   ),
                   isActive: _currentIndex == 4,
                 ),
                 Step(
-                  title: const Text('Initial checklist'),
+                  title: Text('setup_checklist'.tr()),
                   content: CheckboxListTile(
                     value: _installChecklist,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Create a starter departure checklist'),
-                    subtitle: const Text(
-                      'Only written after final confirmation. Nothing downloads automatically.',
-                    ),
+                    title: Text('setup_checklist_create'.tr()),
+                    subtitle: Text('setup_checklist_body'.tr()),
                     onChanged: (value) =>
                         setState(() => _installChecklist = value ?? false),
                   ),
                   isActive: _currentIndex == 5,
                 ),
                 Step(
-                  title: const Text('Final confirmation'),
+                  title: Text('setup_confirmation'.tr()),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text('setup_summary_language'.tr(
+                        namedArgs: {
+                          'language': _localeCode.toUpperCase(),
+                          'country': _countryCode,
+                        },
+                      )),
                       Text(
-                          'Language: ${_localeCode.toUpperCase()} / $_countryCode'),
-                      Text(
-                          'Guide package: ${_selectEssentialGuide ? 'CamperBoss Essential' : 'Not selected'}'),
-                      Text(
-                          'Checklist: ${_installChecklist ? 'Starter checklist will be created' : 'No checklist seed'}'),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Offline package installation starts only after this confirmation.',
+                        _selectEssentialGuide
+                            ? 'setup_summary_guide_yes'.tr()
+                            : 'setup_summary_guide_no'.tr(),
                       ),
+                      Text(
+                        _installChecklist
+                            ? 'setup_summary_checklist_yes'.tr()
+                            : 'setup_summary_checklist_no'.tr(),
+                      ),
+                      const SizedBox(height: 12),
+                      Text('setup_confirmation_body'.tr()),
                     ],
                   ),
                   isActive: _currentIndex == 6,
@@ -393,7 +337,7 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
             Expanded(
               child: OutlinedButton(
                 onPressed: _currentIndex == _steps.length - 1 ? null : _skip,
-                child: const Text('Skip'),
+                child: Text('skip'.tr()),
               ),
             ),
             const SizedBox(width: 12),
@@ -406,10 +350,10 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
                         : _continue,
                 child: Text(
                   _isFinishing
-                      ? 'Applying...'
+                      ? 'setup_applying'.tr()
                       : _currentIndex == _steps.length - 1
-                          ? 'Finish setup'
-                          : 'Continue',
+                          ? 'setup_finish'.tr()
+                          : 'continue'.tr(),
                 ),
               ),
             ),
@@ -417,7 +361,7 @@ class _GuidedOnboardingScreenState extends State<GuidedOnboardingScreen> {
         ),
         if (_status != null) ...[
           const SizedBox(height: 12),
-          SectionHeader(title: 'Status'),
+          SectionHeader(title: 'status'.tr()),
           const SizedBox(height: 8),
           PremiumCard(child: Text(_status!)),
         ],

@@ -4,6 +4,7 @@ import 'local_notification_service.dart';
 class FakeLocalNotificationService implements LocalNotificationService {
   NotificationPermissionState permissionState =
       NotificationPermissionState.granted;
+  NotificationTimezoneState timezoneState = NotificationTimezoneState.local;
   final scheduled = <AppReminder>[];
   final canceledIds = <String>[];
   int testNotifications = 0;
@@ -15,6 +16,11 @@ class FakeLocalNotificationService implements LocalNotificationService {
   @override
   Future<NotificationPermissionState> getPermissionState() async {
     return permissionState;
+  }
+
+  @override
+  Future<NotificationTimezoneState> getTimezoneState() async {
+    return timezoneState;
   }
 
   @override

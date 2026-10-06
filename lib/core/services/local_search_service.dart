@@ -1,11 +1,14 @@
 import 'dart:convert';
 
+import '../../data/database/data_revision_store.dart';
 import '../../data/database/local_key_value_store.dart';
 import '../../data/models/search_models.dart';
 import '../../data/models/vehicle_profile.dart';
+import '../../data/repositories/local_checklist_repository.dart';
 import '../../data/repositories/local_finance_repository.dart';
 import '../../data/repositories/local_journal_repository.dart';
 import '../../data/repositories/local_maintenance_repository.dart';
+import '../../data/repositories/local_travel_history_repository.dart';
 import '../../data/repositories/local_trip_repository.dart';
 import '../../data/repositories/local_vehicle_document_repository.dart';
 import '../../data/repositories/local_vehicle_profile_repository.dart';
@@ -48,28 +51,51 @@ class LocalSearchService implements LocalSearchIndex {
   LocalSearchService({
     LocalSearchIndex? index,
     LocalSearchDocumentSource? source,
-  }) : _source = source ?? LocalSearchDocumentSource() {
+    DataRevisionStore? revisionStore,
+  })  : _source = source ?? LocalSearchDocumentSource(),
+        _revisionStore = revisionStore ?? DataRevisionStore() {
     _index =
         index ?? PersistentLocalSearchIndex(documentLoader: _source.loadAll);
   }
 
   late final LocalSearchIndex _index;
   final LocalSearchDocumentSource _source;
+  final DataRevisionStore _revisionStore;
+  int _indexedRevision = -1;
+  bool _initialRefreshDone = false;
 
   @override
-  Future<void> index(SearchDocument document) => _index.index(document);
+  Future<void> index(SearchDocument document) async {
+    await _index.index(document);
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
 
   @override
-  Future<void> remove(String id) => _index.remove(id);
+  Future<void> remove(String id) async {
+    await _index.remove(id);
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
 
   @override
-  Future<void> rebuild() => _index.rebuild();
-
-  Future<void> rebuildFromSources() async {
-    await PersistentLocalSearchIndex(
-      documentLoader: _source.loadAll,
-    ).rebuild();
+  Future<void> rebuild() async {
     await _index.rebuild();
+    _indexedRevision = _revisionStore.current();
+    _initialRefreshDone = true;
+  }
+
+  Future<void> rebuildFromSources() => rebuild();
+
+  Future<void> ensureFresh({bool force = false}) async {
+    final revision = _revisionStore.current();
+    final state = await _index.snapshot();
+    if (force ||
+        !_initialRefreshDone ||
+        revision != _indexedRevision ||
+        state.status == SearchIndexStatus.corrupted) {
+      await rebuild();
+    }
   }
 
   @override
@@ -79,7 +105,8 @@ class LocalSearchService implements LocalSearchIndex {
     DateTime? updatedAfter,
     DateTime? updatedBefore,
     int limit = 50,
-  }) {
+  }) async {
+    await ensureFresh();
     return _index.search(
       query,
       types: types,
@@ -90,7 +117,10 @@ class LocalSearchService implements LocalSearchIndex {
   }
 
   @override
-  Future<SearchIndexSnapshot> snapshot() => _index.snapshot();
+  Future<SearchIndexSnapshot> snapshot() async {
+    await ensureFresh();
+    return _index.snapshot();
+  }
 }
 
 class PersistentLocalSearchIndex implements LocalSearchIndex {
@@ -331,6 +361,8 @@ class LocalSearchDocumentSource {
     JournalRepository? journalRepository,
     TripRepository? tripRepository,
     FinanceRepository? financeRepository,
+    ChecklistRepository? checklistRepository,
+    TravelHistoryRepository? travelHistoryRepository,
     VehicleProfileRepository? vehicleProfileRepository,
     OfflineGuidesService? guidesService,
   })  : _documentRepository =
@@ -340,6 +372,10 @@ class LocalSearchDocumentSource {
         _journalRepository = journalRepository ?? LocalJournalRepository(),
         _tripRepository = tripRepository ?? LocalTripRepository(),
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
+        _checklistRepository =
+            checklistRepository ?? LocalChecklistRepository(),
+        _travelHistoryRepository =
+            travelHistoryRepository ?? LocalTravelHistoryRepository(),
         _vehicleProfileRepository =
             vehicleProfileRepository ?? LocalVehicleProfileRepository(),
         _guidesService = guidesService ?? LocalOfflineGuidesService();
@@ -349,6 +385,8 @@ class LocalSearchDocumentSource {
   final JournalRepository _journalRepository;
   final TripRepository _tripRepository;
   final FinanceRepository _financeRepository;
+  final ChecklistRepository _checklistRepository;
+  final TravelHistoryRepository _travelHistoryRepository;
   final VehicleProfileRepository _vehicleProfileRepository;
   final OfflineGuidesService _guidesService;
 
@@ -359,6 +397,10 @@ class LocalSearchDocumentSource {
     results.addAll(await _journal());
     results.addAll(await _trips());
     results.addAll(await _bookings());
+    results.addAll(await _expenses());
+    results.addAll(await _fuel());
+    results.addAll(await _checklist());
+    results.addAll(await _travelHistory());
     results.addAll(await _guides());
     final profile = await _vehicleProfile();
     if (profile != null) results.add(profile);
@@ -430,8 +472,12 @@ class LocalSearchDocumentSource {
 
   Future<List<SearchDocument>> _trips() async {
     final trips = await _tripRepository.listTrips();
-    return [
-      for (final trip in trips)
+    final documents = <SearchDocument>[];
+    for (final trip in trips) {
+      final budget = trip.id == null
+          ? null
+          : await _financeRepository.loadTripBudget(trip.id!);
+      documents.add(
         SearchDocument(
           id: 'trip:${trip.id}',
           type: SearchDocumentType.trip,
@@ -443,13 +489,20 @@ class LocalSearchDocumentSource {
             trip.overnightStop,
             trip.notes,
             ...trip.stages,
+            if (budget != null)
+              '${budget.plannedAmountMinor / 100} ${budget.currencyCode}',
           ].nonNulls.join('\n'),
           metadata: {
             if (trip.destination != null) 'destination': trip.destination!,
+            if (budget != null)
+              'plannedBudgetMinor': budget.plannedAmountMinor.toString(),
+            if (budget != null) 'budgetCurrency': budget.currencyCode,
           },
           updatedAt: trip.updatedAt ?? DateTime.now(),
         ),
-    ];
+      );
+    }
+    return documents;
   }
 
   Future<List<SearchDocument>> _bookings() async {
@@ -475,6 +528,119 @@ class LocalSearchDocumentSource {
             'tripId': booking.tripId.toString(),
           },
           updatedAt: booking.startsAt ?? booking.endsAt ?? DateTime.now(),
+        ),
+    ];
+  }
+
+  Future<List<SearchDocument>> _expenses() async {
+    final expenses = await _financeRepository.listExpenses();
+    return [
+      for (final expense in expenses)
+        SearchDocument(
+          id: 'expense:${expense.id}',
+          type: SearchDocumentType.expense,
+          sourceId: expense.id,
+          title: expense.title?.trim() ?? '',
+          body: [
+            expense.scope.name,
+            expense.category.name,
+            expense.currencyCode,
+            (expense.amountMinor / 100).toString(),
+            expense.notes,
+          ].nonNulls.join('\n'),
+          metadata: {
+            'category': expense.category.name,
+            'currency': expense.currencyCode,
+            if (expense.tripId != null) 'tripId': expense.tripId.toString(),
+          },
+          updatedAt: expense.occurredAt,
+        ),
+    ];
+  }
+
+  Future<List<SearchDocument>> _fuel() async {
+    final entries = await _financeRepository.listFuelEntries();
+    return [
+      for (final entry in entries)
+        SearchDocument(
+          id: 'fuel:${entry.id}',
+          type: SearchDocumentType.fuel,
+          sourceId: entry.id,
+          title: entry.station?.trim() ?? '',
+          body: [
+            entry.currencyCode,
+            entry.liters.toString(),
+            (entry.totalCostMinor / 100).toString(),
+            entry.odometerKm.toString(),
+            entry.notes,
+          ].nonNulls.join('\n'),
+          metadata: {
+            'currency': entry.currencyCode,
+            if (entry.tripId != null) 'tripId': entry.tripId.toString(),
+          },
+          updatedAt: entry.date,
+        ),
+    ];
+  }
+
+  Future<List<SearchDocument>> _checklist() async {
+    final items = await _checklistRepository.listItems();
+    return [
+      for (final item in items)
+        SearchDocument(
+          id: 'checklist:${item.id ?? item.title}',
+          type: SearchDocumentType.checklist,
+          sourceId: (item.id ?? item.title).toString(),
+          title: item.title,
+          body: [item.subtitle, item.listName, item.category]
+              .nonNulls
+              .join('\n'),
+          metadata: {
+            'category': item.category,
+            'listName': item.listName,
+            'checked': item.checked.toString(),
+          },
+          updatedAt: item.updatedAt ?? DateTime.now(),
+        ),
+    ];
+  }
+
+  Future<List<SearchDocument>> _travelHistory() async {
+    final tracks = await _travelHistoryRepository.listTracks();
+    final memories = await _travelHistoryRepository.listMemories();
+    return [
+      for (final track in tracks)
+        SearchDocument(
+          id: 'gpxTrack:${track.id}',
+          type: SearchDocumentType.gpxTrack,
+          sourceId: track.id,
+          title: track.name,
+          body: [
+            track.distanceMeters.toString(),
+            track.duration?.inSeconds.toString(),
+            track.elevationGainMeters?.toString(),
+          ].nonNulls.join('\n'),
+          metadata: {
+            if (track.tripId != null) 'tripId': track.tripId.toString(),
+          },
+          updatedAt: track.updatedAt ?? track.createdAt ?? DateTime.now(),
+        ),
+      for (final memory in memories)
+        SearchDocument(
+          id: 'memory:${memory.id}',
+          type: SearchDocumentType.memory,
+          sourceId: memory.id,
+          title: memory.title,
+          body: [
+            memory.description,
+            ...memory.tags,
+            memory.poiId,
+          ].nonNulls.join('\n'),
+          metadata: {
+            if (memory.tripId != null) 'tripId': memory.tripId.toString(),
+            'favorite': memory.favorite.toString(),
+          },
+          updatedAt: memory.updatedAt ?? memory.occurredAt,
         ),
     ];
   }

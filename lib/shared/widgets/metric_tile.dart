@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_spacing.dart';
-import '../../core/theme/app_colors.dart';
 
 class MetricTile extends StatelessWidget {
   const MetricTile({
@@ -19,32 +18,46 @@ class MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
+        color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.65)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.gold),
+          Icon(icon, color: scheme.primary),
           const SizedBox(height: AppSpacing.md),
           Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: scheme.onSurface,
                   fontWeight: FontWeight.w900,
                 ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             detail,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.muted,
+                  color: scheme.onSurfaceVariant,
                 ),
           ),
         ],

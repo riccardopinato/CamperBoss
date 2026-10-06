@@ -106,8 +106,8 @@ class NativeMapLibreOfflineRegionManager
   @override
   bool get isSupported =>
       !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      defaultTargetPlatform == TargetPlatform.android &&
+      MapEngineV2Config.isOfflineDownloadConfigured;
 
   @override
   Future<List<MapLibreOfflineRegionSnapshot>> listRegions() async {
@@ -144,7 +144,7 @@ class NativeMapLibreOfflineRegionManager
     try {
       if (!isSupported) {
         throw UnsupportedError(
-          'MapLibre offline regions require Android or iOS.',
+          'MapLibre offline regions require Android and an approved offline map provider.',
         );
       }
 
@@ -179,7 +179,7 @@ class NativeMapLibreOfflineRegionManager
             southwest: ml.LatLng(request.south, request.west),
             northeast: ml.LatLng(request.north, request.east),
           ),
-          mapStyleUrl: MapEngineV2Config.styleUrl,
+          mapStyleUrl: MapEngineV2Config.offlineStyleUrl!,
           minZoom: request.minZoom,
           maxZoom: request.maxZoom,
         ),

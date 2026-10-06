@@ -1,7 +1,6 @@
 import '../../data/database/local_key_value_store.dart';
 import '../../data/models/checklist_item.dart';
 import '../../data/models/guide_models.dart';
-import '../../data/models/vehicle_profile.dart';
 import '../../data/repositories/local_checklist_repository.dart';
 import '../../data/repositories/local_vehicle_profile_repository.dart';
 import 'location_service.dart';
@@ -122,23 +121,9 @@ class LocalOnboardingService implements OnboardingService {
     required double mileage,
   }) async {
     final existing = await _profileRepository.loadProfile();
+    if (existing == null) return;
     await _profileRepository.saveProfile(
-      (existing ??
-              const VehicleProfile(
-                vehicleType: 'Camper van',
-                brand: 'CamperBoss',
-                model: 'Setup',
-                year: 2024,
-                length: 6,
-                width: 2.1,
-                height: 2.8,
-                weight: 3000,
-                maxMass: 3500,
-                seats: 4,
-                fuelType: 'Diesel',
-                mileage: 0,
-              ))
-          .copyWith(
+      existing.copyWith(
         vehicleType: vehicleType,
         length: length,
         width: width,

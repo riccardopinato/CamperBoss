@@ -40,18 +40,29 @@ class TravelHistoryStatisticsService {
               entry.createdAt!.day),
     };
 
-    final totalCostMinor = expenses.fold<int>(
-          0,
-          (sum, item) => sum + item.amountMinor,
-        ) +
-        fuelEntries.fold<int>(
-          0,
-          (sum, item) => sum + item.totalCostMinor,
-        ) +
-        bookings.fold<int>(
-          0,
-          (sum, item) => sum + (item.costMinor ?? 0),
-        );
+    final costByCurrency = <String, int>{};
+    void addCost(String currencyCode, int amountMinor) {
+      final currency = currencyCode.trim().toUpperCase();
+      if (amountMinor == 0 || currency.isEmpty) return;
+      costByCurrency.update(
+        currency,
+        (current) => current + amountMinor,
+        ifAbsent: () => amountMinor,
+      );
+    }
+
+    for (final item in expenses) {
+      addCost(item.currencyCode, item.amountMinor);
+    }
+    for (final item in fuelEntries) {
+      addCost(item.currencyCode, item.totalCostMinor);
+    }
+    for (final item in bookings) {
+      addCost(item.currencyCode, item.costMinor ?? 0);
+    }
+
+    final totalCostMinor =
+        costByCurrency.length == 1 ? costByCurrency.values.single : 0;
     final totalFuelLiters = fuelEntries.fold<double>(
       0,
       (sum, item) => sum + item.liters,
@@ -76,6 +87,7 @@ class TravelHistoryStatisticsService {
       placeCount: placeCount,
       totalCostMinor: totalCostMinor,
       totalFuelLiters: totalFuelLiters,
+      costByCurrency: Map<String, int>.unmodifiable(costByCurrency),
       duration: duration == Duration.zero ? null : duration,
       elevationGainMeters:
           elevationGainMeters == 0 ? null : elevationGainMeters,

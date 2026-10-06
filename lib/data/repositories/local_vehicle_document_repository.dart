@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
+import '../database/managed_media_reference_index.dart';
 import '../models/vehicle_document.dart';
 import '../../core/services/document_storage_service.dart';
 
@@ -17,14 +19,23 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
     AppDatabase? database,
     LocalJsonCollection? webCollection,
     DocumentStorageService? storageService,
+    DataRevisionStore? revisionStore,
+    ManagedMediaReferenceIndex? mediaReferenceIndex,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
             webCollection ?? LocalJsonCollection('camperboss.vehicle_docs'),
-        _storageService = storageService ?? createDocumentStorageService();
+        _storageService = storageService ?? createDocumentStorageService(),
+        _revisionStore = revisionStore ?? DataRevisionStore(),
+        _mediaReferenceIndex = mediaReferenceIndex ??
+            ManagedMediaReferenceIndex(
+              database: database ?? AppDatabase.instance,
+            );
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
   final DocumentStorageService _storageService;
+  final DataRevisionStore _revisionStore;
+  final ManagedMediaReferenceIndex _mediaReferenceIndex;
 
   @override
   Future<List<VehicleDocument>> listDocuments() async {
@@ -43,31 +54,63 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
   @override
   Future<VehicleDocument> saveDocument(VehicleDocument document) async {
-    if (kIsWeb) {
-      final saved = await _webCollection.saveRow(document.toMap());
-      return VehicleDocument.fromMap(saved);
+    VehicleDocument? previous;
+    final existingId = document.id;
+    if (existingId != null) {
+      final existing = await listDocuments();
+      for (final candidate in existing) {
+        if (candidate.id == existingId) {
+          previous = candidate;
+          break;
+        }
+      }
     }
 
-    final db = await _database.database;
-    final values = document.toMap()..remove('id');
-    final id = document.id == null
-        ? await db.insert(AppDatabase.vehicleDocumentsTable, values)
-        : await _updateDocument(db, document.id!, values);
-    return document.copyWith(id: id, updatedAt: DateTime.now());
-  }
+    late final VehicleDocument savedDocument;
+    if (kIsWeb) {
+      final saved = await _webCollection.saveRow(document.toMap());
+      savedDocument = VehicleDocument.fromMap(saved);
+    } else {
+      final db = await _database.database;
+      final values = document.toMap();
+      final requestedId = document.id;
+      late final int id;
+      if (requestedId == null) {
+        values.remove('id');
+        id = await db.insert(AppDatabase.vehicleDocumentsTable, values);
+      } else {
+        final updateValues = Map<String, Object?>.from(values)..remove('id');
+        final updated = await db.update(
+          AppDatabase.vehicleDocumentsTable,
+          updateValues,
+          where: 'id = ?',
+          whereArgs: [requestedId],
+        );
+        if (updated == 0) {
+          await db.insert(
+            AppDatabase.vehicleDocumentsTable,
+            values,
+            conflictAlgorithm: ConflictAlgorithm.abort,
+          );
+        }
+        id = requestedId;
+      }
+      savedDocument = document.copyWith(
+        id: id,
+        updatedAt: document.updatedAt ?? DateTime.now(),
+      );
+    }
 
-  Future<int> _updateDocument(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.vehicleDocumentsTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
+    _revisionStore.bump();
+    if (previous != null) {
+      try {
+        await _deleteUnreferencedFiles(previous.filePaths);
+      } catch (_) {
+        // Persistence already committed. Orphan cleanup is best-effort and
+        // must not turn a successful save into an application-level failure.
+      }
+    }
+    return savedDocument;
   }
 
   @override
@@ -77,17 +120,31 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
-      await _storageService.deleteFiles(document.filePaths);
-      return;
+    } else {
+      final db = await _database.database;
+      await db.delete(
+        AppDatabase.vehicleDocumentsTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
+    _revisionStore.bump();
+    try {
+      await _deleteUnreferencedFiles(document.filePaths);
+    } catch (_) {
+      // The row deletion is already committed. Media cleanup may be retried.
+    }
+  }
 
-    final db = await _database.database;
-    await db.delete(
-      AppDatabase.vehicleDocumentsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    await _storageService.deleteFiles(document.filePaths);
+  Future<void> _deleteUnreferencedFiles(Iterable<String> paths) async {
+    final candidates = paths.where((path) => path.isNotEmpty).toSet();
+    if (candidates.isEmpty) return;
+
+    final referenced = await _mediaReferenceIndex.listReferencedPaths();
+    candidates.removeAll(referenced);
+    if (candidates.isNotEmpty) {
+      await _storageService.deleteFiles(candidates);
+    }
   }
 
   int _sortDocuments(VehicleDocument a, VehicleDocument b) {

@@ -14,6 +14,8 @@ import 'package:camperboss/features/finance/presentation/finance_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 class FakeFinanceRepository implements FinanceRepository {
   FakeFinanceRepository({
     required this.expenses,
@@ -87,6 +89,10 @@ class FakeRoutePreviewRepository implements RoutePreviewRepository {
   final RouteResult? route;
 
   @override
+  Future<List<RouteResult>> listRoutes() async =>
+      route == null ? const [] : [route!];
+
+  @override
   Future<void> deleteRouteForTrip(int tripId) async {}
 
   @override
@@ -152,10 +158,10 @@ void main() {
   testWidgets('finance screen shows local summaries and bookings', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FinanceScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: FinanceScreen(
             financeRepository: FakeFinanceRepository(
               expenses: [
                 Expense(
@@ -257,11 +263,9 @@ void main() {
             ]),
             reminderService: FakeReminderService(),
             initialTripId: 9,
-          ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
     expect(find.text('Add fuel'), findsOneWidget);
     expect(find.text('Add expense'), findsOneWidget);
     expect(find.text('Add booking'), findsOneWidget);

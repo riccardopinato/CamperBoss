@@ -7,14 +7,22 @@ import '../../data/repositories/offline_manifest_repository.dart';
 import '../../data/repositories/offline_map_repository.dart';
 import '../../data/repositories/offline_poi_repository.dart';
 import '../services/app_download_manager.dart';
+import '../services/app_system_services.dart';
+import '../services/offline_system_coordinator.dart';
+import '../services/poi_catalog_service.dart';
 import '../services/storage_inspector.dart';
 
 final downloadManagerProvider = Provider<AppDownloadManager>((ref) {
-  final manager = BackgroundDownloaderManager();
-  ref.onDispose(() {
-    manager.dispose();
-  });
-  return manager;
+  return AppSystemServices.instance.downloads;
+});
+
+final offlineSystemProvider = Provider<OfflineSystemCoordinator>((ref) {
+  return AppSystemServices.instance.offline;
+});
+
+final offlineSystemSnapshotProvider =
+    FutureProvider<OfflineSystemSnapshot>((ref) {
+  return ref.watch(offlineSystemProvider).snapshot();
 });
 
 final downloadsProvider = StreamProvider<List<DownloadRecord>>((ref) async* {
@@ -25,12 +33,12 @@ final downloadsProvider = StreamProvider<List<DownloadRecord>>((ref) async* {
 
 final offlineManifestRepositoryProvider =
     Provider<OfflineManifestRepository>((ref) {
-  return LocalOfflineManifestRepository();
+  return AppSystemServices.instance.offlineManifestRepository;
 });
 
 final installedResourceRepositoryProvider =
     Provider<InstalledResourceRepository>((ref) {
-  return LocalInstalledResourceRepository();
+  return AppSystemServices.instance.installedResources;
 });
 
 final installedResourcesProvider =
@@ -41,9 +49,7 @@ final installedResourcesProvider =
 });
 
 final storageInspectorProvider = Provider<StorageInspector>((ref) {
-  return LocalStorageInspector(
-    repository: ref.watch(installedResourceRepositoryProvider),
-  );
+  return AppSystemServices.instance.storageInspector;
 });
 
 final storageProjectionProvider = FutureProvider<StorageProjection>((ref) {
@@ -63,5 +69,13 @@ final installedMapRegionsProvider =
 });
 
 final offlinePoiRepositoryProvider = Provider<PoiRepository>((ref) {
-  return LocalOfflinePoiRepository();
+  return AppSystemServices.instance.poiRepository;
+});
+
+final poiCatalogProvider = Provider<PoiCatalogService>((ref) {
+  return AppSystemServices.instance.poiCatalog;
+});
+
+final poiCatalogSnapshotProvider = FutureProvider((ref) {
+  return ref.watch(poiCatalogProvider).snapshot();
 });

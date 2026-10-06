@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
 
 enum DownloadPackageType {
   map,
@@ -30,6 +31,26 @@ enum DownloadStatus {
   canceled,
   verifying,
   corrupted,
+}
+
+String normalizeOfflineDestinationDirectory(String value) {
+  final raw = value.trim().replaceAll('\\', '/');
+  if (raw.isEmpty || p.posix.isAbsolute(raw)) {
+    throw const FormatException('Package destination directory is invalid');
+  }
+
+  final normalized = p.posix.normalize(raw);
+  final isInsideOfflineRoot =
+      normalized == 'offline' || normalized.startsWith('offline/');
+  if (normalized == '.' ||
+      normalized == '..' ||
+      normalized.startsWith('../') ||
+      !isInsideOfflineRoot) {
+    throw const FormatException(
+      'Package destination must stay inside the offline root',
+    );
+  }
+  return normalized;
 }
 
 class DownloadablePackage {
@@ -174,6 +195,7 @@ class DownloadManifest {
       throw const FormatException('Unsupported manifest schema');
     }
     final ids = <String>{};
+    final destinationPaths = <String>{};
     for (final package in packages) {
       if (package.id.trim().isEmpty || !ids.add(package.id)) {
         throw const FormatException('Package IDs must be unique and non-empty');
@@ -186,6 +208,15 @@ class DownloadManifest {
           package.fileName.contains('\\') ||
           package.fileName.contains('..')) {
         throw const FormatException('Package file name is invalid');
+      }
+      final destinationDirectory =
+          normalizeOfflineDestinationDirectory(package.destinationDirectory);
+      final destinationPath =
+          p.posix.join(destinationDirectory, package.fileName);
+      if (!destinationPaths.add(destinationPath)) {
+        throw const FormatException(
+          'Package destination paths must be unique',
+        );
       }
       if (package.fileSizeBytes < 0) {
         throw const FormatException('Package size cannot be negative');

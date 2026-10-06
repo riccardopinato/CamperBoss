@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/app_reminder.dart';
@@ -7,18 +8,41 @@ import '../../features/map/presentation/map_screen.dart';
 import '../../features/profile/presentation/camper_hub_screen.dart';
 import '../../features/settings/presentation/more_hub_screen.dart';
 import '../../features/trip/presentation/trip_hub_screen.dart';
+import '../services/app_system_services.dart';
 import '../services/reminder_coordinator.dart';
 
+const camperBossTopLevelRoutes = <String>[
+  '/',
+  '/map',
+  '/trips',
+  '/camper',
+  '/more',
+];
+
+Map<String, WidgetBuilder> camperBossRoutes() => {
+      '/': (_) => const AppShell(initialIndex: 0),
+      '/map': (_) => const AppShell(initialIndex: 1),
+      '/trips': (_) => const AppShell(initialIndex: 2),
+      '/camper': (_) => const AppShell(initialIndex: 3),
+      '/more': (_) => const AppShell(initialIndex: 4),
+    };
+
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({
+    this.initialIndex = 0,
+    super.key,
+  });
+
+  final int initialIndex;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
-  int _index = 0;
-  final ReminderCoordinator _reminderCoordinator = ReminderCoordinator();
+  late int _index = widget.initialIndex.clamp(0, 4);
+  final ReminderCoordinator _reminderCoordinator =
+      AppSystemServices.instance.reminders;
 
   late final List<Widget> _screens = [
     const HomeScreen(),
@@ -49,6 +73,15 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
+  void _selectDestination(int value) {
+    if (value == _index) return;
+    if (kIsWeb) {
+      Navigator.of(context).pushNamed(camperBossTopLevelRoutes[value]);
+      return;
+    }
+    setState(() => _index = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,7 +93,7 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
+        onDestinationSelected: _selectDestination,
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),

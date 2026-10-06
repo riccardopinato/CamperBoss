@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/action_tile.dart';
@@ -20,42 +21,42 @@ class TripHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenScaffold(
-      title: 'Trips',
+      title: 'trip_hub_title'.tr(),
       subtitle:
-          'Plan the route, prepare the camper and keep the whole trip in one place.',
+          'trip_hub_subtitle'.tr(),
       children: [
         ActionTile(
           icon: Icons.route_outlined,
-          title: 'Trip planner',
-          subtitle: 'Destinations, stages, routing, dates and overnight stops.',
+          title: 'trip_hub_planner'.tr(),
+          subtitle: 'trip_hub_planner_body'.tr(),
           onTap: () => _open(context, const TripPlannerScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.checklist_outlined,
-          title: 'Checklists',
-          subtitle: 'Departure, arrival, service and winter routines.',
+          title: 'trip_hub_checklists'.tr(),
+          subtitle: 'trip_hub_checklists_body'.tr(),
           onTap: () => _open(context, const ChecklistScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.auto_stories_outlined,
-          title: 'Travel journal',
-          subtitle: 'Real notes, places, kilometres and costs.',
+          title: 'trip_hub_journal'.tr(),
+          subtitle: 'trip_hub_journal_body'.tr(),
           onTap: () => _open(context, const JournalScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.account_balance_wallet_outlined,
-          title: 'Budget, fuel & bookings',
-          subtitle: 'Expenses, refuelling, budgets and reservations.',
+          title: 'trip_hub_finance'.tr(),
+          subtitle: 'trip_hub_finance_body'.tr(),
           onTap: () => _open(context, const FinanceScreen()),
         ),
         const SizedBox(height: 12),
         ActionTile(
           icon: Icons.timeline_outlined,
-          title: 'GPX, memories & statistics',
-          subtitle: 'Travel history, geolocated memories and route statistics.',
+          title: 'trip_hub_history'.tr(),
+          subtitle: 'trip_hub_history_body'.tr(),
           onTap: () => _open(context, const TravelHistoryScreen()),
         ),
       ],

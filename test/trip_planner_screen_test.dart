@@ -7,6 +7,8 @@ import 'package:camperboss/features/trip/presentation/trip_planner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'test_localization.dart';
+
 class FakeTripRepository implements TripRepository {
   FakeTripRepository(this.trips);
 
@@ -36,6 +38,10 @@ class FakeTripRepository implements TripRepository {
 
 class FakeRoutePreviewRepository implements RoutePreviewRepository {
   RouteResult? route;
+
+  @override
+  Future<List<RouteResult>> listRoutes() async =>
+      route == null ? const [] : [route!];
 
   @override
   Future<void> deleteRouteForTrip(int tripId) async {
@@ -72,15 +78,14 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
-        ),
+          renderMaps: false,
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Alps loop'), findsOneWidget);
     expect(find.textContaining('Dolomites'), findsOneWidget);
@@ -102,6 +107,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Coast weekend');
     await tester.enterText(find.byType(TextField).at(1), 'Liguria');
+    await tester.tap(find.byType(ExpansionTile).last);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'Two nights');
     await tester.enterText(find.byType(TextField).at(3), 'Beach stop');
     await tester.ensureVisible(find.text('Save'));
@@ -115,6 +122,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byTooltip('Delete trip'));
     await tester.tap(find.byTooltip('Delete trip'));
+    await tester.pumpAndSettle();
+    expect(repository.trips.length, 2);
+    await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(repository.trips.length, 1);
@@ -139,17 +149,16 @@ void main() {
     ]);
     final routeRepository = FakeRoutePreviewRepository();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: routeRepository,
           routingService: const FakeRoutingService(),
           isRoutingConfigured: true,
-        ),
+          renderMaps: false,
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('Route preview'),
@@ -165,7 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.route, isNotNull);
-    expect(find.text('12.0 km'), findsOneWidget);
+    expect(find.text('12 km'), findsOneWidget);
     expect(find.text('30 min'), findsOneWidget);
     expect(find.textContaining('Sirmione -> Bardolino'), findsOneWidget);
   });
@@ -186,17 +195,16 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TripPlannerScreen(
+    await pumpLocalizedHome(
+      tester,
+      home: TripPlannerScreen(
           repository: repository,
           routePreviewRepository: FakeRoutePreviewRepository(),
           routingService: const FakeRoutingService(),
           isRoutingConfigured: false,
-        ),
+          renderMaps: false,
       ),
     );
-    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('Route preview'),

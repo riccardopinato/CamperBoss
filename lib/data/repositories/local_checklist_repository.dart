@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
 import '../models/checklist_item.dart';
 
@@ -15,12 +16,15 @@ class LocalChecklistRepository implements ChecklistRepository {
   LocalChecklistRepository({
     AppDatabase? database,
     LocalJsonCollection? webCollection,
+    DataRevisionStore? revisionStore,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
-            webCollection ?? LocalJsonCollection('camperboss.checklist');
+            webCollection ?? LocalJsonCollection('camperboss.checklist'),
+        _revisionStore = revisionStore ?? DataRevisionStore();
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
+  final DataRevisionStore _revisionStore;
 
   @override
   Future<List<CamperChecklistItem>> listItems() async {
@@ -43,37 +47,44 @@ class LocalChecklistRepository implements ChecklistRepository {
     if (kIsWeb) {
       final values = item.toMap();
       final saved = await _webCollection.saveRow(values);
+      _revisionStore.bump();
       return CamperChecklistItem.fromMap(saved);
     }
 
     final db = await _database.database;
-    final values = item.toMap()..remove('id');
+    final values = item.toMap();
+    final requestedId = item.id;
+    late final int id;
+    if (requestedId == null) {
+      values.remove('id');
+      id = await db.insert(AppDatabase.checklistTable, values);
+    } else {
+      final updateValues = Map<String, Object?>.from(values)..remove('id');
+      final updated = await db.update(
+        AppDatabase.checklistTable,
+        updateValues,
+        where: 'id = ?',
+        whereArgs: [requestedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.checklistTable,
+          values,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = requestedId;
+    }
 
-    final id = item.id == null
-        ? await db.insert(AppDatabase.checklistTable, values)
-        : await _updateItem(db, item.id!, values);
-
+    _revisionStore.bump();
     return item.copyWith(id: id);
-  }
-
-  Future<int> _updateItem(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.checklistTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
   }
 
   @override
   Future<void> deleteItem(int id) async {
     if (kIsWeb) {
       await _webCollection.deleteRow(id);
+      _revisionStore.bump();
       return;
     }
 
@@ -83,6 +94,7 @@ class LocalChecklistRepository implements ChecklistRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _revisionStore.bump();
   }
 
   int _sortChecklistItems(CamperChecklistItem a, CamperChecklistItem b) {

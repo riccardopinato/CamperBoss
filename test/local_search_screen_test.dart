@@ -2,17 +2,28 @@ import 'package:camperboss/core/providers/local_search_provider.dart';
 import 'package:camperboss/core/services/local_search_service.dart';
 import 'package:camperboss/data/models/search_models.dart';
 import 'package:camperboss/features/search/presentation/local_search_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+  });
+
   test('provider exposes local search service', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     expect(
-        container.read(localSearchServiceProvider), isA<LocalSearchService>());
+      container.read(localSearchServiceProvider),
+      isA<LocalSearchService>(),
+    );
   });
 
   testWidgets('search screen rebuilds index, filters and opens result',
@@ -21,14 +32,27 @@ void main() {
     SearchHit? opened;
 
     await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: LocalSearchScreen(
-              searchService: service,
-              onOpenHit: (hit) => opened = hit,
-            ),
-          ),
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) {
+            return ProviderScope(
+              child: MaterialApp(
+                locale: context.locale,
+                supportedLocales: context.supportedLocales,
+                localizationsDelegates: context.localizationDelegates,
+                home: Scaffold(
+                  body: LocalSearchScreen(
+                    searchService: service,
+                    onOpenHit: (hit) => opened = hit,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -6,9 +6,16 @@ enum NotificationPermissionState {
   unavailable,
 }
 
+enum NotificationTimezoneState {
+  local,
+  utcFallback,
+  unavailable,
+}
+
 abstract interface class LocalNotificationService {
   Future<void> initialize();
   Future<NotificationPermissionState> getPermissionState();
+  Future<NotificationTimezoneState> getTimezoneState();
   Future<bool> requestPermission();
   Future<void> scheduleReminder(AppReminder reminder);
   Future<void> cancelReminder(String reminderId);
@@ -28,6 +35,11 @@ class UnsupportedLocalNotificationService implements LocalNotificationService {
   @override
   Future<NotificationPermissionState> getPermissionState() async {
     return NotificationPermissionState.unavailable;
+  }
+
+  @override
+  Future<NotificationTimezoneState> getTimezoneState() async {
+    return NotificationTimezoneState.unavailable;
   }
 
   @override

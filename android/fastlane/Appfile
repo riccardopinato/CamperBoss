@@ -1,0 +1,2 @@
+package_name(ENV.fetch("PLAY_PACKAGE_NAME", "com.camperboss.camperboss"))
+json_key_data(ENV["PLAY_SERVICE_ACCOUNT_JSON"]) if ENV["PLAY_SERVICE_ACCOUNT_JSON"]

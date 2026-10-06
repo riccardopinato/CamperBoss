@@ -16,10 +16,8 @@ class OpenRouteServiceRoutingService implements RoutingService {
     required String apiKey,
     http.Client? client,
     this.timeout = const Duration(seconds: 12),
-    this.baseUri = const String.fromEnvironment(
-      'ORS_BASE_URL',
-      defaultValue: 'https://api.openrouteservice.org',
-    ),
+    this.baseUri = 'https://api.heigit.org/openrouteservice',
+    this.requireApiKey = true,
   })  : _apiKey = apiKey.trim(),
         _client = client ?? http.Client();
 
@@ -27,19 +25,33 @@ class OpenRouteServiceRoutingService implements RoutingService {
   final http.Client _client;
   final Duration timeout;
   final String baseUri;
+  final bool requireApiKey;
 
   @override
   Future<RouteResult> calculateRoute(RouteRequest request) async {
     final validation = request.validate();
     if (validation != null) throw validation;
-    if (_apiKey.isEmpty) {
+    if (requireApiKey && _apiKey.isEmpty) {
       throw const RouteFailure(
         RouteFailureType.missingApiKey,
         'Routing not configured',
       );
     }
 
-    final uri = Uri.parse('$baseUri/v2/directions/${request.profile}/geojson');
+    final base = Uri.tryParse(baseUri);
+    if (base == null ||
+        base.scheme.toLowerCase() != 'https' ||
+        base.host.trim().isEmpty) {
+      throw const RouteFailure(
+        RouteFailureType.clientError,
+        'Routing endpoint is not trusted',
+      );
+    }
+    final normalizedBase = baseUri.endsWith('/')
+        ? baseUri.substring(0, baseUri.length - 1)
+        : baseUri;
+    final uri =
+        Uri.parse('$normalizedBase/v2/directions/${request.profile}/geojson');
     final body = jsonEncode(buildOpenRouteServiceRequestBody(request));
 
     try {
@@ -47,7 +59,7 @@ class OpenRouteServiceRoutingService implements RoutingService {
           .post(
             uri,
             headers: {
-              HttpHeaders.authorizationHeader: _apiKey,
+              if (_apiKey.isNotEmpty) HttpHeaders.authorizationHeader: _apiKey,
               HttpHeaders.contentTypeHeader: 'application/json',
               HttpHeaders.acceptHeader: 'application/json',
             },
@@ -71,6 +83,13 @@ class OpenRouteServiceRoutingService implements RoutingService {
         throw RouteFailure(
           RouteFailureType.clientError,
           'OpenRouteService request failed ${response.statusCode}',
+        );
+      }
+
+      if (response.bodyBytes.length > 5 * 1024 * 1024) {
+        throw const RouteFailure(
+          RouteFailureType.serverError,
+          'Routing response exceeded safety limit',
         );
       }
 

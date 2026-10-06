@@ -8,7 +8,10 @@ import 'package:path_provider/path_provider.dart';
 import '../../data/models/download_models.dart';
 import '../../data/repositories/download_record_repository.dart';
 import '../../data/repositories/installed_resource_repository.dart';
+import '../../data/repositories/offline_manifest_repository.dart';
 import 'download_file_verifier.dart';
+import 'offline_package_installer.dart';
+import 'storage_inspector.dart';
 
 abstract interface class AppDownloadManager {
   Stream<List<DownloadRecord>> watchDownloads();
@@ -25,21 +28,32 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   BackgroundDownloaderManager({
     DownloadRecordRepository? repository,
     InstalledResourceRepository? installedRepository,
+    OfflineManifestRepository? manifestRepository,
     FileDownloader? downloader,
     DownloadFileVerifier verifier = const DownloadFileVerifier(),
+    OfflinePackageInstaller packageInstaller =
+        const NoopOfflinePackageInstaller(),
+    StorageInspector? storageInspector,
     this.allowedHosts = const {},
   })  : _repository = repository ?? LocalDownloadRecordRepository(),
         _installedRepository =
             installedRepository ?? LocalInstalledResourceRepository(),
+        _manifestRepository =
+            manifestRepository ?? LocalOfflineManifestRepository(),
         _downloader = downloader ?? FileDownloader(),
-        _verifier = verifier {
+        _verifier = verifier,
+        _packageInstaller = packageInstaller,
+        _storageInspector = storageInspector {
     _subscription = _downloader.updates.listen(_handleUpdate);
   }
 
   final DownloadRecordRepository _repository;
   final InstalledResourceRepository _installedRepository;
+  final OfflineManifestRepository _manifestRepository;
   final FileDownloader _downloader;
   final DownloadFileVerifier _verifier;
+  final OfflinePackageInstaller _packageInstaller;
+  final StorageInspector? _storageInspector;
   final Set<String> allowedHosts;
   late final _controller = StreamController<List<DownloadRecord>>.broadcast(
     onListen: () {
@@ -65,13 +79,28 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       throw ArgumentError('Package URL host is not allowed');
     }
     _validateFileName(package.fileName);
+    final destinationDirectory =
+        normalizeOfflineDestinationDirectory(package.destinationDirectory);
     if (package.fileSizeBytes < 0) {
       throw ArgumentError('Package size cannot be negative');
     }
 
+    final storageInspector = _storageInspector;
+    if (storageInspector != null) {
+      final projection =
+          await storageInspector.projectInstallation([package]);
+      if (!projection.canInstall) {
+        throw InsufficientStorageException(
+          requiredBytes:
+              package.fileSizeBytes + projection.safetyMarginBytes,
+          availableBytes: projection.availableBytes,
+        );
+      }
+    }
+
     final now = DateTime.now();
     final taskId = buildDownloadTaskId(package);
-    final tempDirectory = '${package.destinationDirectory}/partial';
+    final tempDirectory = '$destinationDirectory/partial';
     final task = DownloadTask(
       taskId: taskId,
       url: package.url,
@@ -91,7 +120,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     final support = await getApplicationSupportDirectory();
     final finalPath = p.join(
       support.path,
-      package.destinationDirectory,
+      destinationDirectory,
       package.fileName,
     );
 
@@ -170,8 +199,31 @@ class BackgroundDownloaderManager implements AppDownloadManager {
   @override
   Future<void> retry(String id) async {
     final record = await _repository.getRecord(id);
+    if (record == null) return;
+
     final task = await _taskFor(record);
-    if (record == null || task == null) return;
+    if (task == null) {
+      DownloadManifest? cachedManifest;
+      try {
+        cachedManifest = await _manifestRepository.loadCachedManifest();
+      } catch (_) {
+        cachedManifest = null;
+      }
+
+      final package = findRetryPackage(cachedManifest, record);
+      if (package == null) {
+        await _updateRecord(
+          id,
+          status: DownloadStatus.failed,
+          lastError: 'Retry metadata is unavailable',
+        );
+        return;
+      }
+
+      await enqueue(package);
+      return;
+    }
+
     await _updateRecord(id, status: DownloadStatus.queued, lastError: null);
     final queued = await _downloader.enqueue(task);
     if (!queued) {
@@ -189,6 +241,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     if (record == null) return;
     await _downloader.cancelTaskWithId(record.taskId);
     await _deletePartial(record);
+    await _packageInstaller.uninstall(record);
     final installed = File(record.localPath);
     if (await installed.exists()) {
       await installed.delete();
@@ -230,6 +283,7 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       }
     }
     await _installedRepository.reconcile();
+    await _packageInstaller.reconcile();
     await _publish();
   }
 
@@ -353,12 +407,64 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     }
 
     await target.parent.create(recursive: true);
-    if (candidate.path != target.path) {
-      if (await target.exists()) {
+    final previous = File(target.path + '.previous');
+    var previousMoved = false;
+    var promotedNewCandidate = false;
+
+    try {
+      if (candidate.path != target.path) {
+        if (await previous.exists()) {
+          await previous.delete();
+        }
+        if (await target.exists()) {
+          await target.rename(previous.path);
+          previousMoved = true;
+        }
+        await candidate.rename(target.path);
+        promotedNewCandidate = true;
+      }
+
+      await _packageInstaller.install(record, target);
+
+      if (previousMoved && await previous.exists()) {
+        await previous.delete();
+      }
+    } catch (error) {
+      if (promotedNewCandidate && await target.exists()) {
         await target.delete();
       }
-      await candidate.rename(target.path);
+      if (previousMoved && await previous.exists()) {
+        await previous.rename(target.path);
+      }
+
+      final prefix = _isNoSpaceError(error)
+          ? 'Package activation failed: insufficient device storage'
+          : 'Package activation failed: ' + error.toString();
+      await _updateRecord(
+        record.packageId,
+        status: DownloadStatus.failed,
+        installedSha256: verification.actualSha256 ?? record.expectedSha256,
+        lastError: prefix,
+      );
+      final failedSize =
+          await target.exists() ? await target.length() : record.totalBytes;
+      await _installedRepository.upsert(
+        InstalledResource(
+          packageId: record.packageId,
+          type: record.type,
+          version: record.version,
+          localPath: target.path,
+          fileSizeBytes: failedSize,
+          installedSha256:
+              verification.actualSha256 ?? record.expectedSha256,
+          status: InstalledResourceStatus.failed,
+          lastVerifiedAt: DateTime.now(),
+          lastError: prefix,
+        ),
+      );
+      return;
     }
+
     await _repository.saveRecord(
       record.copyWith(
         status: DownloadStatus.completed,
@@ -385,6 +491,15 @@ class BackgroundDownloaderManager implements AppDownloadManager {
       ),
     );
     await _publish();
+  }
+
+  bool _isNoSpaceError(Object error) {
+    if (error is! FileSystemException) return false;
+    final code = error.osError?.errorCode;
+    final message = error.osError?.message.toLowerCase() ?? '';
+    return code == 28 ||
+        message.contains('no space') ||
+        message.contains('disk full');
   }
 
   Future<void> _deletePartial(DownloadRecord record) async {
@@ -430,6 +545,21 @@ class BackgroundDownloaderManager implements AppDownloadManager {
     await _subscription?.cancel();
     await _controller.close();
   }
+}
+
+DownloadablePackage? findRetryPackage(
+  DownloadManifest? manifest,
+  DownloadRecord record,
+) {
+  if (manifest == null) return null;
+  for (final package in manifest.packages) {
+    if (package.id == record.packageId &&
+        package.version == record.version &&
+        package.fileName == record.fileName) {
+      return package;
+    }
+  }
+  return null;
 }
 
 class FakeDownloadManager implements AppDownloadManager {

@@ -4,31 +4,149 @@ on:
   push:
     branches:
       - main
-      - maxi-product-truth-shell-v2
+      - "step-16*"
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "assets/**"
+      - "android/**"
+      - "ios/**"
+      - "web/**"
+      - "tool/**"
+      - "release/**"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - ".github/workflows/**"
   pull_request:
     branches:
       - main
+      - "step-16*"
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "assets/**"
+      - "android/**"
+      - "ios/**"
+      - "web/**"
+      - "tool/**"
+      - "release/**"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.6"
 
 jobs:
   quality:
+    name: Quality, coverage & supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve locked Flutter dependencies
+        run: flutter pub get
+
+      - name: Reject Flutter lock drift
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Verify release identity
+        run: python3 tool/ci/release_guard.py identity
+
+      - name: Audit dependencies, licenses and action pins
+        run: python3 tool/ci/release_guard.py supply-chain
+
+      - name: Secret scan
+        run: python3 tool/ci/release_guard.py secrets
+
+      - name: Project-specific SAST
+        run: python3 tool/ci/release_guard.py sast
+
+      - name: Provider and trust-boundary audit
+        run: python3 tool/ci/release_guard.py trust-boundaries
+
+      - name: STEP 16 final static preflight
+        if: ${{ hashFiles('tool/ci/final_certification_guard.py') != '' }}
+        run: python3 tool/ci/final_certification_guard.py
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Release integration contracts
+        run: flutter test test/integration --timeout=60s
+
+      - name: Full tests with coverage
+        run: flutter test --coverage --timeout=60s
+
+      - name: Coverage gate
+        run: python3 tool/ci/release_guard.py coverage --minimum 20
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: camperboss-ci-evidence-${{ github.sha }}
+          path: |
+            build/evidence/
+            coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
+
+  release-contract:
+    name: Fastlane immutable-artifact contract
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Ruby and locked Fastlane
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
         with:
-          channel: stable
-          cache: true
+          ruby-version: "3.3"
+          bundler: "4.0.22"
+          bundler-cache: true
 
-      - name: Resolve dependencies
-        run: flutter pub get
+      - name: Create one immutable lane fixture
+        run: |
+          set -euo pipefail
+          mkdir -p build/fastlane-contract
+          printf 'CamperBoss immutable AAB contract fixture\n' > build/fastlane-contract/candidate.aab
+          echo "AAB_SHA256=$(sha256sum build/fastlane-contract/candidate.aab | cut -d' ' -f1)" >> "$GITHUB_ENV"
 
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test --timeout=60s
+      - name: Validate Fastlane lane without rebuilding or uploading
+        working-directory: android
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
+        run: >
+          bundle exec fastlane android internal
+          aab_path:"${{ github.workspace }}/build/fastlane-contract/candidate.aab"
+          expected_sha256:"$AAB_SHA256"
+          dry_run:true

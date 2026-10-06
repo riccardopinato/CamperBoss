@@ -1,0 +1,35 @@
+# STEP 16Q top-level Android runtime smoke.
+# Full data-heavy and no-network certification is orchestrated by AppLab using
+# the companion JSON policies and docs/release/step-16q-certification.md.
+appId: com.camperboss.camperboss
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Boss Readiness|Prontezza|Bereitschaft|Préparation|Preparación|Preparação).*"
+    timeout: 20000
+
+- takeScreenshot: "camperboss-16q-home"
+
+- tapOn:
+    text: "^(Map|Mappa|Karte|Carte|Mapa)$"
+- takeScreenshot: "camperboss-16q-map"
+
+- tapOn:
+    text: "^(Trips|Viaggi|Reisen|Voyages|Viajes|Viagens)$"
+- takeScreenshot: "camperboss-16q-trips"
+
+- tapOn:
+    text: "^(Camper|Mezzo|Fahrzeug|Véhicule|Vehículo|Veículo)$"
+- takeScreenshot: "camperboss-16q-camper"
+
+- tapOn:
+    text: "^(More|Altro|Mehr|Plus|Más|Mais)$"
+- takeScreenshot: "camperboss-16q-more"
+
+- stopApp
+- launchApp:
+    clearState: false
+- takeScreenshot: "camperboss-16q-relaunch"

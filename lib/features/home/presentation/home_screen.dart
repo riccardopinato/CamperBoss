@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/home_cockpit_service.dart';
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Cockpit data unavailable';
+        _error = 'home_error_unavailable'.tr();
       });
     }
   }
@@ -94,8 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ScreenScaffold(
-        title: 'Camper cockpit',
-        subtitle: 'Only real local data contributes to your readiness.',
+        title: 'home_cockpit_title'.tr(),
+        subtitle: 'home_cockpit_subtitle'.tr(),
         children: [
           if (_error != null) ...[
             Text(
@@ -110,49 +111,66 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (snapshot != null) ...[
-            _ReadinessCard(snapshot: snapshot),
-            const SizedBox(height: 16),
-            _MetricsGrid(snapshot: snapshot),
-            const SizedBox(height: 24),
-            SelectedLocationWeatherCard(service: widget.weatherService),
-            const SizedBox(height: 24),
-            const SectionHeader(title: 'Needs attention'),
-            const SizedBox(height: 12),
-            if (snapshot.actions.isEmpty)
-              const PremiumCard(
-                child: Text(
-                  'No urgent local items are currently flagged. Pull to refresh after editing your data.',
-                ),
-              )
-            else
-              for (final action in snapshot.actions) ...[
-                ActionTile(
-                  icon: _iconFor(action.type),
-                  title: action.title,
-                  subtitle: action.detail,
-                  onTap: () => _openAction(action),
-                ),
-                const SizedBox(height: 12),
-              ],
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: Icons.rocket_launch_outlined,
-              title: 'Guided setup',
-              subtitle:
-                  'Configure permissions, vehicle basics and starter offline content.',
-              onTap: () => _push(const GuidedOnboardingScreen()),
-            ),
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: Icons.menu_book_outlined,
-              title: 'Offline guides',
-              subtitle: 'Open installed guides without relying on connectivity.',
-              onTap: () => _push(const OfflineGuidesScreen()),
-            ),
+            if (_isFirstRun(snapshot)) ...[
+              _FirstRunCard(
+                onStart: () => _push(const GuidedOnboardingScreen()),
+              ),
+              const SizedBox(height: 16),
+              ActionTile(
+                icon: Icons.menu_book_outlined,
+                title: 'home_offline_guides'.tr(),
+                subtitle: 'home_offline_guides_body'.tr(),
+                onTap: () => _push(const OfflineGuidesScreen()),
+              ),
+            ] else ...[
+              _ReadinessCard(snapshot: snapshot),
+              const SizedBox(height: 16),
+              _MetricsGrid(snapshot: snapshot),
+              const SizedBox(height: 24),
+              SelectedLocationWeatherCard(service: widget.weatherService),
+              const SizedBox(height: 24),
+              SectionHeader(title: 'home_needs_attention'.tr()),
+              const SizedBox(height: 12),
+              if (snapshot.actions.isEmpty)
+                PremiumCard(
+                  child: Text('home_no_urgent'.tr()),
+                )
+              else
+                for (final action in snapshot.actions) ...[
+                  ActionTile(
+                    icon: _iconFor(action.type),
+                    title: action.titleKey.tr(namedArgs: action.args),
+                    subtitle: action.detailKey.tr(namedArgs: action.args),
+                    onTap: () => _openAction(action),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              const SizedBox(height: 12),
+              ActionTile(
+                icon: Icons.rocket_launch_outlined,
+                title: 'home_guided_setup'.tr(),
+                subtitle: 'home_guided_setup_body'.tr(),
+                onTap: () => _push(const GuidedOnboardingScreen()),
+              ),
+              const SizedBox(height: 12),
+              ActionTile(
+                icon: Icons.menu_book_outlined,
+                title: 'home_offline_guides'.tr(),
+                subtitle: 'home_offline_guides_body'.tr(),
+                onTap: () => _push(const OfflineGuidesScreen()),
+              ),
+            ],
           ],
         ],
       ),
     );
+  }
+
+  bool _isFirstRun(HomeCockpitSnapshot snapshot) {
+    return snapshot.vehicle == null &&
+        snapshot.checklistTotal == 0 &&
+        snapshot.documentCount == 0 &&
+        snapshot.maintenanceCount == 0;
   }
 
   IconData _iconFor(HomeCockpitActionType type) {
@@ -163,6 +181,47 @@ class _HomeScreenState extends State<HomeScreen> {
       HomeCockpitActionType.maintenance => Icons.build_circle_outlined,
       HomeCockpitActionType.trip => Icons.route_outlined,
     };
+  }
+}
+
+class _FirstRunCard extends StatelessWidget {
+  const _FirstRunCard({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: 'home_guided_setup'.tr(),
+      child: PremiumCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.explore_outlined,
+              size: 36,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'home_guided_setup'.tr(),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text('home_guided_setup_body'.tr()),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onStart,
+              icon: const Icon(Icons.arrow_forward),
+              label: Text('home_guided_setup'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -185,7 +244,7 @@ class _ReadinessCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Boss Readiness',
+                  'home_boss_readiness'.tr(),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -202,21 +261,21 @@ class _ReadinessCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             score == null
-                ? 'Add enough real data before CamperBoss calculates a readiness score.'
+                ? 'home_readiness_not_enough'.tr()
                 : _scoreLabel(score),
           ),
           const SizedBox(height: 16),
           ResourceBar(
-            label: 'Data coverage',
+            label: 'home_data_coverage'.tr(),
             value: coverage / 100,
-            detail: '$coverage% of readiness signals are configured',
+            detail: 'home_data_coverage_detail'.tr(namedArgs: {'coverage': coverage.toString()}),
           ),
           if (score != null) ...[
             const SizedBox(height: 12),
             ResourceBar(
-              label: 'Readiness',
+              label: 'home_readiness'.tr(),
               value: score / 100,
-              detail: 'Calculated only from configured local signals',
+              detail: 'home_readiness_detail'.tr(),
             ),
           ],
         ],
@@ -225,10 +284,10 @@ class _ReadinessCard extends StatelessWidget {
   }
 
   static String _scoreLabel(int score) {
-    if (score >= 90) return 'No major readiness issue is currently detected.';
-    if (score >= 70) return 'Mostly ready, with a few items still worth checking.';
-    if (score >= 50) return 'Several checks should be reviewed before departure.';
-    return 'Important readiness items need attention.';
+    if (score >= 90) return 'home_readiness_score_90'.tr();
+    if (score >= 70) return 'home_readiness_score_70'.tr();
+    if (score >= 50) return 'home_readiness_score_50'.tr();
+    return 'home_readiness_score_low'.tr();
   }
 }
 
@@ -246,8 +305,8 @@ class _MetricsGrid extends StatelessWidget {
     final maintenanceAlerts =
         snapshot.overdueMaintenance + snapshot.maintenanceDueSoon;
 
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView.extent(
+      maxCrossAxisExtent: 260,
       childAspectRatio: 1.1,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
@@ -256,36 +315,36 @@ class _MetricsGrid extends StatelessWidget {
       children: [
         MetricTile(
           icon: Icons.speed_outlined,
-          label: 'Mileage',
+          label: 'home_mileage'.tr(),
           value: vehicle == null ? '--' : '${vehicle.mileage.round()} km',
           detail: vehicle == null
-              ? 'Vehicle not configured'
+              ? 'home_vehicle_not_configured'.tr()
               : '${vehicle.brand} ${vehicle.model}',
         ),
         MetricTile(
           icon: Icons.checklist_outlined,
-          label: 'Checklist',
-          value: snapshot.checklistTotal == 0 ? '--' : '$openChecks open',
+          label: 'home_checklist'.tr(),
+          value: snapshot.checklistTotal == 0 ? '--' : 'home_open_count'.tr(namedArgs: {'count': openChecks.toString()}),
           detail: snapshot.checklistTotal == 0
-              ? 'No checklist created'
-              : '${snapshot.checklistCompleted}/${snapshot.checklistTotal} complete',
+              ? 'home_checklist_empty'.tr()
+              : 'home_checklist_complete'.tr(namedArgs: {'completed': snapshot.checklistCompleted.toString(), 'total': snapshot.checklistTotal.toString()}),
         ),
         MetricTile(
           icon: Icons.folder_copy_outlined,
-          label: 'Documents',
-          value: snapshot.documentCount == 0 ? '--' : '$documentAlerts alerts',
+          label: 'home_documents'.tr(),
+          value: snapshot.documentCount == 0 ? '--' : 'home_alert_count'.tr(namedArgs: {'count': documentAlerts.toString()}),
           detail: snapshot.documentCount == 0
-              ? 'No documents saved'
-              : '${snapshot.documentCount} stored locally',
+              ? 'home_documents_empty'.tr()
+              : 'home_documents_stored'.tr(namedArgs: {'count': snapshot.documentCount.toString()}),
         ),
         MetricTile(
           icon: Icons.build_circle_outlined,
-          label: 'Maintenance',
+          label: 'home_maintenance'.tr(),
           value:
-              snapshot.maintenanceCount == 0 ? '--' : '$maintenanceAlerts alerts',
+              snapshot.maintenanceCount == 0 ? '--' : 'home_alert_count'.tr(namedArgs: {'count': maintenanceAlerts.toString()}),
           detail: snapshot.maintenanceCount == 0
-              ? 'No service history'
-              : '${snapshot.maintenanceCount} records',
+              ? 'home_maintenance_empty'.tr()
+              : 'home_maintenance_records'.tr(namedArgs: {'count': snapshot.maintenanceCount.toString()}),
         ),
       ],
     );

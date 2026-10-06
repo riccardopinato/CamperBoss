@@ -67,38 +67,9 @@ class ReminderCoordinator implements ReminderSyncService {
     ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
     final limited = _limitForPlatform(reminders);
-    final groupedSources = <String, List<AppReminder>>{};
-    for (final reminder in limited) {
-      final key = '${reminder.sourceType.storageValue}:${reminder.sourceId}';
-      groupedSources.putIfAbsent(key, () => []).add(reminder);
-    }
-
-    for (final document in documents) {
-      final id = document.id;
-      if (id == null) continue;
-      await _reminderRepository.replaceSourceReminders(
-        ReminderSourceType.document,
-        id.toString(),
-        groupedSources['document:$id'] ?? const [],
-      );
-    }
-    for (final record in maintenance) {
-      final id = record.id;
-      if (id == null) continue;
-      await _reminderRepository.replaceSourceReminders(
-        ReminderSourceType.maintenance,
-        id.toString(),
-        groupedSources['maintenance:$id'] ?? const [],
-      );
-    }
-    for (final booking in bookings) {
-      await _reminderRepository.replaceSourceReminders(
-        ReminderSourceType.booking,
-        booking.id,
-        groupedSources['booking:${booking.id}'] ?? const [],
-      );
-    }
-
+    // Reconciliation owns the complete derived reminder set. Replacing it in
+    // one repository operation prevents stale reminders from deleted sources.
+    await _reminderRepository.replaceAllReminders(limited);
     await _notificationService.rescheduleAll(limited);
   }
 
@@ -194,6 +165,10 @@ class ReminderCoordinator implements ReminderSyncService {
 
   Future<NotificationPermissionState> permissionState() {
     return _notificationService.getPermissionState();
+  }
+
+  Future<NotificationTimezoneState> timezoneState() {
+    return _notificationService.getTimezoneState();
   }
 
   Future<bool> requestPermission() {
