@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 abstract interface class DocumentStorageService {
   Future<String> copyIntoPrivateDocuments(String pathOrUri);
   Future<void> deleteFiles(Iterable<String?> paths);
+  Future<List<String>> listManagedFiles();
 }
 
 DocumentStorageService createDocumentStorageService() {
@@ -52,6 +53,17 @@ class LocalDocumentStorageService implements DocumentStorageService {
         await file.delete();
       }
     }
+  }
+
+  @override
+  Future<List<String>> listManagedFiles() async {
+    final directory = await _documentsDirectory();
+    if (!directory.existsSync()) return const [];
+    return directory
+        .listSync(followLinks: false)
+        .whereType<File>()
+        .map((file) => file.path)
+        .toList(growable: false);
   }
 
   File _fileFromPathOrUri(String value) {
