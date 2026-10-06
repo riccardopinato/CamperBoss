@@ -1309,6 +1309,36 @@ class DataBackupService implements BackupService {
       }
     }
 
+    final incomingVehicleId = snapshot.profile?.id;
+    final effectiveVehicleId = current.profile?.id ?? incomingVehicleId;
+
+    int? remapVehicleId(int? value) {
+      if (value == null ||
+          incomingVehicleId == null ||
+          effectiveVehicleId == null ||
+          value != incomingVehicleId) {
+        return value;
+      }
+      return effectiveVehicleId;
+    }
+
+    final incomingDocuments = [
+      for (final item in snapshot.documents)
+        item.vehicleId == null
+            ? item
+            : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
+    ];
+    final incomingExpenses = [
+      for (final item in snapshot.expenses)
+        item.vehicleId == null
+            ? item
+            : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
+    ];
+    final incomingFuelEntries = [
+      for (final item in snapshot.fuelEntries)
+        item.copyWith(vehicleId: remapVehicleId(item.vehicleId)!),
+    ];
+
     final conflictingTripIds = await _mergeInt(
       incoming: snapshot.trips,
       current: current.trips,
@@ -1338,14 +1368,14 @@ class DataBackupService implements BackupService {
       counters: counters,
     );
     final conflictingDocumentIds = await _mergeInt(
-      incoming: snapshot.documents,
+      incoming: incomingDocuments,
       current: current.documents,
       idOf: (item) => item.id,
       save: _documentRepository.saveDocument,
       counters: counters,
     );
     await _mergeString(
-      incoming: snapshot.expenses,
+      incoming: incomingExpenses,
       current: current.expenses,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.occurredAt,
@@ -1357,7 +1387,7 @@ class DataBackupService implements BackupService {
       counters: counters,
     );
     await _mergeString(
-      incoming: snapshot.fuelEntries,
+      incoming: incomingFuelEntries,
       current: current.fuelEntries,
       idOf: (item) => item.id,
       updatedAtOf: (item) => item.date,
