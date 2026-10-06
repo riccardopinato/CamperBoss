@@ -667,7 +667,21 @@ Implementato software/harness:
 - Maestro top-level smoke Android e matrice AppLab performance;
 - Product Truth Web: GitHub Pages usa hash route (`/CamperBoss/#/map`), non path rewrite fittizi;
 - iOS esplicitamente deferred e non bloccante, incluso StoreKit/IAP;
-- matrice certificazione completa in `docs/release/step-16q-certification.md`.
+- matrice certificazione completa in `docs/release/step-16q-certification.md`;
+- hardening finale backup/restore: ZIP bounded/streamed, payload canonici, safety snapshot durevole, restore journal persistente e recovery pre-first-frame dopo process death;
+- merge backup conservativo: gli ID integer auto-increment locali non sono trattati come identita cross-device; collisioni e dipendenze ambigue vengono preservate localmente e segnalate come conflitti;
+- vehicle profile singleton merge con remap dei riferimenti vehicle collegati;
+- budget merge non distruttivo in assenza di version metadata;
+- media cleanup reference-aware tra documenti, manutenzione, GPX e Memories;
+- export ZIP/CSV/PDF verso storage durevole senza buffering completo del file in RAM;
+- rollback restore riconcilia i reminder derivati prima di propagare l'errore;
+- regression coverage dedicata ai failure path sopra, oltre ai gate FULL esistenti.
+
+Stato software al 06/10/2026:
+
+- tutti i P0/P1 noti delle review precedenti sono stati corretti nel release-candidate branch;
+- analyze, integration contracts, test/coverage e build platform devono risultare verdi sul medesimo head finale prima del merge;
+- nessun PASS statico sostituisce i gate real-device/store elencati sotto.
 
 Gate esterni ancora bloccanti:
 
