@@ -1,6 +1,7 @@
 abstract interface class DocumentStorageService {
   Future<String> copyIntoPrivateDocuments(String pathOrUri);
   Future<void> deleteFiles(Iterable<String?> paths);
+  Future<List<String>> listManagedFiles();
 }
 
 DocumentStorageService createDocumentStorageService() {
@@ -15,4 +16,7 @@ class UnsupportedDocumentStorageService implements DocumentStorageService {
 
   @override
   Future<void> deleteFiles(Iterable<String?> paths) async {}
+
+  @override
+  Future<List<String>> listManagedFiles() async => const [];
 }
