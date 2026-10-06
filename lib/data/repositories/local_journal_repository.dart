@@ -79,20 +79,6 @@ class LocalJournalRepository implements JournalRepository {
     return entry.copyWith(id: id);
   }
 
-  Future<int> _updateEntry(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.journalTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteEntry(int id) async {
     if (kIsWeb) {
