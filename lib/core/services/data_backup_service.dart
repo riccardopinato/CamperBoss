@@ -509,7 +509,9 @@ class DataBackupService implements BackupService {
       final seenSources = <String>{};
       for (final entry in manifest.files) {
         final normalizedPath = p.posix.normalize(entry.path);
-        if (p.posix.isAbsolute(entry.path) ||
+        if (entry.path != normalizedPath ||
+            entry.path.contains('\\') ||
+            p.posix.isAbsolute(entry.path) ||
             normalizedPath.startsWith('../') ||
             normalizedPath == '..' ||
             !seenPaths.add(normalizedPath)) {
@@ -528,17 +530,15 @@ class DataBackupService implements BackupService {
           missingFiles.add(entry.path);
           continue;
         }
-        final bytes = _bytes(archived);
-        final actual = sha256.convert(bytes).toString();
+        final actual = _sha256ArchiveFile(archived);
         if (actual != entry.sha256) {
           errors.add('Hash mismatch: ${entry.path}');
         }
       }
 
       if (manifest.schemaVersion == schemaVersion) {
-        final declaredPaths = manifest.files
-            .map((entry) => p.posix.normalize(entry.path))
-            .toList(growable: false);
+        final declaredPaths =
+            manifest.files.map((entry) => entry.path).toList(growable: false);
         for (final requiredPath in _dataPaths) {
           final manifestCount =
               declaredPaths.where((path) => path == requiredPath).length;
@@ -546,7 +546,7 @@ class DataBackupService implements BackupService {
               .where(
                 (file) =>
                     file.isFile &&
-                    p.posix.normalize(file.name) == requiredPath,
+                    file.name == requiredPath,
               )
               .length;
           if (manifestCount != 1) {
@@ -570,7 +570,7 @@ class DataBackupService implements BackupService {
       final file = archive.findFile(dataPath);
       if (file == null) continue;
       try {
-        final decoded = jsonDecode(utf8.decode(_bytes(file)));
+        final decoded = _decodeStructuredArchiveFile(file, dataPath);
         recordCounts[dataPath] = decoded is List ? decoded.length : 0;
       } catch (_) {
         errors.add('Malformed data file: $dataPath');
@@ -943,7 +943,8 @@ class DataBackupService implements BackupService {
     List<Map<String, Object?>> rows(String name) {
       final file = archive.findFile(name);
       if (file == null) return const [];
-      final decoded = jsonDecode(utf8.decode(_bytes(file))) as List<dynamic>;
+      final decoded =
+          _decodeStructuredArchiveFile(file, name) as List<dynamic>;
       return decoded
           .map((item) => Map<String, Object?>.from(item as Map))
           .toList(growable: false);
@@ -1039,7 +1040,12 @@ class DataBackupService implements BackupService {
             '${remap.length}_${_safeFileName(p.basename(originalPath))}',
           ),
         );
-        await staged.writeAsBytes(_bytes(archived), flush: true);
+        final output = OutputFileStream(staged.path);
+        try {
+          archived.writeContent(output, freeMemory: true);
+        } finally {
+          output.closeSync();
+        }
         final privatePath =
             await _fileStorageService.copyIntoPrivateDocuments(staged.path);
         remap[originalPath] = privatePath;
@@ -1419,6 +1425,22 @@ class DataBackupService implements BackupService {
     return 'files/$directory/${digest}_${_safeFileName(name)}';
   }
 
+  void _checkCreateEntryBounds(
+    int bytes,
+    int expandedSoFar,
+    String path, {
+    bool structured = false,
+  }) {
+    final limit =
+        structured ? maxStructuredPayloadBytes : maxArchiveEntryBytes;
+    if (bytes < 0 || bytes > limit) {
+      throw StateError('Backup entry exceeds safe limit: $path');
+    }
+    if (expandedSoFar + bytes > maxExpandedArchiveBytes) {
+      throw StateError('Backup expanded size exceeds the safe limit');
+    }
+  }
+
   Future<BackupManifestFile> _manifestFileFromDisk(
     File file,
     String archivePath, {
@@ -1455,8 +1477,42 @@ class DataBackupService implements BackupService {
     }
   }
 
-  List<int> _bytes(ArchiveFile file) {
-    return file.content;
+  String _sha256ArchiveFile(ArchiveFile file) {
+    final stream = file.getContent();
+    if (stream == null) {
+      throw const FormatException('Archive entry has no readable content');
+    }
+    final output = _DigestCollector();
+    final input = sha256.startChunkedConversion(output);
+    try {
+      while (!stream.isEOS) {
+        final remaining = stream.length;
+        if (remaining <= 0) break;
+        final count = remaining > 64 * 1024 ? 64 * 1024 : remaining;
+        input.add(stream.readBytes(count).toUint8List());
+      }
+      input.close();
+      final digest = output.value;
+      if (digest == null) {
+        throw const FormatException('Archive entry hash could not be computed');
+      }
+      return digest.toString();
+    } finally {
+      stream.closeSync();
+    }
+  }
+
+  Object? _decodeStructuredArchiveFile(ArchiveFile file, String path) {
+    if (file.size < 0 || file.size > maxStructuredPayloadBytes) {
+      throw FormatException(
+        'Structured backup payload exceeds safe limit: $path',
+      );
+    }
+    final bytes = file.readBytes();
+    if (bytes == null) {
+      throw FormatException('Structured backup payload is unreadable: $path');
+    }
+    return jsonDecode(utf8.decode(bytes));
   }
 
   String _prettyJson(Object? value) {
@@ -1599,6 +1655,18 @@ class _RestoreCounters {
   var restored = 0;
   var skipped = 0;
   var conflicts = 0;
+}
+
+class _DigestCollector implements Sink<Digest> {
+  Digest? value;
+
+  @override
+  void add(Digest data) {
+    value = data;
+  }
+
+  @override
+  void close() {}
 }
 
 const _dataPaths = [
