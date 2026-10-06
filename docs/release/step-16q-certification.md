@@ -1,6 +1,6 @@
 # STEP 16Q — Final Android/Web certification
 
-Snapshot: 2026-10-05
+Snapshot: 2026-10-06
 Canonical active platforms: Android + Web
 iOS: deferred / non-blocking
 
@@ -11,6 +11,27 @@ iOS: deferred / non-blocking
 The STEP 16 software scope is implemented through STEP 16Q, but CamperBoss is
 not declared CERTIFIED until the external gates below have real evidence tied
 to the same canonical source SHA.
+
+## Software hardening closure
+
+The final STEP 16Q branch now includes:
+
+- crash-resilient replace-all restore with a durable safety snapshot and a
+  persistent restore journal recovered before the first UI frame;
+- rollback reminder reconciliation;
+- bounded/streamed ZIP inspection, hashing, staging and export paths;
+- canonical schema-v3 backup payload validation;
+- conservative merge behavior for installation-local integer IDs, including
+  dependency conflict protection;
+- vehicle singleton-ID preservation plus vehicle-reference remapping;
+- local-preserving trip-budget conflict handling where no modification
+  timestamp exists;
+- cross-domain reference-aware media cleanup;
+- durable ZIP, CSV and PDF user export flows;
+- regression tests covering the above destructive/recovery paths.
+
+These changes close software defects; they do **not** constitute device,
+browser or store certification.
 
 ## Automated/static preflight
 
@@ -24,6 +45,23 @@ The repository final-certification guard verifies:
 - Android backup and cleartext protections remain enforced;
 - Web uses Flutter hash routing under GitHub Pages rather than claiming
   server-side path rewrites.
+
+## Automated evidence policy
+
+The final PR is eligible for merge only after the same final head passes:
+
+- Flutter analyze;
+- release integration contracts;
+- full tests with coverage;
+- dependency/license, secret, SAST and trust-boundary checks;
+- Fastlane immutable-artifact contract;
+- Android ARM64 QA release build + SHA-256 evidence + privacy-backup policy;
+- Web release build + bundle-size evidence;
+- final P0/P1 code review with no open applicable blockers.
+
+Workflow-generated evidence carries the actual source SHA and remains the
+authority for exact artifact provenance. Documentation never upgrades a
+runtime gate to PASS without matching external evidence.
 
 ## External gates still required
 
