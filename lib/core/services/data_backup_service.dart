@@ -440,7 +440,7 @@ class DataBackupService implements BackupService {
       archive = ZipDecoder().decodeStream(archiveInput);
       _validateArchiveBounds(archive);
     } catch (_) {
-      archiveInput?.closeSync();
+      archiveInput.closeSync();
       return BackupInspection(
         isValid: false,
         manifest: null,
@@ -531,7 +531,7 @@ class DataBackupService implements BackupService {
       }
     }
 
-    final recordCounts = <String, int>{}
+    final recordCounts = <String, int>{};
     for (final dataPath in _dataPaths) {
       final file = archive.findFile(dataPath);
       if (file == null) continue;
