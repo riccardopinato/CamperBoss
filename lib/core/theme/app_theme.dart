@@ -71,14 +71,17 @@ abstract final class AppTheme {
       ),
       textTheme: baseTextTheme.copyWith(
         headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+          fontSize: 28,
           fontWeight: FontWeight.w800,
           letterSpacing: -1,
         ),
         titleLarge: baseTextTheme.titleLarge?.copyWith(
+          fontSize: 22,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
         ),
         titleMedium: baseTextTheme.titleMedium?.copyWith(
+          fontSize: 16,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
         ),
