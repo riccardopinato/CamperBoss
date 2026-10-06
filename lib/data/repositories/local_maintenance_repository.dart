@@ -64,11 +64,33 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
       savedRecord = MaintenanceRecord.fromMap(saved);
     } else {
       final db = await _database.database;
-      final values = record.toMap()..remove('id');
-      final id = record.id == null
-          ? await db.insert(AppDatabase.maintenanceRecordsTable, values)
-          : await _updateRecord(db, record.id!, values);
-      savedRecord = record.copyWith(id: id, updatedAt: DateTime.now());
+      final values = record.toMap();
+      final requestedId = record.id;
+      late final int id;
+      if (requestedId == null) {
+        values.remove('id');
+        id = await db.insert(AppDatabase.maintenanceRecordsTable, values);
+      } else {
+        final updateValues = Map<String, Object?>.from(values)..remove('id');
+        final updated = await db.update(
+          AppDatabase.maintenanceRecordsTable,
+          updateValues,
+          where: 'id = ?',
+          whereArgs: [requestedId],
+        );
+        if (updated == 0) {
+          await db.insert(
+            AppDatabase.maintenanceRecordsTable,
+            values,
+            conflictAlgorithm: ConflictAlgorithm.abort,
+          );
+        }
+        id = requestedId;
+      }
+      savedRecord = record.copyWith(
+        id: id,
+        updatedAt: record.updatedAt ?? DateTime.now(),
+      );
     }
 
     _revisionStore.bump();
