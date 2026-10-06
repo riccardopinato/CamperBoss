@@ -1,5 +1,6 @@
 import 'package:archive/archive.dart';
 
+import '../../data/database/managed_media_reference_index.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/models/travel_history_models.dart';
 import '../../data/repositories/local_finance_repository.dart';
@@ -29,13 +30,18 @@ class TravelHistoryService {
     GpxService? gpxService,
     TravelMediaService? mediaService,
     TravelHistoryStatisticsService? statisticsService,
+    ManagedMediaReferenceIndex? mediaReferenceIndex,
   })  : _repository = repository ?? LocalTravelHistoryRepository(),
         _journalRepository = journalRepository ?? LocalJournalRepository(),
         _financeRepository = financeRepository ?? LocalFinanceRepository(),
         _gpxService = gpxService ?? const GpxService(),
         _mediaService = mediaService ?? createTravelMediaService(),
         _statisticsService =
-            statisticsService ?? const TravelHistoryStatisticsService();
+            statisticsService ?? const TravelHistoryStatisticsService(),
+        _mediaReferenceIndex = mediaReferenceIndex ??
+            ((repository == null || repository is LocalTravelHistoryRepository)
+                ? ManagedMediaReferenceIndex()
+                : null);
 
   final TravelHistoryRepository _repository;
   final JournalRepository _journalRepository;
@@ -43,6 +49,7 @@ class TravelHistoryService {
   final GpxService _gpxService;
   final TravelMediaService _mediaService;
   final TravelHistoryStatisticsService _statisticsService;
+  final ManagedMediaReferenceIndex? _mediaReferenceIndex;
 
   Future<TravelHistoryBundle> load({int? tripId}) async {
     final tracks = await _repository.listTracks(tripId: tripId);
@@ -208,11 +215,17 @@ class TravelHistoryService {
         .toSet();
     if (candidates.isEmpty) return;
 
-    final remaining = await _repository.listMemories();
-    final referenced = <String>{
-      for (final memory in remaining) ...memory.localPhotoPaths,
-    };
-    candidates.removeAll(referenced);
+    final globalReferences =
+        await _mediaReferenceIndex?.listReferencedPaths();
+    if (globalReferences != null) {
+      candidates.removeAll(globalReferences);
+    } else {
+      final remaining = await _repository.listMemories();
+      final referenced = <String>{
+        for (final memory in remaining) ...memory.localPhotoPaths,
+      };
+      candidates.removeAll(referenced);
+    }
     if (candidates.isNotEmpty) {
       await _mediaService.deleteFiles(candidates);
     }
@@ -227,13 +240,19 @@ class TravelHistoryService {
         .toSet();
     if (candidates.isEmpty) return;
 
-    final remaining = await _repository.listTracks();
-    final referenced = <String>{
-      for (final track in remaining)
-        if (track.localFilePath != null && track.localFilePath!.isNotEmpty)
-          track.localFilePath!,
-    };
-    candidates.removeAll(referenced);
+    final globalReferences =
+        await _mediaReferenceIndex?.listReferencedPaths();
+    if (globalReferences != null) {
+      candidates.removeAll(globalReferences);
+    } else {
+      final remaining = await _repository.listTracks();
+      final referenced = <String>{
+        for (final track in remaining)
+          if (track.localFilePath != null && track.localFilePath!.isNotEmpty)
+            track.localFilePath!,
+      };
+      candidates.removeAll(referenced);
+    }
     if (candidates.isNotEmpty) {
       await _mediaService.deleteFiles(candidates);
     }
