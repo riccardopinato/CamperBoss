@@ -401,7 +401,10 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         Positioned.fill(
           child: widget.renderMap
               ? MapLibreMap(
-                  styleString: MapEngineV2Config.styleUrl,
+                  styleString: _offlineManager.isSupported &&
+                          MapEngineV2Config.offlineStyleUrl != null
+                      ? MapEngineV2Config.offlineStyleUrl!
+                      : MapEngineV2Config.styleUrl,
                   initialCameraPosition: CameraPosition(
                     target: LatLng(
                       widget.initialLatitude,
