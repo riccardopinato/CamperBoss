@@ -583,6 +583,7 @@
   "offline_guides_last_position": "Ultima posizione di lettura salvata {date}",
   "offline_guides_pdf_safety": "Le guide PDF si aprono con il visualizzatore di sistema per evitare l'esecuzione di script incorporati.",
   "offline_guides_open_pdf": "Apri PDF",
+  "offline_guides_error": "Impossibile caricare i contenuti delle guide offline. Riprova.",
   "search_error_index_unavailable": "Indice di ricerca non disponibile",
   "search_error_index_corrupted": "Indice di ricerca danneggiato",
   "search_error_failed": "Ricerca non riuscita",
