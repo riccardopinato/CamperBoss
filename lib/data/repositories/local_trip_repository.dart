@@ -76,20 +76,6 @@ class LocalTripRepository implements TripRepository {
     return trip.copyWith(id: id);
   }
 
-  Future<int> _updateTrip(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.tripsTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteTrip(int id) async {
     if (kIsWeb) {
