@@ -575,7 +575,13 @@ class DataBackupService implements BackupService {
       );
     } catch (error, stackTrace) {
       if (materialized != null) {
-        await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        // Rollback is safety-critical. Cleanup must never prevent it from
+        // running when the filesystem is already unhealthy.
+        try {
+          await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        } catch (_) {
+          // Best effort. The safety snapshot below restores canonical state.
+        }
         try {
           await _restoreSafetySnapshot(automaticBackup);
         } catch (rollbackError) {
