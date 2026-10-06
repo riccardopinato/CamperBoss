@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -66,10 +67,11 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         _isLoading = false;
       });
       _openInitialSourceIfNeeded();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Offline guides load failed: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = 'offline_guides_error'.tr();
         _isLoading = false;
       });
     }
@@ -96,9 +98,10 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
     try {
       await _guidesService.installBundledPackage();
       await _load();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Offline guide install failed: $error\n$stackTrace');
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = 'offline_guides_error'.tr());
     } finally {
       if (mounted) setState(() => _isInstalling = false);
     }
@@ -174,9 +177,25 @@ class _OfflineGuidesScreenState extends State<OfflineGuidesScreen> {
         ),
         const SizedBox(height: 16),
         if (_error != null) ...[
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          PremiumCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
         ],
