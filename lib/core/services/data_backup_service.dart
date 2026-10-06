@@ -250,10 +250,11 @@ class DataBackupService implements BackupService {
   static const format = 'camperboss-backup';
   static const schemaVersion = 3;
   static const _supportedSchemaVersions = {1, 2, 3};
-  static const maxInMemoryArchiveBytes = 256 * 1024 * 1024;
+  static const maxArchiveFileBytes = 256 * 1024 * 1024;
   static const maxArchiveEntries = 5000;
   static const maxArchiveEntryBytes = 128 * 1024 * 1024;
   static const maxExpandedArchiveBytes = 768 * 1024 * 1024;
+  static const maxStructuredPayloadBytes = 16 * 1024 * 1024;
 
   final VehicleProfileRepository _profileRepository;
   final TripRepository _tripRepository;
@@ -297,7 +298,12 @@ class DataBackupService implements BackupService {
     var encoderOpened = false;
     var fileCount = 0;
     var completed = 0;
-    final totalWork = payloads.length + sourcePaths.length + 1;
+    var expandedBytes = 0;
+    final totalEntries = payloads.length + sourcePaths.length + 1;
+    if (totalEntries > maxArchiveEntries) {
+      throw StateError('Backup contains too many archive entries');
+    }
+    final totalWork = totalEntries;
 
     void checkCancelled() {
       if (options.shouldCancel?.call() == true) {
@@ -327,6 +333,14 @@ class DataBackupService implements BackupService {
           encoding: utf8,
           flush: true,
         );
+        final payloadBytes = await staged.length();
+        _checkCreateEntryBounds(
+          payloadBytes,
+          expandedBytes,
+          entry.key,
+          structured: true,
+        );
+        expandedBytes += payloadBytes;
         manifestFiles.add(
           await _manifestFileFromDisk(staged, entry.key),
         );
@@ -345,6 +359,13 @@ class DataBackupService implements BackupService {
           continue;
         }
         final backupPath = _backupPathForFile(filePath);
+        final sourceBytes = await file.length();
+        _checkCreateEntryBounds(
+          sourceBytes,
+          expandedBytes,
+          backupPath,
+        );
+        expandedBytes += sourceBytes;
         manifestFiles.add(
           await _manifestFileFromDisk(
             file,
@@ -372,12 +393,25 @@ class DataBackupService implements BackupService {
         encoding: utf8,
         flush: true,
       );
+      final manifestBytes = await manifestFile.length();
+      _checkCreateEntryBounds(
+        manifestBytes,
+        expandedBytes,
+        'manifest.json',
+        structured: true,
+      );
+      expandedBytes += manifestBytes;
       await encoder.addFile(manifestFile, 'manifest.json');
       completed++;
       reportProgress();
 
       await encoder.close();
       encoderOpened = false;
+      if (await output.length() > maxArchiveFileBytes) {
+        throw StateError(
+          'Backup exceeds the maximum supported archive size',
+        );
+      }
       options.onProgress?.call(1);
 
       return BackupResult(
@@ -420,14 +454,14 @@ class DataBackupService implements BackupService {
         errors: ['Backup file does not exist'],
       );
     }
-    if (await archiveFile.length() > maxInMemoryArchiveBytes) {
+    if (await archiveFile.length() > maxArchiveFileBytes) {
       return const BackupInspection(
         isValid: false,
         manifest: null,
         recordCounts: {},
         fileCount: 0,
         missingFiles: [],
-        errors: ['Backup exceeds the safe in-memory restore limit'],
+        errors: ['Backup exceeds the maximum supported archive size'],
       );
     }
     final missingFiles = <String>[];
