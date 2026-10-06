@@ -170,6 +170,40 @@ class FuelEntry {
 
   double get liters => volumeMilliLitres / 1000.0;
 
+  FuelEntry copyWith({
+    String? id,
+    int? vehicleId,
+    int? tripId,
+    DateTime? date,
+    int? odometerKm,
+    int? volumeMilliLitres,
+    int? totalCostMinor,
+    String? currencyCode,
+    bool? fullTank,
+    String? station,
+    double? latitude,
+    double? longitude,
+    String? notes,
+    int? documentId,
+  }) {
+    return FuelEntry(
+      id: id ?? this.id,
+      vehicleId: vehicleId ?? this.vehicleId,
+      tripId: tripId ?? this.tripId,
+      date: date ?? this.date,
+      odometerKm: odometerKm ?? this.odometerKm,
+      volumeMilliLitres: volumeMilliLitres ?? this.volumeMilliLitres,
+      totalCostMinor: totalCostMinor ?? this.totalCostMinor,
+      currencyCode: currencyCode ?? this.currencyCode,
+      fullTank: fullTank ?? this.fullTank,
+      station: station ?? this.station,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      notes: notes ?? this.notes,
+      documentId: documentId ?? this.documentId,
+    );
+  }
+
   Map<String, Object?> toMap() {
     return {
       'id': id,
