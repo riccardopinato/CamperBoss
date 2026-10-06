@@ -264,6 +264,52 @@ void main() {
     expect(File(rolledBackPath).readAsStringSync(), 'old-private-file');
   });
 
+  test('rollback still runs when staged-file cleanup throws', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_cleanup_rollback_test');
+    final privateDir = Directory('${temp.path}/private')..createSync();
+    addTearDown(() => temp.delete(recursive: true));
+
+    final incomingFile = File('${temp.path}/incoming.pdf')
+      ..writeAsStringSync('incoming');
+    final incoming = _memoryState(
+      trips: const [
+        TripPlan(id: 99, title: 'Incoming', summary: 'Backup', progress: 0),
+      ],
+      documents: [
+        VehicleDocument(
+          id: 10,
+          category: 'invoice',
+          title: 'Incoming document',
+          localFilePath: incomingFile.path,
+          mimeType: 'application/pdf',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+    final incomingBackup = await _serviceFrom(incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final target = _memoryState(
+      trips: const [
+        TripPlan(id: 1, title: 'Original', summary: 'Local', progress: 0),
+      ],
+    );
+    final storage = _FailingDeleteStorageService(privateDir);
+    final service = _serviceFrom(
+      target,
+      fileStorageService: storage,
+      tripRepository: _FailOnceTripRepository(target),
+    );
+
+    await expectLater(
+      service.restoreBackup(incomingBackup.path, RestoreStrategy.replaceAll),
+      throwsStateError,
+    );
+
+    expect(target.trips.single.title, 'Original');
+  });
   test('replaceAll purges stale derived route previews before integrity audit',
       () async {
     final temp =
@@ -582,6 +628,14 @@ DataBackupService _serviceFrom(
   );
 }
 
+class _FailingDeleteStorageService extends _TestFileStorageService {
+  _FailingDeleteStorageService(super.directory);
+
+  @override
+  Future<void> deleteFiles(Iterable<String?> paths) async {
+    throw FileSystemException('forced staged cleanup failure');
+  }
+}
 class _TestFileStorageService implements DocumentStorageService {
   _TestFileStorageService(this.directory);
 
