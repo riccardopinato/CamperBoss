@@ -125,7 +125,11 @@ class TravelHistoryService {
     final previous = await _memoryById(memory.id);
     final saved = await _repository.saveMemory(memory);
     if (previous != null && previous.localPhotoPaths.isNotEmpty) {
-      await _deleteUnreferencedMemoryFiles(previous.localPhotoPaths);
+      try {
+        await _deleteUnreferencedMemoryFiles(previous.localPhotoPaths);
+      } catch (_) {
+        // Save is committed; media garbage collection is best-effort.
+      }
     }
     return saved;
   }
@@ -134,7 +138,11 @@ class TravelHistoryService {
     final previous = await _trackById(track.id);
     final saved = await _repository.saveTrack(track);
     if (previous?.localFilePath != null) {
-      await _deleteUnreferencedTrackFiles([previous!.localFilePath]);
+      try {
+        await _deleteUnreferencedTrackFiles([previous!.localFilePath]);
+      } catch (_) {
+        // Save is committed; media garbage collection is best-effort.
+      }
     }
     return saved;
   }
@@ -145,7 +153,11 @@ class TravelHistoryService {
   }) async {
     await _repository.deleteMemory(memory.id);
     if (deleteMedia) {
-      await cleanupUnreferencedMemoryFiles(memory.localPhotoPaths);
+      try {
+        await cleanupUnreferencedMemoryFiles(memory.localPhotoPaths);
+      } catch (_) {
+        // Deletion is committed; cleanup must not break rollback/recovery.
+      }
     }
   }
 
@@ -155,7 +167,11 @@ class TravelHistoryService {
   }) async {
     await _repository.deleteTrack(track.id);
     if (deleteMedia) {
-      await cleanupUnreferencedTrackFiles([track.localFilePath]);
+      try {
+        await cleanupUnreferencedTrackFiles([track.localFilePath]);
+      } catch (_) {
+        // Deletion is committed; cleanup must not break rollback/recovery.
+      }
     }
   }
 
