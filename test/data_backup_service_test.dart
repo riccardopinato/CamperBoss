@@ -179,6 +179,111 @@ void main() {
       contains('data/documents.json'),
     );
   });
+  test('schema v3 rejects noncanonical aliases for required payloads',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_alias_payload_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final service = _service();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final original =
+        ZipDecoder().decodeBytes(File(backup.path).readAsBytesSync());
+    final manifestFile = original.findFile('manifest.json')!;
+    final manifest = Map<String, dynamic>.from(
+      jsonDecode(utf8.decode(manifestFile.content)) as Map,
+    );
+    final files = List<Map<String, dynamic>>.from(
+      (manifest['files'] as List).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
+    );
+    for (final item in files) {
+      if (item['path'] == 'data/documents.json') {
+        item['path'] = 'data/./documents.json';
+      }
+    }
+    manifest['files'] = files;
+
+    final tampered = Archive();
+    for (final file in original.files) {
+      if (!file.isFile || file.name == 'manifest.json') continue;
+      final name = file.name == 'data/documents.json'
+          ? 'data/./documents.json'
+          : file.name;
+      tampered.addFile(ArchiveFile(name, file.size, file.content));
+    }
+    tampered.addFile(
+      ArchiveFile.string('manifest.json', jsonEncode(manifest)),
+    );
+    final path = '${temp.path}/alias-documents.zip';
+    File(path).writeAsBytesSync(ZipEncoder().encode(tampered));
+
+    final inspection = await service.inspectBackup(path);
+
+    expect(inspection.isValid, isFalse);
+    expect(
+      inspection.errors.join(' | '),
+      contains('data/./documents.json'),
+    );
+  });
+
+  test('backup creation rejects media larger than the restore contract',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_oversize_backup_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final oversized = File('${temp.path}/oversized.bin');
+    final handle = oversized.openSync(mode: FileMode.write);
+    handle.truncateSync(DataBackupService.maxArchiveEntryBytes + 1);
+    handle.closeSync();
+    final service = _service(
+      documents: [
+        VehicleDocument(
+          id: 77,
+          category: 'other',
+          title: 'Oversized',
+          localFilePath: oversized.path,
+          mimeType: 'application/octet-stream',
+          ocrStatus: DocumentOcrStatus.notRequested,
+        ),
+      ],
+    );
+
+    await expectLater(
+      service.createBackup(BackupOptions(outputDirectory: temp)),
+      throwsStateError,
+    );
+  });
+
+  test('merge preserves a newer local vehicle profile', () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_profile_merge_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final incoming = _profile.copyWith(
+      brand: 'Older backup',
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+    final local = _profile.copyWith(
+      brand: 'Newer local',
+      updatedAt: DateTime.utc(2026, 2, 1),
+    );
+    final backup = await _service(profile: incoming).createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+    final target = _memoryState(profile: local);
+
+    final result = await _serviceFrom(target).restoreBackup(
+      backup.path,
+      RestoreStrategy.merge,
+    );
+
+    expect(target.profile?.brand, 'Newer local');
+    expect(result.skippedRecords, greaterThanOrEqualTo(1));
+    expect(result.conflicts, greaterThanOrEqualTo(1));
+  });
   test('restore replaceAll replaces local records and creates safety backup',
       () async {
     final temp =
