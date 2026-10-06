@@ -40,6 +40,45 @@ void main() {
     );
   });
 
+  test('manifest rejects packages sharing one destination path', () {
+    final manifest = DownloadManifest(
+      schemaVersion: 1,
+      updatedAt: DateTime.utc(2026, 10, 6),
+      packages: const [
+        DownloadablePackage(
+          id: 'one',
+          type: DownloadPackageType.guide,
+          title: 'One',
+          description: '',
+          version: '1',
+          url: 'https://downloads.example.test/one.json',
+          fileName: 'shared.json',
+          fileSizeBytes: 1,
+          expectedSha256: '',
+          requiresWifiByDefault: true,
+          destinationDirectory: 'offline/shared',
+        ),
+        DownloadablePackage(
+          id: 'two',
+          type: DownloadPackageType.manual,
+          title: 'Two',
+          description: '',
+          version: '1',
+          url: 'https://downloads.example.test/two.json',
+          fileName: 'shared.json',
+          fileSizeBytes: 1,
+          expectedSha256: '',
+          requiresWifiByDefault: true,
+          destinationDirectory: 'offline/shared',
+        ),
+      ],
+    );
+
+    expect(
+      () => manifest.validate(allowedHosts: {'downloads.example.test'}),
+      throwsFormatException,
+    );
+  });
   test('activates verified POI package and persists provenance', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss-poi-');
     addTearDown(() => temp.delete(recursive: true));
