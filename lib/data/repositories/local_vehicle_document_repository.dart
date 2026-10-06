@@ -75,7 +75,12 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
 
     _revisionStore.bump();
     if (previous != null) {
-      await _deleteUnreferencedFiles(previous.filePaths);
+      try {
+        await _deleteUnreferencedFiles(previous.filePaths);
+      } catch (_) {
+        // Persistence already committed. Orphan cleanup is best-effort and
+        // must not turn a successful save into an application-level failure.
+      }
     }
     return savedDocument;
   }
@@ -110,7 +115,11 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
       );
     }
     _revisionStore.bump();
-    await _deleteUnreferencedFiles(document.filePaths);
+    try {
+      await _deleteUnreferencedFiles(document.filePaths);
+    } catch (_) {
+      // The row deletion is already committed. Media cleanup may be retried.
+    }
   }
 
   Future<void> _deleteUnreferencedFiles(Iterable<String> paths) async {
