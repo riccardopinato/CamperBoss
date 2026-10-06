@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/services/app_system_services.dart';
+import '../../../core/services/backup_file_export_service.dart';
 import '../../../core/services/data_backup_service.dart';
 import '../../../shared/widgets/premium_card.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
@@ -19,6 +20,8 @@ class BackupToolsScreen extends StatefulWidget {
 
 class _BackupToolsScreenState extends State<BackupToolsScreen> {
   final DataBackupService _service = DataBackupService();
+  final BackupFileExportService _exportService =
+      const BackupFileExportService();
 
   BackupInspection? _inspection;
   String? _selectedPath;
@@ -41,12 +44,10 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
       );
 
       final temporaryBackup = File(result.path);
-      final durableLocation = await FilePicker.saveFile(
-        dialogTitle: 'backup_create'.tr(),
+      final durableLocation = await _exportService.exportFile(
+        sourcePath: temporaryBackup.path,
         fileName: p.basename(result.path),
-        bytes: await temporaryBackup.readAsBytes(),
-        type: FileType.custom,
-        allowedExtensions: const ['zip'],
+        dialogTitle: 'backup_create'.tr(),
       );
       if (durableLocation == null) {
         if (!mounted) return;
