@@ -10,11 +10,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
   });
 
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('notification step invokes permission requester', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1080, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final service = _FakeOnboardingService()
       ..progress = OnboardingProgress.empty.copyWith(
         currentStepId: 'notifications',
@@ -38,11 +44,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Explain and request'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    expect(find.text('Explain and request'), findsOneWidget);
     await tester.tap(find.text('Explain and request'));
     await tester.pumpAndSettle();
 
@@ -51,6 +53,9 @@ void main() {
   });
 
   testWidgets('guided onboarding renders stepper and advances', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1080, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final service = _FakeOnboardingService();
 
     await tester.pumpWidget(
@@ -75,11 +80,7 @@ void main() {
     expect(find.text('Language and country'), findsOneWidget);
     expect(find.text('Vehicle profile'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Continue'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    expect(find.text('Continue'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
