@@ -627,21 +627,24 @@ class DataBackupService implements BackupService {
     }
     final archiveInput = InputFileStream(path);
     _MaterializedRestore? materialized;
-    var mutationStarted = false;
+    var journalWritten = false;
+    var canonicalMutationStarted = false;
     try {
       final archive = ZipDecoder().decodeStream(archiveInput);
       _validateArchiveBounds(archive);
       final snapshot = _snapshotFromArchive(archive);
+
+      // Persist recovery intent before durable restore media is materialized.
+      await _writeRestoreJournal(automaticBackup, strategy);
+      journalWritten = true;
+
       materialized = await _materializeSnapshotFiles(
         archive,
         inspection.manifest!,
         snapshot,
       );
 
-      // Persist recovery intent before the first destructive write. If the
-      // process dies from this point onward, startup restores this snapshot.
-      await _writeRestoreJournal(automaticBackup, strategy);
-      mutationStarted = true;
+      canonicalMutationStarted = true;
 
       final result = strategy == RestoreStrategy.replaceAll
           ? await _replaceAll(materialized.snapshot)
@@ -672,24 +675,46 @@ class DataBackupService implements BackupService {
         try {
           await _fileStorageService.deleteFiles(materialized.copiedPaths);
         } catch (_) {
-          // Best effort. Canonical rollback below remains authoritative.
+          // Best effort. Recovery cleanup scans all managed files below.
         }
       }
-      if (mutationStarted) {
+
+      if (canonicalMutationStarted) {
         try {
           await _restoreSafetySnapshot(automaticBackup);
-          await _recoveryReconcile?.call();
-          await _clearRestoreJournal();
         } catch (rollbackError) {
-          // Keep the journal and safety archive in place. Startup recovery can
-          // retry after a crash, process kill or transient notification error.
+          // Canonical rollback did not complete: retain the journal so startup
+          // recovery can retry from the durable safety snapshot.
           throw StateError(
             'Restore failed and automatic rollback failed. '
             'Safety backup: ${automaticBackup.path}. '
             'Rollback error: $rollbackError',
           );
         }
+
+        // Canonical data is safe again. Clear the marker before derived
+        // reconciliation so reminder failures cannot replay stale data later.
+        await _clearRestoreJournal();
+        try {
+          await _cleanupUnreferencedManagedFiles();
+        } catch (_) {
+          // Orphan media cleanup is best-effort after canonical rollback.
+        }
+        try {
+          await _recoveryReconcile?.call();
+        } catch (_) {
+          // AppSystemServices retries derived reminders after recovery.
+        }
+      } else if (journalWritten) {
+        // Canonical data was not mutated, but media copying may have started.
+        try {
+          await _cleanupUnreferencedManagedFiles();
+        } catch (_) {
+          // Current canonical references remain authoritative.
+        }
+        await _clearRestoreJournal();
       }
+
       Error.throwWithStackTrace(error, stackTrace);
     } finally {
       archiveInput.closeSync();
@@ -731,8 +756,20 @@ class DataBackupService implements BackupService {
       missingFiles: inspection.missingFiles,
     );
     await _restoreSafetySnapshot(backup);
-    await _recoveryReconcile?.call();
+
+    // Canonical rollback succeeded. Clear the marker first so a derived
+    // reminder failure can never cause a second rollback on next launch.
     await _clearRestoreJournal();
+    try {
+      await _cleanupUnreferencedManagedFiles();
+    } catch (_) {
+      // Orphan cleanup is repairable and must not brick startup.
+    }
+    try {
+      await _recoveryReconcile?.call();
+    } catch (_) {
+      // AppSystemServices retries reminder reconciliation after the gate.
+    }
     return true;
   }
 
@@ -782,6 +819,16 @@ class DataBackupService implements BackupService {
     if (await journal.exists()) {
       await journal.delete();
     }
+  }
+
+  Future<void> _cleanupUnreferencedManagedFiles() async {
+    final managed = await _fileStorageService.listManagedFiles();
+    if (managed.isEmpty) return;
+
+    final current = await _loadSnapshot();
+    final referenced = _collectFilePaths(current).toSet();
+    final orphaned = managed.where((path) => !referenced.contains(path));
+    await _fileStorageService.deleteFiles(orphaned);
   }
 
   Future<void> _restoreSafetySnapshot(BackupResult backup) async {
@@ -1289,8 +1336,12 @@ class DataBackupService implements BackupService {
       counters.restored++;
     }
     if (snapshot.userState != null) {
-      await _userStateBackupService.restore(snapshot.userState!);
-      counters.restored++;
+      final merged = await _userStateBackupService.mergePreservingExisting(
+        snapshot.userState!,
+      );
+      counters.restored += merged.restored;
+      counters.skipped += merged.skipped;
+      counters.conflicts += merged.conflicts;
     }
     if (snapshot.profile != null) {
       final incoming = snapshot.profile!;
@@ -1322,22 +1373,45 @@ class DataBackupService implements BackupService {
       return effectiveVehicleId;
     }
 
-    final incomingDocuments = [
-      for (final item in snapshot.documents)
+    final incomingDocuments = <VehicleDocument>[];
+    for (final item in snapshot.documents) {
+      if (item.vehicleId != null && incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingDocuments.add(
         item.vehicleId == null
             ? item
             : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
-    ];
-    final incomingExpenses = [
-      for (final item in snapshot.expenses)
+      );
+    }
+
+    final incomingExpenses = <Expense>[];
+    for (final item in snapshot.expenses) {
+      if (item.vehicleId != null && incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingExpenses.add(
         item.vehicleId == null
             ? item
             : item.copyWith(vehicleId: remapVehicleId(item.vehicleId)),
-    ];
-    final incomingFuelEntries = [
-      for (final item in snapshot.fuelEntries)
+      );
+    }
+
+    final incomingFuelEntries = <FuelEntry>[];
+    for (final item in snapshot.fuelEntries) {
+      if (incomingVehicleId == null) {
+        counters.skipped++;
+        counters.conflicts++;
+        continue;
+      }
+      incomingFuelEntries.add(
         item.copyWith(vehicleId: remapVehicleId(item.vehicleId)!),
-    ];
+      );
+    }
 
     final conflictingTripIds = await _mergeInt(
       incoming: snapshot.trips,
