@@ -15,6 +15,7 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - ".github/workflows/release-core-platforms.yml"
+      - ".github/workflows/deploy-pages.yml"
   pull_request:
     branches:
       - main
