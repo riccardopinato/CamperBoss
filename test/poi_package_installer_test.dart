@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:camperboss/core/services/poi_package_installer.dart';
 import 'package:camperboss/data/database/local_json_collection.dart';
 import 'package:camperboss/data/database/local_key_value_store_stub.dart';
@@ -62,7 +63,7 @@ void main() {
     final states = LocalPoiPackageStateRepository(
       collection: LocalJsonCollection('states', store: store),
     );
-    final manifest = await _manifestRepository(store);
+    final manifest = await _manifestRepository(store, file);
     final installed = _MemoryInstalledRepository();
     final records = _MemoryDownloadRepository();
     final record = _record(file.path);
@@ -84,6 +85,62 @@ void main() {
     expect(state?.attribution, 'OpenStreetMap contributors');
   });
 
+  test('activation rejects legacy POI metadata without checksum', () async {
+    final temp = await Directory.systemTemp.createTemp('camperboss-poi-legacy-');
+    addTearDown(() => temp.delete(recursive: true));
+    final file = File(temp.path + '/legacy.json')
+      ..writeAsStringSync('[{"id":"one","name":"Legacy","category":"parking","latitude":45.0,"longitude":11.0}]');
+    final store = MemoryKeyValueStore();
+    final manifestRepository = LocalOfflineManifestRepository(
+      cacheCollection: LocalJsonCollection('manifest', store: store),
+      allowedHosts: {'downloads.example.test'},
+    );
+    await manifestRepository.cacheManifest(
+      DownloadManifest(
+        schemaVersion: 1,
+        updatedAt: DateTime.utc(2026, 10, 6),
+        packages: const [
+          DownloadablePackage(
+            id: 'italy-poi',
+            type: DownloadPackageType.poiDatabase,
+            title: 'Legacy POI',
+            description: '',
+            version: '1',
+            url: 'https://downloads.example.test/legacy.json',
+            fileName: 'legacy.json',
+            fileSizeBytes: 1,
+            expectedSha256: '',
+            requiresWifiByDefault: true,
+            destinationDirectory: 'offline/poi',
+            metadata: {
+              'region': 'Italy',
+              'license': 'ODbL-1.0',
+              'attribution': 'OpenStreetMap contributors',
+              'source': 'Legacy catalog',
+            },
+          ),
+        ],
+      ),
+    );
+    final records = _MemoryDownloadRepository();
+    final record = _record(file.path);
+    await records.saveRecord(record);
+    final poi = LocalOfflinePoiRepository(
+      collection: LocalJsonCollection('poi', store: store),
+    );
+    final installer = PoiPackageInstaller(
+      poiRepository: poi,
+      stateRepository: LocalPoiPackageStateRepository(
+        collection: LocalJsonCollection('states', store: store),
+      ),
+      manifestRepository: manifestRepository,
+      installedRepository: _MemoryInstalledRepository(),
+      downloadRepository: records,
+    );
+
+    await expectLater(installer.install(record, file), throwsFormatException);
+    expect(await poi.loadPackage('italy-poi'), isEmpty);
+  });
   test('invalid update keeps previously activated package intact', () async {
     final temp = await Directory.systemTemp.createTemp('camperboss-poi-bad-');
     addTearDown(() => temp.delete(recursive: true));
@@ -113,7 +170,7 @@ void main() {
       stateRepository: LocalPoiPackageStateRepository(
         collection: LocalJsonCollection('states', store: store),
       ),
-      manifestRepository: await _manifestRepository(store),
+      manifestRepository: await _manifestRepository(store, file),
       installedRepository: _MemoryInstalledRepository(),
       downloadRepository: records,
     );
@@ -127,7 +184,10 @@ void main() {
 
 Future<LocalOfflineManifestRepository> _manifestRepository(
   MemoryKeyValueStore store,
+  File file,
 ) async {
+  final bytes = file.readAsBytesSync();
+  final checksum = sha256.convert(bytes).toString();
   final repository = LocalOfflineManifestRepository(
     cacheCollection: LocalJsonCollection('manifest', store: store),
     allowedHosts: {'downloads.example.test'},
@@ -136,7 +196,7 @@ Future<LocalOfflineManifestRepository> _manifestRepository(
     DownloadManifest(
       schemaVersion: 1,
       updatedAt: DateTime.utc(2026, 10, 3),
-      packages: const [
+      packages: [
         DownloadablePackage(
           id: 'italy-poi',
           type: DownloadPackageType.poiDatabase,
@@ -145,11 +205,11 @@ Future<LocalOfflineManifestRepository> _manifestRepository(
           version: '1',
           url: 'https://downloads.example.test/italy.json',
           fileName: 'italy.json',
-          fileSizeBytes: 1,
-          expectedSha256: '',
+          fileSizeBytes: bytes.length,
+          expectedSha256: checksum,
           requiresWifiByDefault: true,
           destinationDirectory: 'offline/poi',
-          metadata: {
+          metadata: const {
             'region': 'Italy',
             'license': 'ODbL-1.0',
             'attribution': 'OpenStreetMap contributors',
@@ -164,6 +224,9 @@ Future<LocalOfflineManifestRepository> _manifestRepository(
 
 DownloadRecord _record(String path) {
   final now = DateTime.utc(2026, 10, 3);
+  final file = File(path);
+  final bytes = file.readAsBytesSync();
+  final checksum = sha256.convert(bytes).toString();
   return DownloadRecord(
     packageId: 'italy-poi',
     taskId: 'task',
@@ -173,9 +236,9 @@ DownloadRecord _record(String path) {
     fileName: 'italy.json',
     localPath: path,
     status: DownloadStatus.verifying,
-    downloadedBytes: 1,
-    totalBytes: 1,
-    expectedSha256: '',
+    downloadedBytes: bytes.length,
+    totalBytes: bytes.length,
+    expectedSha256: checksum,
     installedSha256: '',
     createdAt: now,
     updatedAt: now,
