@@ -440,7 +440,7 @@ class DataBackupService implements BackupService {
       archive = ZipDecoder().decodeStream(archiveInput);
       _validateArchiveBounds(archive);
     } catch (_) {
-      archiveInput.closeSync();
+      archiveInput?.closeSync();
       return BackupInspection(
         isValid: false,
         manifest: null,
@@ -547,7 +547,7 @@ class DataBackupService implements BackupService {
         .where((file) => file.isFile && file.name.startsWith('files/'))
         .length;
 
-    archiveInput?.closeSync();
+    archiveInput.closeSync();
     return BackupInspection(
       isValid: errors.isEmpty && missingFiles.isEmpty,
       manifest: manifest,
