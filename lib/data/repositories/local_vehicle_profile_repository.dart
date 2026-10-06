@@ -134,20 +134,6 @@ class _SqlVehicleProfileStore implements VehicleProfileStore {
     );
   }
 
-  Future<int> _updateProfile(
-    Database db,
-    int id,
-    Map<String, Object?> values,
-  ) async {
-    await db.update(
-      AppDatabase.vehicleProfilesTable,
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    return id;
-  }
-
   @override
   Future<void> deleteProfile() async {
     final db = await _database.database;
