@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../database/data_revision_store.dart';
 import '../database/local_json_collection.dart';
+import '../database/managed_media_reference_index.dart';
 import '../models/maintenance_record.dart';
 import '../../core/services/document_storage_service.dart';
 
@@ -19,16 +20,22 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     LocalJsonCollection? webCollection,
     DocumentStorageService? storageService,
     DataRevisionStore? revisionStore,
+    ManagedMediaReferenceIndex? mediaReferenceIndex,
   })  : _database = database ?? AppDatabase.instance,
         _webCollection =
             webCollection ?? LocalJsonCollection('camperboss.maintenance'),
         _storageService = storageService ?? createDocumentStorageService(),
-        _revisionStore = revisionStore ?? DataRevisionStore();
+        _revisionStore = revisionStore ?? DataRevisionStore(),
+        _mediaReferenceIndex = mediaReferenceIndex ??
+            ManagedMediaReferenceIndex(
+              database: database ?? AppDatabase.instance,
+            );
 
   final AppDatabase _database;
   final LocalJsonCollection _webCollection;
   final DocumentStorageService _storageService;
   final DataRevisionStore _revisionStore;
+  final ManagedMediaReferenceIndex _mediaReferenceIndex;
 
   @override
   Future<List<MaintenanceRecord>> listRecords() async {
@@ -159,10 +166,7 @@ class LocalMaintenanceRepository implements MaintenanceRepository {
     final candidates = paths.where((path) => path.isNotEmpty).toSet();
     if (candidates.isEmpty) return;
 
-    final remaining = await listRecords();
-    final referenced = <String>{
-      for (final record in remaining) ...record.attachmentPaths,
-    };
+    final referenced = await _mediaReferenceIndex.listReferencedPaths();
     candidates.removeAll(referenced);
     if (candidates.isNotEmpty) {
       await _storageService.deleteFiles(candidates);
