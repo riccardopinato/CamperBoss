@@ -65,12 +65,33 @@ class LocalVehicleDocumentRepository implements VehicleDocumentRepository {
       savedDocument = VehicleDocument.fromMap(saved);
     } else {
       final db = await _database.database;
-      final values = document.toMap()..remove('id');
-      final id = document.id == null
-          ? await db.insert(AppDatabase.vehicleDocumentsTable, values)
-          : await _updateDocument(db, document.id!, values);
-      savedDocument =
-          document.copyWith(id: id, updatedAt: DateTime.now());
+      final values = document.toMap();
+      final requestedId = document.id;
+      late final int id;
+      if (requestedId == null) {
+        values.remove('id');
+        id = await db.insert(AppDatabase.vehicleDocumentsTable, values);
+      } else {
+        final updateValues = Map<String, Object?>.from(values)..remove('id');
+        final updated = await db.update(
+          AppDatabase.vehicleDocumentsTable,
+          updateValues,
+          where: 'id = ?',
+          whereArgs: [requestedId],
+        );
+        if (updated == 0) {
+          await db.insert(
+            AppDatabase.vehicleDocumentsTable,
+            values,
+            conflictAlgorithm: ConflictAlgorithm.abort,
+          );
+        }
+        id = requestedId;
+      }
+      savedDocument = document.copyWith(
+        id: id,
+        updatedAt: document.updatedAt ?? DateTime.now(),
+      );
     }
 
     _revisionStore.bump();
