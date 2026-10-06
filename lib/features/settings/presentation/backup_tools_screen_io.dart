@@ -19,7 +19,9 @@ class BackupToolsScreen extends StatefulWidget {
 }
 
 class _BackupToolsScreenState extends State<BackupToolsScreen> {
-  final DataBackupService _service = DataBackupService();
+  final DataBackupService _service = DataBackupService(
+    recoveryReconcile: () => AppSystemServices.instance.reminders.reconcile(),
+  );
   final BackupFileExportService _exportService =
       const BackupFileExportService();
 
@@ -154,16 +156,55 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
     await _run(() async {
       final csv = await _service.exportCsv();
       final pdf = await _service.exportVehiclePdf();
+
+      final pdfLocation = await _exportTemporaryFile(
+        pdf,
+        mimeType: 'application/pdf',
+      );
+      final csvLocations = <String>[];
+      for (final entry in csv.entries) {
+        final location = await _exportTemporaryFile(
+          entry.value,
+          mimeType: 'text/csv',
+        );
+        if (location != null) {
+          csvLocations.add(location.toString());
+        }
+      }
+
+      if (pdfLocation == null && csvLocations.isEmpty) {
+        if (!mounted) return;
+        setState(() => _status = 'backup_cancelled'.tr());
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _status = 'backup_exported'.tr(
           namedArgs: {
-            'pdf': pdf.path,
-            'csv': csv.values.map((file) => file.path).join(', '),
+            'pdf': pdfLocation?.toString() ?? '',
+            'csv': csvLocations.join(', '),
           },
         );
       });
     });
+  }
+
+  Future<Uri?> _exportTemporaryFile(
+    File file, {
+    required String mimeType,
+  }) async {
+    try {
+      return await _exportService.exportFile(
+        sourcePath: file.path,
+        fileName: p.basename(file.path),
+        mimeType: mimeType,
+        dialogTitle: 'backup_export'.tr(),
+      );
+    } finally {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
   }
 
   Future<void> _run(Future<void> Function() action) async {
