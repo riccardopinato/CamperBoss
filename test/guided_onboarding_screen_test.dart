@@ -14,6 +14,42 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
+  testWidgets('notification step invokes permission requester', (tester) async {
+    final service = _FakeOnboardingService()
+      ..progress = OnboardingProgress.empty.copyWith(
+        currentStepId: 'notifications',
+      );
+
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: GuidedOnboardingScreen(onboardingService: service),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Explain and request'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Explain and request'));
+    await tester.pumpAndSettle();
+
+    expect(service.notificationRequests, 1);
+    expect(find.text('Granted'), findsOneWidget);
+  });
+
   testWidgets('guided onboarding renders stepper and advances', (tester) async {
     final service = _FakeOnboardingService();
 
@@ -59,6 +95,7 @@ class _FakeOnboardingService implements OnboardingService {
   final completedSteps = <String>[];
   final skippedSteps = <String>[];
   OnboardingProgress? savedProgress;
+  int notificationRequests = 0;
 
   @override
   Future<void> completeStep(String stepId) async {
@@ -75,7 +112,10 @@ class _FakeOnboardingService implements OnboardingService {
   Future<bool> requestLocationAccess() async => true;
 
   @override
-  Future<bool> requestNotificationAccess() async => true;
+  Future<bool> requestNotificationAccess() async {
+    notificationRequests++;
+    return true;
+  }
 
   @override
   Future<void> saveProgress(OnboardingProgress progress) async {
