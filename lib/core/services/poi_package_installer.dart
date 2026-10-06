@@ -7,6 +7,7 @@ import '../../data/repositories/installed_resource_repository.dart';
 import '../../data/repositories/offline_manifest_repository.dart';
 import '../../data/repositories/offline_poi_repository.dart';
 import '../../data/repositories/poi_package_state_repository.dart';
+import 'download_file_verifier.dart';
 import 'offline_package_installer.dart';
 
 class PoiPackageInstaller implements OfflinePackageInstaller {
@@ -45,6 +46,17 @@ class PoiPackageInstaller implements OfflinePackageInstaller {
     final package = await _manifestPackage(record.packageId, record.version);
     if (package == null) {
       throw StateError('POI package metadata is unavailable');
+    }
+    _requireVerifiedPackage(package);
+    final verification = await const DownloadFileVerifier().verify(
+      file: file,
+      expectedBytes: package.fileSizeBytes,
+      expectedSha256: package.expectedSha256,
+    );
+    if (!verification.valid) {
+      throw StateError(
+        verification.error ?? 'POI package verification failed',
+      );
     }
     final meta = _metadataFor(package);
 
@@ -125,6 +137,19 @@ class PoiPackageInstaller implements OfflinePackageInstaller {
       }
     }
     return null;
+  }
+
+  void _requireVerifiedPackage(DownloadablePackage package) {
+    if (package.fileSizeBytes <= 0) {
+      throw const FormatException(
+        'POI package must declare a positive file size',
+      );
+    }
+    if (!RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(package.expectedSha256)) {
+      throw const FormatException(
+        'POI package must declare a valid SHA-256 checksum',
+      );
+    }
   }
 
   _PoiRequiredMetadata _metadataFor(DownloadablePackage package) {
