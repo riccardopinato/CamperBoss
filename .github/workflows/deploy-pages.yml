@@ -10,6 +10,7 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/release-core-platforms.yml"
   workflow_dispatch:
     inputs:
       source_sha:
