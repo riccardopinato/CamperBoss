@@ -121,7 +121,7 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       setState(() {
         _cacheSnapshot = snapshot;
-        if (offlinePlaces.isNotEmpty && widget.places == null) {
+        if (widget.places == null) {
           _places = offlinePlaces;
         }
       });
