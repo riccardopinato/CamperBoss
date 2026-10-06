@@ -44,11 +44,18 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
       );
 
       final temporaryBackup = File(result.path);
-      final durableLocation = await _exportService.exportFile(
-        sourcePath: temporaryBackup.path,
-        fileName: p.basename(result.path),
-        dialogTitle: 'backup_create'.tr(),
-      );
+      Uri? durableLocation;
+      try {
+        durableLocation = await _exportService.exportFile(
+          sourcePath: temporaryBackup.path,
+          fileName: p.basename(result.path),
+          dialogTitle: 'backup_create'.tr(),
+        );
+      } finally {
+        if (await temporaryBackup.exists()) {
+          await temporaryBackup.delete();
+        }
+      }
       if (durableLocation == null) {
         if (!mounted) return;
         setState(() => _status = 'backup_cancelled'.tr());
@@ -56,9 +63,6 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
       }
 
       final durablePath = durableLocation.toString();
-      if (await temporaryBackup.exists()) {
-        await temporaryBackup.delete();
-      }
       if (!mounted) return;
       setState(() {
         _status = 'backup_created'.tr(
