@@ -52,11 +52,29 @@ class LocalChecklistRepository implements ChecklistRepository {
     }
 
     final db = await _database.database;
-    final values = item.toMap()..remove('id');
-
-    final id = item.id == null
-        ? await db.insert(AppDatabase.checklistTable, values)
-        : await _updateItem(db, item.id!, values);
+    final values = item.toMap();
+    final requestedId = item.id;
+    late final int id;
+    if (requestedId == null) {
+      values.remove('id');
+      id = await db.insert(AppDatabase.checklistTable, values);
+    } else {
+      final updateValues = Map<String, Object?>.from(values)..remove('id');
+      final updated = await db.update(
+        AppDatabase.checklistTable,
+        updateValues,
+        where: 'id = ?',
+        whereArgs: [requestedId],
+      );
+      if (updated == 0) {
+        await db.insert(
+          AppDatabase.checklistTable,
+          values,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+      id = requestedId;
+    }
 
     _revisionStore.bump();
     return item.copyWith(id: id);
