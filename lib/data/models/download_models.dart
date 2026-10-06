@@ -195,6 +195,7 @@ class DownloadManifest {
       throw const FormatException('Unsupported manifest schema');
     }
     final ids = <String>{};
+    final destinationPaths = <String>{};
     for (final package in packages) {
       if (package.id.trim().isEmpty || !ids.add(package.id)) {
         throw const FormatException('Package IDs must be unique and non-empty');
@@ -208,7 +209,15 @@ class DownloadManifest {
           package.fileName.contains('..')) {
         throw const FormatException('Package file name is invalid');
       }
-      normalizeOfflineDestinationDirectory(package.destinationDirectory);
+      final destinationDirectory =
+          normalizeOfflineDestinationDirectory(package.destinationDirectory);
+      final destinationPath =
+          p.posix.join(destinationDirectory, package.fileName);
+      if (!destinationPaths.add(destinationPath)) {
+        throw const FormatException(
+          'Package destination paths must be unique',
+        );
+      }
       if (package.fileSizeBytes < 0) {
         throw const FormatException('Package size cannot be negative');
       }
