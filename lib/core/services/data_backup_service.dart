@@ -1180,8 +1180,18 @@ class DataBackupService implements BackupService {
       counters.restored++;
     }
     if (snapshot.profile != null) {
-      await _profileRepository.saveProfile(snapshot.profile!);
-      counters.restored++;
+      final incoming = snapshot.profile!;
+      final existing = current.profile;
+      if (existing != null &&
+          !_isIncomingNewer(incoming.updatedAt, existing.updatedAt)) {
+        counters.skipped++;
+        if (_canonical(incoming) != _canonical(existing)) {
+          counters.conflicts++;
+        }
+      } else {
+        await _profileRepository.saveProfile(incoming);
+        counters.restored++;
+      }
     }
     await _mergeInt(
       incoming: snapshot.trips,
