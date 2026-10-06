@@ -270,32 +270,7 @@ void main() {
       brand: 'Newer local',
       updatedAt: DateTime.utc(2026, 2, 1),
     );
-    final backup = await _service(
-      profile: incoming,
-      expenses: [
-        Expense(
-          id: 'vehicle-expense',
-          scope: ExpenseScope.vehicle,
-          vehicleId: 1,
-          category: ExpenseCategory.insurance,
-          amountMinor: 5000,
-          currencyCode: 'EUR',
-          occurredAt: DateTime.utc(2026, 2, 1),
-        ),
-      ],
-      fuel: [
-        FuelEntry(
-          id: 'vehicle-fuel',
-          vehicleId: 1,
-          date: DateTime.utc(2026, 2, 2),
-          odometerKm: 10000,
-          volumeMilliLitres: 40000,
-          totalCostMinor: 7000,
-          currencyCode: 'EUR',
-          fullTank: true,
-        ),
-      ],
-    ).createBackup(
+    final backup = await _service(profile: incoming).createBackup(
       BackupOptions(outputDirectory: temp),
     );
     final target = _memoryState(profile: local);
@@ -742,7 +717,32 @@ void main() {
       brand: 'Incoming newer',
       updatedAt: DateTime.utc(2026, 3, 1),
     );
-    final backup = await _service(profile: incoming).createBackup(
+    final backup = await _service(
+      profile: incoming,
+      expenses: [
+        Expense(
+          id: 'vehicle-expense',
+          scope: ExpenseScope.vehicle,
+          vehicleId: 1,
+          category: ExpenseCategory.insurance,
+          amountMinor: 5000,
+          currencyCode: 'EUR',
+          occurredAt: DateTime.utc(2026, 2, 1),
+        ),
+      ],
+      fuel: [
+        FuelEntry(
+          id: 'vehicle-fuel',
+          vehicleId: 1,
+          date: DateTime.utc(2026, 2, 2),
+          odometerKm: 10000,
+          volumeMilliLitres: 40000,
+          totalCostMinor: 7000,
+          currencyCode: 'EUR',
+          fullTank: true,
+        ),
+      ],
+    ).createBackup(
       BackupOptions(outputDirectory: temp),
     );
     final local = _profile.copyWith(
