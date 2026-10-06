@@ -251,6 +251,9 @@ class DataBackupService implements BackupService {
   static const schemaVersion = 3;
   static const _supportedSchemaVersions = {1, 2, 3};
   static const maxInMemoryArchiveBytes = 256 * 1024 * 1024;
+  static const maxArchiveEntries = 5000;
+  static const maxArchiveEntryBytes = 128 * 1024 * 1024;
+  static const maxExpandedArchiveBytes = 768 * 1024 * 1024;
 
   final VehicleProfileRepository _profileRepository;
   final TripRepository _tripRepository;
@@ -430,10 +433,14 @@ class DataBackupService implements BackupService {
     final missingFiles = <String>[];
     BackupManifest? manifest;
     Archive? archive;
+    InputFileStream? archiveInput;
 
     try {
-      archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
+      archiveInput = InputFileStream(path);
+      archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
     } catch (_) {
+      archiveInput?.closeSync();
       return BackupInspection(
         isValid: false,
         manifest: null,
@@ -540,6 +547,7 @@ class DataBackupService implements BackupService {
         .where((file) => file.isFile && file.name.startsWith('files/'))
         .length;
 
+    archiveInput?.closeSync();
     return BackupInspection(
       isValid: errors.isEmpty && missingFiles.isEmpty,
       manifest: manifest,
@@ -573,9 +581,11 @@ class DataBackupService implements BackupService {
         'Missing files: ${automaticBackup.missingFiles.join(', ')}',
       );
     }
+    final archiveInput = InputFileStream(path);
     _MaterializedRestore? materialized;
     try {
-      final archive = ZipDecoder().decodeBytes(await File(path).readAsBytes());
+      final archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
       final snapshot = _snapshotFromArchive(archive);
       materialized = await _materializeSnapshotFiles(
         archive,
@@ -622,23 +632,34 @@ class DataBackupService implements BackupService {
         }
       }
       Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      archiveInput.closeSync();
     }
   }
 
   Future<void> _restoreSafetySnapshot(BackupResult backup) async {
-    final archive =
-        ZipDecoder().decodeBytes(await File(backup.path).readAsBytes());
-    final snapshot = _snapshotFromArchive(archive);
-    final materialized = await _materializeSnapshotFiles(
-      archive,
-      backup.manifest,
-      snapshot,
-    );
+    final archiveInput = InputFileStream(backup.path);
     try {
-      await _replaceAll(materialized.snapshot);
-    } catch (_) {
-      await _fileStorageService.deleteFiles(materialized.copiedPaths);
-      rethrow;
+      final archive = ZipDecoder().decodeStream(archiveInput);
+      _validateArchiveBounds(archive);
+      final snapshot = _snapshotFromArchive(archive);
+      final materialized = await _materializeSnapshotFiles(
+        archive,
+        backup.manifest,
+        snapshot,
+      );
+      try {
+        await _replaceAll(materialized.snapshot);
+      } catch (_) {
+        try {
+          await _fileStorageService.deleteFiles(materialized.copiedPaths);
+        } catch (_) {
+          // Rollback state remains authoritative even if orphan cleanup fails.
+        }
+        rethrow;
+      }
+    } finally {
+      archiveInput.closeSync();
     }
   }
 
@@ -1376,6 +1397,28 @@ class DataBackupService implements BackupService {
       size: await file.length(),
       sourcePath: sourcePath,
     );
+  }
+
+  void _validateArchiveBounds(Archive archive) {
+    if (archive.files.length > maxArchiveEntries) {
+      throw const FormatException('Backup contains too many archive entries');
+    }
+    var expandedBytes = 0;
+    for (final file in archive.files) {
+      if (!file.isFile) continue;
+      final size = file.size;
+      if (size < 0 || size > maxArchiveEntryBytes) {
+        throw const FormatException(
+          'Backup entry exceeds the safe extraction limit',
+        );
+      }
+      expandedBytes += size;
+      if (expandedBytes > maxExpandedArchiveBytes) {
+        throw const FormatException(
+          'Backup expanded size exceeds the safe extraction limit',
+        );
+      }
+    }
   }
 
   List<int> _bytes(ArchiveFile file) {
