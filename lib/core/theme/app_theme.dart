@@ -23,6 +23,8 @@ abstract final class AppTheme {
       surface: surface,
     );
 
+    final baseTextTheme = ThemeData(brightness: brightness).textTheme;
+
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -67,16 +69,16 @@ abstract final class AppTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
         ),
       ),
-      textTheme: ThemeData(brightness: brightness).textTheme.copyWith(
-        headlineMedium: const TextStyle(
+      textTheme: baseTextTheme.copyWith(
+        headlineMedium: baseTextTheme.headlineMedium?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: -1,
         ),
-        titleLarge: const TextStyle(
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
         ),
-        titleMedium: const TextStyle(
+        titleMedium: baseTextTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
         ),
