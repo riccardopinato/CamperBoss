@@ -6,11 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/services/app_system_services.dart';
+import 'core/services/restore_recovery_bootstrap.dart';
 import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
+
+  // Never expose a partially replaced local dataset after process death.
+  // Native recovery completes before the first frame; Web is a no-op.
+  await recoverInterruptedRestoreIfNeeded();
 
   runApp(
     EasyLocalization(
