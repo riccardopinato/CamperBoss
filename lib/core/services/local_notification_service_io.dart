@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -26,6 +27,8 @@ class FlutterLocalNotificationService implements LocalNotificationService {
   static const _maintenanceChannelId = 'camperboss_maintenance';
   static const _deadlineChannelName = 'Deadline reminders';
   static const _maintenanceChannelName = 'Maintenance reminders';
+  static const MethodChannel _androidPermissionChannel =
+      MethodChannel('com.camperboss/notification_permission');
 
   final FlutterLocalNotificationsPlugin _plugin;
   String? _launchPayload;
@@ -99,7 +102,21 @@ class FlutterLocalNotificationService implements LocalNotificationService {
     if (Platform.isAndroid) {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      return await android?.requestNotificationsPermission() ?? false;
+      if (await android?.areNotificationsEnabled() == true) {
+        return true;
+      }
+
+      // Use a native Activity request on Android 13+ as the authoritative
+      // runtime prompt. This avoids OEM/plugin cases where the permission call
+      // returns false without presenting the system dialog.
+      try {
+        return await _androidPermissionChannel.invokeMethod<bool>('request') ??
+            false;
+      } on PlatformException {
+        return await android?.requestNotificationsPermission() ?? false;
+      } on MissingPluginException {
+        return await android?.requestNotificationsPermission() ?? false;
+      }
     }
     if (Platform.isIOS) {
       final ios = _plugin.resolvePlatformSpecificImplementation<
