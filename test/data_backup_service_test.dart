@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -132,6 +133,52 @@ void main() {
     expect(inspection.errors, contains('Unsupported schema version'));
   });
 
+  test('schema v3 rejects a manifest/archive missing canonical payloads',
+      () async {
+    final temp =
+        await Directory.systemTemp.createTemp('camperboss_missing_payload_test');
+    addTearDown(() => temp.delete(recursive: true));
+    final service = _service();
+    final backup = await service.createBackup(
+      BackupOptions(outputDirectory: temp),
+    );
+
+    final original =
+        ZipDecoder().decodeBytes(File(backup.path).readAsBytesSync());
+    final manifestFile = original.findFile('manifest.json')!;
+    final manifest = Map<String, dynamic>.from(
+      jsonDecode(utf8.decode(manifestFile.content)) as Map,
+    );
+    final files = List<Map<String, dynamic>>.from(
+      (manifest['files'] as List).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
+    )..removeWhere((item) => item['path'] == 'data/documents.json');
+    manifest['files'] = files;
+
+    final tampered = Archive();
+    for (final file in original.files) {
+      if (!file.isFile ||
+          file.name == 'manifest.json' ||
+          file.name == 'data/documents.json') {
+        continue;
+      }
+      tampered.addFile(ArchiveFile(file.name, file.size, file.content));
+    }
+    tampered.addFile(
+      ArchiveFile.string('manifest.json', jsonEncode(manifest)),
+    );
+    final path = '${temp.path}/missing-documents.zip';
+    File(path).writeAsBytesSync(ZipEncoder().encode(tampered));
+
+    final inspection = await service.inspectBackup(path);
+
+    expect(inspection.isValid, isFalse);
+    expect(
+      inspection.errors.join(' | '),
+      contains('data/documents.json'),
+    );
+  });
   test('restore replaceAll replaces local records and creates safety backup',
       () async {
     final temp =
