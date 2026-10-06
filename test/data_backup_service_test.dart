@@ -391,12 +391,16 @@ void main() {
       ],
     );
     final storage = _TestFileStorageService(privateDir);
+    var rollbackReconciled = false;
     final service = _serviceFrom(
       target,
       fileStorageService: storage,
       tripRepository: _FailOnceTripRepository(target),
       documentRepository:
           _DeletingMemoryDocumentRepository(target, storage),
+      recoveryReconcile: () async {
+        rollbackReconciled = true;
+      },
     );
 
     await expectLater(
@@ -414,6 +418,7 @@ void main() {
     expect(rolledBackPath, isNot(oldFile.path));
     expect(File(rolledBackPath).existsSync(), isTrue);
     expect(File(rolledBackPath).readAsStringSync(), 'old-private-file');
+    expect(rollbackReconciled, isTrue);
   });
 
   test('rollback still runs when staged-file cleanup throws', () async {
