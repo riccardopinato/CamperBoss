@@ -695,6 +695,40 @@ Criterio di uscita:
 
 - STEP 16 può diventare `DONE` solo quando tutti i P0/P1 applicabili sono chiusi e i gate fisici sono dimostrati.
 
+## STEP 16R — First physical acceptance hotfix
+
+Stato: `DONE SOFTWARE — RETEST DEVICE REQUIRED`
+
+Origine: primo test reale Android della release candidate STEP 16Q.
+
+Difetti riprodotti/segnalati:
+
+- card "Il mio camper" con tipografia fuori scala su Dimensioni/Massa/Serbatoi/Chilometraggio;
+- step onboarding notifiche senza prompt Android affidabile;
+- conferma finale onboarding bloccata da asset guide Essential non incluso nell'APK;
+- schermata Guide offline con errore tecnico raw e tipografia invasiva.
+
+Correzioni:
+
+- tema Material con dimensioni tipografiche core esplicite e `MetricTile` vincolato a `titleMedium`;
+- bridge Android nativo per `POST_NOTIFICATIONS` su Android 13+ con fallback plugin;
+- dichiarazione esplicita `assets/guides/essential/` nel bundle Flutter;
+- error handling Guide offline localizzato e bounded;
+- versione QA `0.2.1+17` e release identity riallineata;
+- regressioni automatiche per packaging guide, tipografia e flusso onboarding/notifiche.
+
+Evidenza software:
+
+- `flutter analyze`, integration contracts, test/coverage e supply-chain gate verdi;
+- build Web release verde;
+- build Android QA release APK verde sullo stesso codice runtime;
+- review Codex finale: nessun P0/P1 rilevato.
+
+Gate residuo:
+
+- reinstallare/testare l'APK 0.2.1+17 sul device reale e confermare: layout camper, prompt notifiche, completamento onboarding, installazione/apertura CamperBoss Essential.
+- questo step non cambia il verdetto globale STEP 16Q: la certificazione completa resta bloccata finché non sono raccolte tutte le evidenze real-device/store previste.
+
 ## STEP 17 — Local AI Micro Engine
 
 Stato: `TODO` — non anticipare prima del Release Core.

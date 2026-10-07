@@ -583,6 +583,7 @@
   "offline_guides_last_position": "Letzte Leseposition gespeichert {date}",
   "offline_guides_pdf_safety": "PDF-Guides werden im Systembetrachter geöffnet, damit eingebettete Skripte nicht ausgeführt werden.",
   "offline_guides_open_pdf": "PDF öffnen",
+  "offline_guides_error": "Offline-Guide-Inhalte konnten nicht geladen werden. Bitte erneut versuchen.",
   "search_error_index_unavailable": "Suchindex nicht verfügbar",
   "search_error_index_corrupted": "Suchindex beschädigt",
   "search_error_failed": "Suche fehlgeschlagen",

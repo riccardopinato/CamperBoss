@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camperboss/core/services/offline_guides_service.dart';
 import 'package:camperboss/data/database/local_key_value_store_base.dart';
@@ -11,6 +10,30 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('production guide package is declared and source assets exist', () async {
+    final pubspec = await File('pubspec.yaml').readAsString();
+    expect(pubspec, contains('assets/guides/essential/'));
+
+    final manifestFile = File(
+      LocalOfflineGuidesService.bundledManifestAsset,
+    );
+    expect(await manifestFile.exists(), isTrue);
+
+    final manifest = GuidePackage.fromMap(
+      Map<String, Object?>.from(
+        jsonDecode(await manifestFile.readAsString()) as Map,
+      ),
+    );
+    expect(manifest.id, LocalOfflineGuidesService.bundledPackageId);
+
+    for (final entry in manifest.entries) {
+      expect(
+        await File('assets/guides/essential/${entry.relativePath}').exists(),
+        isTrue,
+      );
+    }
+  });
+
   test('installs bundled guide package and loads searchable entries', () async {
     final temp = await Directory.systemTemp.createTemp('guides_test');
     addTearDown(() => temp.delete(recursive: true));
