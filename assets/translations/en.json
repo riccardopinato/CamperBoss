@@ -520,7 +520,7 @@
   "backup_failed": "Backup operation failed: {reason}",
   "backup_cancel": "Cancel operation",
   "backup_cancelled": "Backup cancelled. No incomplete archive was kept.",
-  "common_directions": "Directions",
+  "common_directions": "External directions",
   "common_save": "Save",
   "common_not_available": "N/A",
   "notification_timezone_utc_fallback": "Your device timezone could not be read. Reminders are temporarily scheduled in UTC until the local timezone becomes available.",
@@ -820,5 +820,8 @@
   "travel_history_photo_import_failed": "Photo import failed",
   "map_error_poi_unavailable": "POI data unavailable",
   "map_error_current_location": "Current location unavailable",
-  "map_error_offline_operation": "Offline map operation failed"
+  "map_error_offline_operation": "Offline map operation failed",
+  "map_external_directions_title": "Open external navigation?",
+  "map_external_directions_body": "The external navigation app does not receive CamperBoss vehicle dimensions, weight or camper/HGV restrictions. Use the Trip Planner when you need camper-aware routing.",
+  "map_external_directions_continue": "Open external navigation"
 }
