@@ -812,5 +812,13 @@
   "privacy_provider_maps": "Mapas: OpenFreeMap/OpenStreetMap para visualização online. Downloads offline exigem uma fonte separada aprovada.",
   "privacy_provider_weather": "Meteorologia/geocodificação: Open-Meteo ou endpoint comercial configurado.",
   "privacy_provider_routing": "Routing: apenas proxy/fornecedor aprovado em produção; pontos da rota e dimensões do camper são enviados quando calcula uma rota.",
-  "privacy_provider_mlkit": "Digitalização de documentos/OCR: Google ML Kit on-device em dispositivos Android compatíveis."
+  "privacy_provider_mlkit": "Digitalização de documentos/OCR: Google ML Kit on-device em dispositivos Android compatíveis.",
+  "journal_error_unavailable": "Diário indisponível",
+  "journal_error_save": "Não foi possível guardar a entrada do diário",
+  "journal_error_delete": "Não foi possível eliminar a entrada do diário",
+  "travel_history_gpx_import_failed": "Falha ao importar GPX",
+  "travel_history_photo_import_failed": "Falha ao importar a foto",
+  "map_error_poi_unavailable": "Dados de POI indisponíveis",
+  "map_error_current_location": "Localização atual indisponível",
+  "map_error_offline_operation": "Falha na operação do mapa offline"
 }
