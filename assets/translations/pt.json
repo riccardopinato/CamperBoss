@@ -520,7 +520,7 @@
   "backup_failed": "Backup operation failed: {reason}",
   "backup_cancel": "Cancelar operação",
   "backup_cancelled": "Cópia de segurança cancelada. Nenhum arquivo incompleto foi mantido.",
-  "common_directions": "Direções",
+  "common_directions": "Direções externas",
   "common_save": "Guardar",
   "common_not_available": "N/D",
   "notification_timezone_utc_fallback": "Não foi possível ler o fuso horário do dispositivo. Os lembretes são temporariamente agendados em UTC até o fuso local ficar disponível.",
@@ -820,5 +820,8 @@
   "travel_history_photo_import_failed": "Falha ao importar a foto",
   "map_error_poi_unavailable": "Dados de POI indisponíveis",
   "map_error_current_location": "Localização atual indisponível",
-  "map_error_offline_operation": "Falha na operação do mapa offline"
+  "map_error_offline_operation": "Falha na operação do mapa offline",
+  "map_external_directions_title": "Abrir navegação externa?",
+  "map_external_directions_body": "A aplicação de navegação externa não recebe do CamperBoss as dimensões, o peso nem as restrições para camper/pesados. Use o planeador de viagem quando precisar de routing adaptado ao camper.",
+  "map_external_directions_continue": "Abrir navegação externa"
 }
