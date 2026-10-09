@@ -823,5 +823,6 @@
   "map_error_offline_operation": "Échec de l’opération de carte hors ligne",
   "map_external_directions_title": "Ouvrir la navigation externe ?",
   "map_external_directions_body": "L’application de navigation externe ne reçoit pas les dimensions, le poids ni les restrictions camping-car/poids lourd de CamperBoss. Utilisez le planificateur de voyage pour un itinéraire adapté au camping-car.",
-  "map_external_directions_continue": "Ouvrir la navigation externe"
+  "map_external_directions_continue": "Ouvrir la navigation externe",
+  "backup_failed_safe": "L’opération de sauvegarde a échoué. Vos données locales existantes n’ont pas été modifiées. Réessayez ou inspectez la sauvegarde avant de restaurer."
 }
