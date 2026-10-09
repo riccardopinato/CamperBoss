@@ -823,5 +823,6 @@
   "map_error_offline_operation": "Operazione mappa offline non riuscita",
   "map_external_directions_title": "Aprire la navigazione esterna?",
   "map_external_directions_body": "L'app di navigazione esterna non riceve da CamperBoss dimensioni, peso o restrizioni camper/HGV. Usa il Planner viaggio quando ti serve un percorso camper-aware.",
-  "map_external_directions_continue": "Apri navigazione esterna"
+  "map_external_directions_continue": "Apri navigazione esterna",
+  "backup_failed_safe": "Operazione di backup non riuscita. I dati locali esistenti non sono stati modificati. Riprova oppure verifica il backup prima del ripristino."
 }
