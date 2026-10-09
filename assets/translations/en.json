@@ -823,5 +823,6 @@
   "map_error_offline_operation": "Offline map operation failed",
   "map_external_directions_title": "Open external navigation?",
   "map_external_directions_body": "The external navigation app does not receive CamperBoss vehicle dimensions, weight or camper/HGV restrictions. Use the Trip Planner when you need camper-aware routing.",
-  "map_external_directions_continue": "Open external navigation"
+  "map_external_directions_continue": "Open external navigation",
+  "backup_failed_safe": "Backup operation failed. Your existing local data was not changed. Try again or inspect the backup before restoring."
 }
