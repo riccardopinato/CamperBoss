@@ -483,7 +483,7 @@ class DownloadRecordTile extends StatelessWidget {
               '${(progress * 100).round()}%',
               if (record.speedBytesPerSecond != null)
                 '${_sizeLabel(record.speedBytesPerSecond!)}/s',
-              if (record.lastError != null) record.lastError!,
+              if (record.lastError != null) 'offline_action_failed'.tr(),
             ].join(' - '),
             style: Theme.of(context).textTheme.bodySmall,
           ),
