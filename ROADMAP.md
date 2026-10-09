@@ -683,6 +683,17 @@ Stato software al 06/10/2026:
 - analyze, integration contracts, test/coverage e build platform devono risultare verdi sul medesimo head finale prima del merge;
 - nessun PASS statico sostituisce i gate real-device/store elencati sotto.
 
+Aggiornamento audit 09/10/2026:
+
+- AppLab release 0.2.1+17 ha identificato un P0 reale: `flutter_local_notifications` non trovava `app_notification` nella release finale;
+- candidate hotfix 0.2.2+18 preserva esplicitamente `@drawable/app_notification`, elimina il doppio bootstrap notifiche e verifica la risorsa nella resource table compilata dell'APK;
+- i rerun API 29/API 35 non riproducono piu `invalid_icon` e raggiungono la Home; i primi due fallimenti successivi erano assertion/selector Maestro non allineati alla semantica reale Flutter, ora corretti senza cambiare Product Truth;
+- audit Map/POI ha rimosso nel follow-up il cache POI legacy/non canonico con fallback fittizio `North Italy`; la sorgente canonica resta `LocalOfflinePoiRepository`;
+- le indicazioni POI esterne sono dichiarate esplicitamente non camper-aware; il routing camper/HGV rimane nel Trip Planner;
+- Privacy & Data viene resa raggiungibile da More; errori tecnici raw non vengono piu mostrati sulle superfici auditate;
+- completato un pass di qualita localizzazione su Documenti/OCR, Notifiche, Offline, Backup, Home e safety routing, con regression test contro lunghe copie inglesi nei cataloghi IT/DE/FR/ES/PT;
+- nessuno di questi risultati promuove STEP 16Q a DONE: rete/offline, process-death, storage pressure, performance, accessibilita/visual, Web reale e Play Internal restano evidence gate.
+
 Gate esterni ancora bloccanti:
 
 - Google Play Internal con AAB firmato e SHA-256 della stessa build;
