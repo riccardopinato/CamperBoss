@@ -2,7 +2,6 @@ import 'package:camperboss/core/services/geocoding_service.dart';
 import 'package:camperboss/core/services/maplibre_offline_region_manager.dart';
 import 'package:camperboss/core/state/selected_location.dart';
 import 'package:camperboss/data/models/camper_place.dart';
-import 'package:camperboss/data/repositories/local_poi_cache_repository.dart';
 import 'package:camperboss/features/map/presentation/map_engine_v2_preview_screen.dart';
 import 'package:camperboss/features/map/presentation/map_screen.dart';
 import 'package:flutter/material.dart';
@@ -10,43 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'test_localization.dart';
 
-class FakePoiCacheRepository implements PoiCacheRepository {
-  FakePoiCacheRepository(this.snapshot);
-
-  PoiCacheSnapshot snapshot;
-
-  @override
-  Future<PoiCacheSnapshot> clear() async {
-    snapshot = const PoiCacheSnapshot(
-      region: 'North Italy',
-      itemCount: 0,
-      sizeBytes: 0,
-    );
-    return snapshot;
-  }
-
-  @override
-  Future<PoiCacheSnapshot> loadSnapshot() async => snapshot;
-
-  @override
-  Future<PoiCacheSnapshot> refresh({
-    required String region,
-    required List<CamperPlace> places,
-  }) async {
-    snapshot = PoiCacheSnapshot(
-      region: region,
-      itemCount: places.length,
-      sizeBytes: 2048,
-      updatedAt: DateTime.utc(2026, 6, 14, 10),
-    );
-    return snapshot;
-  }
-}
-
 void main() {
   tearDown(() => selectedLocationController.value = null);
 
-  testWidgets('map filters update POI list and cache controls work', (
+  testWidgets('map filters update the canonical POI list', (
     tester,
   ) async {
     selectedLocationController.value = const GeoLocationResult(
@@ -54,14 +20,6 @@ void main() {
       latitude: 45.6049,
       longitude: 10.6351,
       country: 'Italy',
-    );
-
-    final cacheRepository = FakePoiCacheRepository(
-      const PoiCacheSnapshot(
-        region: 'North Italy',
-        itemCount: 0,
-        sizeBytes: 0,
-      ),
     );
 
     var directionsCount = 0;
@@ -102,7 +60,6 @@ void main() {
         body: SafeArea(
           child: MapScreen(
               places: places,
-              cacheRepository: cacheRepository,
               mapLibreOfflineManager: const _UnsupportedOfflineManager(),
               renderMap: false,
               onOpenDirections: (_) async {
@@ -130,20 +87,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('map-filter-camping')));
     await tester.pumpAndSettle();
     expect(find.text('1 visible'), findsOneWidget);
-
-    final refreshButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Refresh'),
-    );
-    refreshButton.onPressed!.call();
-    await tester.pumpAndSettle();
-    expect(find.textContaining('2 items'), findsOneWidget);
-
-    final deleteButton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Delete'),
-    );
-    deleteButton.onPressed!.call();
-    await tester.pumpAndSettle();
-    expect(find.textContaining('0 items'), findsOneWidget);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('map-filter-camping')),
@@ -190,13 +133,6 @@ void main() {
         body: SafeArea(
           child: MapScreen(
               places: places,
-              cacheRepository: FakePoiCacheRepository(
-                const PoiCacheSnapshot(
-                  region: 'Local package',
-                  itemCount: 1,
-                  sizeBytes: 1024,
-                ),
-              ),
               mapLibreOfflineManager: const _UnsupportedOfflineManager(),
               renderMap: false,
           ),
@@ -228,13 +164,6 @@ void main() {
       tester,
       home: MapScreen(
           places: const [],
-          cacheRepository: FakePoiCacheRepository(
-            const PoiCacheSnapshot(
-              region: 'North Italy',
-              itemCount: 0,
-              sizeBytes: 0,
-            ),
-          ),
           mapLibreOfflineManager: const _UnsupportedOfflineManager(),
           renderMap: false,
       ),
