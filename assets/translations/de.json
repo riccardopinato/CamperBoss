@@ -520,7 +520,7 @@
   "backup_failed": "Backup operation failed: {reason}",
   "backup_cancel": "Vorgang abbrechen",
   "backup_cancelled": "Sicherung abgebrochen. Kein unvollständiges Archiv wurde behalten.",
-  "common_directions": "Route",
+  "common_directions": "Externe Route",
   "common_save": "Speichern",
   "common_not_available": "k. A.",
   "notification_timezone_utc_fallback": "Die Zeitzone des Geräts konnte nicht gelesen werden. Erinnerungen werden vorübergehend in UTC geplant, bis die lokale Zeitzone verfügbar ist.",
@@ -820,5 +820,8 @@
   "travel_history_photo_import_failed": "Fotoimport fehlgeschlagen",
   "map_error_poi_unavailable": "POI-Daten nicht verfügbar",
   "map_error_current_location": "Aktueller Standort nicht verfügbar",
-  "map_error_offline_operation": "Offline-Kartenaktion fehlgeschlagen"
+  "map_error_offline_operation": "Offline-Kartenaktion fehlgeschlagen",
+  "map_external_directions_title": "Externe Navigation öffnen?",
+  "map_external_directions_body": "Die externe Navigations-App erhält keine Fahrzeugmaße, kein Gewicht und keine Camper-/Lkw-Beschränkungen von CamperBoss. Für campergerechtes Routing den Reiseplaner verwenden.",
+  "map_external_directions_continue": "Externe Navigation öffnen"
 }
