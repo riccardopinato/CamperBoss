@@ -80,7 +80,7 @@
   "notification_permission_denied": "Berechtigung verweigert",
   "notification_permission_unavailable": "Berechtigung auf dieser Plattform nicht verfügbar",
   "notification_permission_denied_help": "Benachrichtigungen sind deaktiviert. Aktiviere sie in den Systemeinstellungen, um Erinnerungen zu erhalten.",
-  "routing_camper_warning": "Indicative road route. Always check restrictions, vehicle dimensions, and road signs.",
+  "routing_camper_warning": "Unverbindliche Straßenroute. Prüfe immer Beschränkungen, Fahrzeugmaße und Verkehrszeichen.",
   "nav_offline": "Offline",
   "offline_title": "Offline-Inhalte",
   "offline_subtitle": "Downloadverwaltung für Karten, POI-Datenbanken, Leitfäden, Handbücher, Sprachpakete und Backups.",
