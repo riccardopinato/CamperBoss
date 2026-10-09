@@ -17,10 +17,8 @@ void main() {
       home: MoreHubScreen(reminderCoordinator: coordinator),
     );
 
-    await tester.scrollUntilVisible(
-      find.text('Privacy & data'),
-      300,
-    );
+    await tester.ensureVisible(find.text('Privacy & data'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Privacy & data'));
     await tester.pumpAndSettle();
 
