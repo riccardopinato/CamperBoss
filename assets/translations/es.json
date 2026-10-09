@@ -80,7 +80,7 @@
   "notification_permission_denied": "Permiso denegado",
   "notification_permission_unavailable": "Permiso no disponible en esta plataforma",
   "notification_permission_denied_help": "Las notificaciones están desactivadas. Actívalas en los ajustes del sistema para recibir recordatorios.",
-  "routing_camper_warning": "Indicative road route. Always check restrictions, vehicle dimensions, and road signs.",
+  "routing_camper_warning": "Ruta por carretera orientativa. Comprueba siempre las restricciones, las dimensiones del vehículo y las señales.",
   "nav_offline": "Offline",
   "offline_title": "Contenido sin conexión",
   "offline_subtitle": "Gestor de descargas para mapas, bases de POI, guías, manuales, paquetes de idioma y copias de seguridad.",
