@@ -146,10 +146,13 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.text('External directions').first,
+      find.text('Camping Bella Vista'),
       420,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('External directions').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('External directions').first);
     await tester.pumpAndSettle();
 
