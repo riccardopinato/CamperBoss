@@ -823,5 +823,6 @@
   "map_error_offline_operation": "Offline-Kartenaktion fehlgeschlagen",
   "map_external_directions_title": "Externe Navigation öffnen?",
   "map_external_directions_body": "Die externe Navigations-App erhält keine Fahrzeugmaße, kein Gewicht und keine Camper-/Lkw-Beschränkungen von CamperBoss. Für campergerechtes Routing den Reiseplaner verwenden.",
-  "map_external_directions_continue": "Externe Navigation öffnen"
+  "map_external_directions_continue": "Externe Navigation öffnen",
+  "backup_failed_safe": "Der Backup-Vorgang ist fehlgeschlagen. Deine vorhandenen lokalen Daten wurden nicht verändert. Versuche es erneut oder prüfe das Backup vor der Wiederherstellung."
 }
