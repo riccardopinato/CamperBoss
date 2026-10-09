@@ -21,20 +21,24 @@ class PremiumCard extends StatelessWidget {
     final border = color == null
         ? scheme.outlineVariant.withValues(alpha: 0.72)
         : scheme.outline.withValues(alpha: 0.30);
+    final radius = BorderRadius.circular(16);
 
+    // Material owns both the fill and border so descendant Ink/ListTile widgets
+    // paint onto the correct surface. Keeping a decorated Container between
+    // Material and ListTile hides ink splashes and triggers Flutter assertions.
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      color: background,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: border),
+      ),
       clipBehavior: Clip.antiAlias,
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
-        padding: padding,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border),
+        child: Padding(
+          padding: padding,
+          child: child,
         ),
-        child: child,
       ),
     );
   }
