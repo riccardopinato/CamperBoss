@@ -102,8 +102,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Camping Bella Vista'), findsOneWidget);
     expect(find.text('GPL Service Ovest'), findsOneWidget);
-    await tester.ensureVisible(find.text('Directions').first);
-    await tester.tap(find.text('Directions').first);
+    await tester.ensureVisible(find.text('External directions').first);
+    await tester.tap(find.text('External directions').first);
     await tester.pumpAndSettle();
     expect(directionsCount, 1);
   });
