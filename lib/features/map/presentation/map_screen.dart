@@ -116,7 +116,7 @@ class _MapScreenState extends State<MapScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'map_error_poi_cache_unavailable'.tr());
+      setState(() => _error = 'map_error_poi_unavailable'.tr());
     }
   }
 
@@ -174,9 +174,9 @@ class _MapScreenState extends State<MapScreen> {
       final location = await _locationService.currentLocation();
       if (!mounted) return;
       _selectLocation(location);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = 'map_error_current_location'.tr());
     } finally {
       if (mounted) setState(() => _isLocating = false);
     }
