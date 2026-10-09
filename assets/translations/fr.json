@@ -520,7 +520,7 @@
   "backup_failed": "Backup operation failed: {reason}",
   "backup_cancel": "Annuler l’opération",
   "backup_cancelled": "Sauvegarde annulée. Aucune archive incomplète n’a été conservée.",
-  "common_directions": "Itinéraire",
+  "common_directions": "Itinéraire externe",
   "common_save": "Enregistrer",
   "common_not_available": "N/D",
   "notification_timezone_utc_fallback": "Le fuseau horaire de l'appareil n'a pas pu être lu. Les rappels sont temporairement planifiés en UTC jusqu'à ce que le fuseau local soit disponible.",
@@ -820,5 +820,8 @@
   "travel_history_photo_import_failed": "Échec de l’import de la photo",
   "map_error_poi_unavailable": "Données POI indisponibles",
   "map_error_current_location": "Position actuelle indisponible",
-  "map_error_offline_operation": "Échec de l’opération de carte hors ligne"
+  "map_error_offline_operation": "Échec de l’opération de carte hors ligne",
+  "map_external_directions_title": "Ouvrir la navigation externe ?",
+  "map_external_directions_body": "L’application de navigation externe ne reçoit pas les dimensions, le poids ni les restrictions camping-car/poids lourd de CamperBoss. Utilisez le planificateur de voyage pour un itinéraire adapté au camping-car.",
+  "map_external_directions_continue": "Ouvrir la navigation externe"
 }
