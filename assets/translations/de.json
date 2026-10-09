@@ -812,5 +812,13 @@
   "privacy_provider_maps": "Karten: OpenFreeMap/OpenStreetMap für Online-Darstellung. Offline-Downloads benötigen eine separat genehmigte Quelle.",
   "privacy_provider_weather": "Wetter/Geocoding: Open-Meteo oder ein konfigurierter kommerzieller Endpunkt.",
   "privacy_provider_routing": "Routing: in Produktion nur genehmigter Proxy/Anbieter; Routenpunkte und Campermaße werden beim Berechnen einer Route gesendet.",
-  "privacy_provider_mlkit": "Dokumentscan/OCR: Google ML Kit on-device auf unterstützten Android-Geräten."
+  "privacy_provider_mlkit": "Dokumentscan/OCR: Google ML Kit on-device auf unterstützten Android-Geräten.",
+  "journal_error_unavailable": "Tagebuch nicht verfügbar",
+  "journal_error_save": "Tagebucheintrag konnte nicht gespeichert werden",
+  "journal_error_delete": "Tagebucheintrag konnte nicht gelöscht werden",
+  "travel_history_gpx_import_failed": "GPX-Import fehlgeschlagen",
+  "travel_history_photo_import_failed": "Fotoimport fehlgeschlagen",
+  "map_error_poi_unavailable": "POI-Daten nicht verfügbar",
+  "map_error_current_location": "Aktueller Standort nicht verfügbar",
+  "map_error_offline_operation": "Offline-Kartenaktion fehlgeschlagen"
 }
