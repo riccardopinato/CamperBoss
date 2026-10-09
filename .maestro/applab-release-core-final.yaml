@@ -15,19 +15,19 @@ appId: com.camperboss.camperboss
 - takeScreenshot: "camperboss-16q-home"
 
 - tapOn:
-    text: "^(Map|Mappa|Karte|Carte|Mapa)$"
+    text: "(?s).*Tab 2 of 5.*"
 - takeScreenshot: "camperboss-16q-map"
 
 - tapOn:
-    text: "^(Trips|Viaggi|Reisen|Voyages|Viajes|Viagens)$"
+    text: "(?s).*Tab 3 of 5.*"
 - takeScreenshot: "camperboss-16q-trips"
 
 - tapOn:
-    text: "^(Camper|Camping-car)$"
+    text: "(?s).*Tab 4 of 5.*"
 - takeScreenshot: "camperboss-16q-camper"
 
 - tapOn:
-    text: "^(More|Altro|Mehr|Plus|Más|Mais)$"
+    text: "(?s).*Tab 5 of 5.*"
 - takeScreenshot: "camperboss-16q-more"
 
 - stopApp
