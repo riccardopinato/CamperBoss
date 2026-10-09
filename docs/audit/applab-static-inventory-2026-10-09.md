@@ -118,10 +118,12 @@ configuration gate, not evidence that fake POI should be inserted.
 - Remediation branch relabels this as external navigation and shows a disclosure before hand-off, explicitly directing camper-aware routing to Trip Planner.
 - Status: **PRODUCT-TRUTH FIX IN PR #24 / CI PENDING**.
 
-**P1-03 — Declared multi-language coverage contains substantial English fallback copy**
-- DE/FR/ES/PT contain many strings still identical to the English catalog, including complete functional groups such as Documents, Notifications, Offline and parts of Home.
-- Key/placeholder parity can still be green while translation quality is incomplete.
-- Status: **OPEN — DEDICATED LOCALIZATION COMPLETENESS PASS REQUIRED**.
+**P1-03 — Declared multi-language coverage contained substantial English fallback copy**
+- The audit found large copied-English blocks in DE/FR/ES/PT despite green key/placeholder parity.
+- Remediation translated the affected long-form Documents/OCR, Notifications, Offline, Backup, Home and routing-safety copy without overwriting already-localized values.
+- Added `localization_translation_quality_test.dart`: IT/DE/FR/ES/PT may not ship long user-facing strings identical to EN.
+- Current static check: zero identical EN strings of 18+ characters in all five non-English catalogs.
+- Status: **FIXED IN PR #24 / FULL CI REVALIDATION REQUIRED**.
 
 ### P2
 
@@ -136,11 +138,11 @@ configuration gate, not evidence that fake POI should be inserted.
 - Remediation branch replaces these with localized keys.
 - Status: **FIXED IN PR #24 / CI PENDING**.
 
-**P2-03 — Raw technical exception strings can reach users**
-- Map/MapLibre and parts of Travel History rendered `error.toString()`.
-- Remediation branch replaces the audited Map/MapLibre/Travel History surfaces with localized user-safe states.
-- Other diagnostic/error surfaces remain subject to targeted review rather than blanket suppression.
-- Status: **PARTIALLY FIXED IN PR #24 / FOLLOW-UP AUDIT REMAINS**.
+**P2-03 — Raw technical exception strings could reach users**
+- Map/MapLibre, Travel History, backup recovery/tools and offline download rows exposed raw/internal errors.
+- Remediation replaces those user-facing paths with localized safe states while retaining technical details only in internal service/model evidence where useful for diagnosis.
+- Residual `error.toString()` occurrences are internal OCR/catalog/download diagnostics and are not rendered directly by the audited UI.
+- Status: **FIXED IN PR #24 / FULL CI REVALIDATION REQUIRED**.
 
 ### P3
 
