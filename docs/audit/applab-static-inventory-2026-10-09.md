@@ -101,34 +101,46 @@ configuration gate, not evidence that fake POI should be inserted.
   - `res/raw/keep.xml` keeps `@drawable/app_notification`;
   - duplicate AppShell initialization removed;
   - packaging contract regression test added.
-- Status: **FIXED IN CODE / RUNTIME RETEST REQUIRED**.
+- Release retest on API 29 and API 35 no longer reproduces `invalid_icon`; both lanes reach the Home UI and Maestro.
+- The first retest then failed only because the smoke expected `Boss Readiness` on a clean install, while CamperBoss intentionally hides readiness until enough real data exists. The smoke contract was corrected to use the Home cockpit title instead.
+- Status: **RUNTIME STARTUP FIX VERIFIED; CORRECTED MAESTRO RERUN IN PROGRESS**.
 
 ### P1
 
 **P1-01 — Legacy POI cache is non-canonical and synthesizes "North Italy"**
 - Refresh duplicates existing POI rather than acquiring or representing an
   authoritative package/region.
-- Status: **OPEN**.
+- Remediation branch removes the duplicate cache surface/repository entirely; Map uses the canonical POI repository only.
+- Status: **FIXED IN PR #24 / CI PENDING**.
 
 **P1-02 — Map "Directions" bypasses camper-aware routing**
 - External Google Maps launch does not apply vehicle dimensions/HGV restrictions.
-- Status: **OPEN**.
+- Remediation branch relabels this as external navigation and shows a disclosure before hand-off, explicitly directing camper-aware routing to Trip Planner.
+- Status: **PRODUCT-TRUTH FIX IN PR #24 / CI PENDING**.
+
+**P1-03 — Declared multi-language coverage contains substantial English fallback copy**
+- DE/FR/ES/PT contain many strings still identical to the English catalog, including complete functional groups such as Documents, Notifications, Offline and parts of Home.
+- Key/placeholder parity can still be green while translation quality is incomplete.
+- Status: **OPEN — DEDICATED LOCALIZATION COMPLETENESS PASS REQUIRED**.
 
 ### P2
 
 **P2-01 — Privacy/Data screen exists but is unreachable**
 - Disclosure content is implemented but no current More/navigation entry opens it.
-- Status: **OPEN**.
+- Remediation branch adds a production More entry.
+- Status: **FIXED IN PR #24 / CI PENDING**.
 
-**P2-02 — Localization completeness regression**
-- Journal still exposes hard-coded English error messages.
-- Checklist add failure still exposes `Checklist save failed` directly despite
-  an existing translation key.
-- Status: **OPEN**.
+**P2-02 — Hard-coded runtime failure copy**
+- Journal exposed hard-coded English error messages.
+- Checklist add failure exposed `Checklist save failed` directly despite an existing translation key.
+- Remediation branch replaces these with localized keys.
+- Status: **FIXED IN PR #24 / CI PENDING**.
 
 **P2-03 — Raw technical exception strings can reach users**
-- Map/MapLibre and parts of Travel History can render `error.toString()`.
-- Status: **OPEN**.
+- Map/MapLibre and parts of Travel History rendered `error.toString()`.
+- Remediation branch replaces the audited Map/MapLibre/Travel History surfaces with localized user-safe states.
+- Other diagnostic/error surfaces remain subject to targeted review rather than blanket suppression.
+- Status: **PARTIALLY FIXED IN PR #24 / FOLLOW-UP AUDIT REMAINS**.
 
 ### P3
 
@@ -138,9 +150,9 @@ configuration gate, not evidence that fake POI should be inserted.
 - Status: **OPEN**.
 
 **P3-02 — README offline-platform wording is broader than active implementation**
-- README says native offline regions on Android/iOS while iOS is explicitly
-  deferred and the active offline manager supports Android in the current train.
-- Status: **OPEN / DOC TRUTH**.
+- README said native offline regions on Android/iOS while iOS is explicitly deferred and the active offline manager supports Android in the current train.
+- Remediation branch now states Android-only active support and iOS deferred.
+- Status: **FIXED IN PR #24 / CI PENDING**.
 
 ## Evidence gaps — not product defects
 
