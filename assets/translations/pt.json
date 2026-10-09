@@ -823,5 +823,6 @@
   "map_error_offline_operation": "Falha na operação do mapa offline",
   "map_external_directions_title": "Abrir navegação externa?",
   "map_external_directions_body": "A aplicação de navegação externa não recebe do CamperBoss as dimensões, o peso nem as restrições para camper/pesados. Use o planeador de viagem quando precisar de routing adaptado ao camper.",
-  "map_external_directions_continue": "Abrir navegação externa"
+  "map_external_directions_continue": "Abrir navegação externa",
+  "backup_failed_safe": "A operação de cópia de segurança falhou. Os dados locais existentes não foram alterados. Tente novamente ou inspecione a cópia antes de restaurar."
 }
