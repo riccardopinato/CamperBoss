@@ -108,6 +108,62 @@ void main() {
     expect(directionsCount, 1);
   });
 
+  testWidgets('external POI directions disclose non-camper-aware handoff', (
+    tester,
+  ) async {
+    selectedLocationController.value = const GeoLocationResult(
+      name: 'Lake Garda',
+      latitude: 45.6049,
+      longitude: 10.6351,
+      country: 'Italy',
+    );
+
+    const places = [
+      CamperPlace(
+        name: 'Camping Bella Vista',
+        category: 'camping',
+        type: 'Camping',
+        distance: '12 km',
+        rating: '4.6',
+        tags: [],
+        latitude: 45.623,
+        longitude: 10.728,
+        source: 'Local POI package',
+      ),
+    ];
+
+    await pumpLocalizedHome(
+      tester,
+      home: Scaffold(
+        body: SafeArea(
+          child: MapScreen(
+            places: places,
+            mapLibreOfflineManager: const _UnsupportedOfflineManager(),
+            renderMap: false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('External directions').first,
+      420,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('External directions').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open external navigation?'), findsOneWidget);
+    expect(
+      find.textContaining('does not receive CamperBoss vehicle dimensions'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open external navigation?'), findsNothing);
+  });
+
   testWidgets('map does not invent distance without a real reference point', (
     tester,
   ) async {
