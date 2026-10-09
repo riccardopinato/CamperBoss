@@ -200,6 +200,26 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('map_external_directions_title'.tr()),
+            content: Text('map_external_directions_body'.tr()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text('map_external_directions_continue'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
     final uri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}',
     );
