@@ -812,5 +812,13 @@
   "privacy_provider_maps": "Cartes : OpenFreeMap/OpenStreetMap pour l’affichage en ligne. Les téléchargements hors ligne exigent une source séparée approuvée.",
   "privacy_provider_weather": "Météo/géocodage : Open-Meteo ou un endpoint commercial configuré.",
   "privacy_provider_routing": "Routage : proxy/fournisseur approuvé uniquement en production ; points de route et dimensions du camping-car sont envoyés lors du calcul.",
-  "privacy_provider_mlkit": "Scan de documents/OCR : Google ML Kit sur l’appareil Android compatible."
+  "privacy_provider_mlkit": "Scan de documents/OCR : Google ML Kit sur l’appareil Android compatible.",
+  "journal_error_unavailable": "Journal indisponible",
+  "journal_error_save": "Échec de l’enregistrement du journal",
+  "journal_error_delete": "Échec de la suppression de l’entrée du journal",
+  "travel_history_gpx_import_failed": "Échec de l’import GPX",
+  "travel_history_photo_import_failed": "Échec de l’import de la photo",
+  "map_error_poi_unavailable": "Données POI indisponibles",
+  "map_error_current_location": "Position actuelle indisponible",
+  "map_error_offline_operation": "Échec de l’opération de carte hors ligne"
 }
