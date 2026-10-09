@@ -76,12 +76,21 @@ jobs:
           set -euo pipefail
           APK=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s "$APK"
+
+          # flutter_local_notifications resolves this icon by resource name at
+          # runtime, so a source-only check is insufficient. Verify both the
+          # packaged APK path and the compiled Android resource table.
+          unzip -l "$APK" | grep -Fq 'res/drawable/app_notification.xml'
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 -perm -111 | sort -V | tail -1)"
+          test -x "$AAPT2"
+          "$AAPT2" dump resources "$APK" | grep -Fq 'drawable/app_notification'
+
           mkdir -p build/evidence
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           SIZE=$(stat -c%s "$APK")
           MAX=$((80 * 1024 * 1024))
           test "$SIZE" -le "$MAX"
-          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"maxBytes":%s,"signingClass":"QA_ONLY"}\n' \
+          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"maxBytes":%s,"signingClass":"QA_ONLY","notificationIconPackaged":true}\n' \
             "${{ github.sha }}" "$APK" "$SHA" "$SIZE" "$MAX" > build/evidence/android-qa-release.json
       - name: Upload QA APK and evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
