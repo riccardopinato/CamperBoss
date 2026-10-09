@@ -812,5 +812,13 @@
   "privacy_provider_maps": "Mappe: OpenFreeMap/OpenStreetMap per la visualizzazione online. I download offline richiedono una sorgente separata approvata.",
   "privacy_provider_weather": "Meteo/geocoding: Open-Meteo o endpoint commerciale configurato.",
   "privacy_provider_routing": "Routing: in produzione solo proxy/provider approvato; punti del percorso e dimensioni camper vengono inviati quando calcoli una rotta.",
-  "privacy_provider_mlkit": "Scansione documenti/OCR: Google ML Kit on-device sui dispositivi Android supportati."
+  "privacy_provider_mlkit": "Scansione documenti/OCR: Google ML Kit on-device sui dispositivi Android supportati.",
+  "journal_error_unavailable": "Diario non disponibile",
+  "journal_error_save": "Salvataggio diario non riuscito",
+  "journal_error_delete": "Eliminazione voce diario non riuscita",
+  "travel_history_gpx_import_failed": "Importazione GPX non riuscita",
+  "travel_history_photo_import_failed": "Importazione foto non riuscita",
+  "map_error_poi_unavailable": "Dati POI non disponibili",
+  "map_error_current_location": "Posizione corrente non disponibile",
+  "map_error_offline_operation": "Operazione mappa offline non riuscita"
 }
