@@ -520,7 +520,7 @@
   "backup_failed": "Operazione di backup non riuscita: {reason}",
   "backup_cancel": "Annulla operazione",
   "backup_cancelled": "Backup annullato. Nessun archivio incompleto è stato conservato.",
-  "common_directions": "Indicazioni",
+  "common_directions": "Indicazioni esterne",
   "common_save": "Salva",
   "common_not_available": "N/D",
   "notification_timezone_utc_fallback": "Non è stato possibile leggere il fuso orario del dispositivo. I promemoria vengono temporaneamente pianificati in UTC finché il fuso locale non torna disponibile.",
@@ -820,5 +820,8 @@
   "travel_history_photo_import_failed": "Importazione foto non riuscita",
   "map_error_poi_unavailable": "Dati POI non disponibili",
   "map_error_current_location": "Posizione corrente non disponibile",
-  "map_error_offline_operation": "Operazione mappa offline non riuscita"
+  "map_error_offline_operation": "Operazione mappa offline non riuscita",
+  "map_external_directions_title": "Aprire la navigazione esterna?",
+  "map_external_directions_body": "L'app di navigazione esterna non riceve da CamperBoss dimensioni, peso o restrizioni camper/HGV. Usa il Planner viaggio quando ti serve un percorso camper-aware.",
+  "map_external_directions_continue": "Apri navigazione esterna"
 }
