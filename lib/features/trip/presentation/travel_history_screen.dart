@@ -115,9 +115,9 @@ class _TravelHistoryScreenState extends State<TravelHistoryScreen>
         _stats = bundle.stats;
         _status = 'travel_history_gpx_imported'.tr();
       });
-    } on Exception catch (error) {
+    } on Exception catch (_) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = 'travel_history_gpx_import_failed'.tr());
     }
   }
 
@@ -869,10 +869,10 @@ class _TravelMemoryEditorState extends State<_TravelMemoryEditor> {
         _longitudeController.text = longitude;
         _occurredAt = occurredAt;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(content: Text('travel_history_photo_import_failed'.tr())),
       );
     }
   }

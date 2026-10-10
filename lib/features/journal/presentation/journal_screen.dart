@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/models/journal_entry.dart';
@@ -69,7 +70,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Journal unavailable';
+        _error = 'journal_error_unavailable'.tr();
       });
     }
   }
@@ -99,7 +100,7 @@ class _JournalScreenState extends State<JournalScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Journal save failed');
+      setState(() => _error = 'journal_error_save'.tr());
     }
   }
 
@@ -116,7 +117,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (!mounted) return;
       setState(() {
         _entries = previous;
-        _error = 'Journal delete failed';
+        _error = 'journal_error_delete'.tr();
       });
     }
   }

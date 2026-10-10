@@ -123,9 +123,9 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         _openableOfflineRegionIds = Set.unmodifiable(openable);
         _error = null;
       });
-    } on Object catch (error) {
+    } on Object catch (_) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = 'map_error_offline_operation'.tr());
     }
   }
 
@@ -220,8 +220,8 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         _clustersById = Map<String, MapLibrePoiCluster>.unmodifiable(byId);
         _error = null;
       });
-    } on Object catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } on Object catch (_) {
+      if (mounted) setState(() => _error = 'map_error_offline_operation'.tr());
     } finally {
       _syncingPoi = false;
     }
@@ -305,8 +305,8 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
         setState(() => _offlineProgress = snapshot.progress);
       }
       await _loadOfflineRegions();
-    } on Object catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } on Object catch (_) {
+      if (mounted) setState(() => _error = 'map_error_offline_operation'.tr());
     } finally {
       if (mounted) setState(() => _downloadingOffline = false);
     }
@@ -346,8 +346,8 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       await _offlineManager.delete(region.id);
       await _stateRepository.deleteRegion(region.id);
       await _loadOfflineRegions();
-    } on Object catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } on Object catch (_) {
+      if (mounted) setState(() => _error = 'map_error_offline_operation'.tr());
     }
   }
 
@@ -358,8 +358,8 @@ class _MapEngineV2PreviewScreenState extends State<MapEngineV2PreviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('map_cache_cleared'.tr())),
       );
-    } on Object catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } on Object catch (_) {
+      if (mounted) setState(() => _error = 'map_error_offline_operation'.tr());
     }
   }
 

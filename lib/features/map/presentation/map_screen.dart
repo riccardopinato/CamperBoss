@@ -13,7 +13,6 @@ import '../../../core/services/maplibre_offline_region_manager.dart';
 import '../../../core/state/selected_location.dart';
 import '../../../data/models/camper_place.dart';
 import '../../../data/models/download_models.dart';
-import '../../../data/repositories/local_poi_cache_repository.dart';
 import '../../../data/repositories/map_view_state_repository.dart';
 import '../../../data/repositories/offline_map_repository.dart';
 import '../../../data/repositories/offline_poi_repository.dart';
@@ -22,14 +21,12 @@ import 'map_engine_v2_preview_screen.dart';
 import 'map_place_filters.dart';
 import '../../../shared/widgets/place_card.dart';
 import '../../../shared/widgets/premium_card.dart';
-import '../../../shared/widgets/resource_bar.dart';
 import '../../../shared/widgets/screen_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({
     this.places,
-    this.cacheRepository,
     this.offlineMapRepository,
     this.poiRepository,
     this.mapLibreOfflineManager,
@@ -40,7 +37,6 @@ class MapScreen extends StatefulWidget {
   });
 
   final List<CamperPlace>? places;
-  final PoiCacheRepository? cacheRepository;
 
   /// Retained only for source compatibility with the Step 7 PMTiles path.
   /// Step 16D no longer exposes or activates this legacy renderer.
@@ -66,18 +62,13 @@ class _MapScreenState extends State<MapScreen> {
 
   List<GeoLocationResult> _results = const [];
   late List<CamperPlace> _places = widget.places ?? const <CamperPlace>[];
-  late final PoiCacheRepository _cacheRepository =
-      widget.cacheRepository ?? LocalPoiCacheRepository();
   late final PoiRepository _poiRepository =
       widget.poiRepository ?? LocalOfflinePoiRepository();
   late final Set<String> _activeFilters = {...mapFilterLabels.keys};
 
   bool _isSearching = false;
   bool _isLocating = false;
-  bool _isRefreshingCache = false;
-  bool _isClearingCache = false;
   String? _error;
-  PoiCacheSnapshot? _cacheSnapshot;
 
   @override
   void initState() {
@@ -116,18 +107,16 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadLocalData() async {
     try {
-      final snapshot = await _cacheRepository.loadSnapshot();
       final offlinePlaces = await _poiRepository.listAll();
       if (!mounted) return;
       setState(() {
-        _cacheSnapshot = snapshot;
         if (widget.places == null) {
           _places = offlinePlaces;
         }
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'map_error_poi_cache_unavailable'.tr());
+      setState(() => _error = 'map_error_poi_unavailable'.tr());
     }
   }
 
@@ -185,50 +174,11 @@ class _MapScreenState extends State<MapScreen> {
       final location = await _locationService.currentLocation();
       if (!mounted) return;
       _selectLocation(location);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = 'map_error_current_location'.tr());
     } finally {
       if (mounted) setState(() => _isLocating = false);
-    }
-  }
-
-  Future<void> _refreshCache() async {
-    setState(() {
-      _isRefreshingCache = true;
-      _error = null;
-    });
-
-    try {
-      final snapshot = await _cacheRepository.refresh(
-        region: selectedLocationController.value?.label ?? 'map_custom_area'.tr(),
-        places: _places,
-      );
-      if (!mounted) return;
-      setState(() => _cacheSnapshot = snapshot);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'map_error_cache_refresh'.tr());
-    } finally {
-      if (mounted) setState(() => _isRefreshingCache = false);
-    }
-  }
-
-  Future<void> _clearCache() async {
-    setState(() {
-      _isClearingCache = true;
-      _error = null;
-    });
-
-    try {
-      final snapshot = await _cacheRepository.clear();
-      if (!mounted) return;
-      setState(() => _cacheSnapshot = snapshot);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'map_error_cache_clear'.tr());
-    } finally {
-      if (mounted) setState(() => _isClearingCache = false);
     }
   }
 
@@ -249,6 +199,26 @@ class _MapScreenState extends State<MapScreen> {
       await handler(place);
       return;
     }
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('map_external_directions_title'.tr()),
+            content: Text('map_external_directions_body'.tr()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text('map_external_directions_continue'.tr()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
 
     final uri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}',
@@ -298,7 +268,6 @@ class _MapScreenState extends State<MapScreen> {
         // labels or distance-based sorting.
         final mapCenter = selectedPoint ?? const LatLng(42.5, 12.5);
         final places = _filteredPlaces(selectedPoint);
-        final cacheSnapshot = _cacheSnapshot;
 
         return ScreenScaffold(
           title: 'map_title'.tr(),
@@ -439,74 +408,6 @@ class _MapScreenState extends State<MapScreen> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-            ),
-            const SizedBox(height: 24),
-            PremiumCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ResourceBar(
-                    label: 'map_poi_cache'.tr(),
-                    value: _places.isEmpty
-                        ? 0
-                        : (cacheSnapshot?.itemCount ?? 0) / _places.length,
-                    detail: cacheSnapshot == null
-                        ? 'map_poi_cache_empty'.tr()
-                        : 'map_poi_cache_detail'.tr(
-                            namedArgs: {
-                              'region': cacheSnapshot.region,
-                              'count': cacheSnapshot.itemCount.toString(),
-                              'size': cacheSnapshot.sizeLabel,
-                            },
-                          ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    cacheSnapshot == null
-                        ? 'map_poi_cache_cartography_note'.tr()
-                        : 'map_poi_cache_updated'.tr(
-                            namedArgs: {'updated': cacheSnapshot.updatedLabel},
-                          ),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _isRefreshingCache ? null : _refreshCache,
-                        icon: _isRefreshingCache
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.refresh),
-                        label: Text('common_refresh'.tr()),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _isClearingCache ? null : _clearCache,
-                        icon: _isClearingCache
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.delete_outline),
-                        label: Text('common_delete'.tr()),
-                      ),
-                      IconButton.outlined(
-                        tooltip: 'offline_title'.tr(),
-                        onPressed: _openOfflineContent,
-                        icon: const Icon(Icons.cloud_download_outlined),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 24),
             SectionHeader(title: 'map_filters'.tr()),

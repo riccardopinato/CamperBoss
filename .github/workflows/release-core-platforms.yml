@@ -76,12 +76,23 @@ jobs:
           set -euo pipefail
           APK=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s "$APK"
+
+          # flutter_local_notifications resolves this icon by resource name at
+          # runtime. AAPT may optimize resource file paths inside the ZIP, so
+          # verify the compiled Android resource table rather than a literal
+          # res/drawable filename. Dump first to avoid grep -q/SIGPIPE false
+          # negatives while pipefail is enabled.
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 -perm -111 | sort -V | tail -1)"
+          test -x "$AAPT2"
           mkdir -p build/evidence
+          "$AAPT2" dump resources "$APK" > build/evidence/android-resources.txt
+          grep -Fq 'drawable/app_notification' build/evidence/android-resources.txt
+
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           SIZE=$(stat -c%s "$APK")
           MAX=$((80 * 1024 * 1024))
           test "$SIZE" -le "$MAX"
-          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"maxBytes":%s,"signingClass":"QA_ONLY"}\n' \
+          printf '{"sourceSha":"%s","artifact":"%s","sha256":"%s","bytes":%s,"maxBytes":%s,"signingClass":"QA_ONLY","notificationIconPackaged":true}\n' \
             "${{ github.sha }}" "$APK" "$SHA" "$SIZE" "$MAX" > build/evidence/android-qa-release.json
       - name: Upload QA APK and evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -90,6 +101,7 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/evidence/android-qa-release.json
+            build/evidence/android-resources.txt
           if-no-files-found: error
           retention-days: 30
           compression-level: 0

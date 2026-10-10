@@ -55,22 +55,24 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _initializeReminders();
+    _applyReminderLaunchPayload();
   }
 
-  Future<void> _initializeReminders() async {
-    await _reminderCoordinator.initializeAndReconcile();
+  void _applyReminderLaunchPayload() {
+    // AppSystemServices.initialize() already initializes/reconciles reminders
+    // before CamperBossApp is mounted and deliberately isolates plugin errors
+    // from startup. Do not initialize the notification plugin a second time
+    // from AppShell, otherwise a native/plugin packaging failure can escape as
+    // an unhandled async exception and terminate runtime certification.
     final payload = _reminderCoordinator.consumeLaunchPayload();
-    if (!mounted || payload == null) return;
+    if (payload == null) return;
 
-    setState(() {
-      _index = switch (payload.sourceType) {
-        ReminderSourceType.document => 3,
-        ReminderSourceType.maintenance => 3,
-        ReminderSourceType.booking => 2,
-        ReminderSourceType.custom => 4,
-      };
-    });
+    _index = switch (payload.sourceType) {
+      ReminderSourceType.document => 3,
+      ReminderSourceType.maintenance => 3,
+      ReminderSourceType.booking => 2,
+      ReminderSourceType.custom => 4,
+    };
   }
 
   void _selectDestination(int value) {

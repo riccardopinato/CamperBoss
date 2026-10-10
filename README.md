@@ -22,7 +22,7 @@ The active STEP 16 release-candidate stack contains:
 - SQLite persistence on mobile and local key/value JSON persistence on Web.
 - Private vehicle documents. Native document scanning is Android-only; Android/iOS support image/PDF import and mobile OCR where supported. Web never pretends to provide native document capture.
 - Maintenance history and local reminders.
-- MapLibre as the production renderer; native offline regions on Android/iOS.
+- MapLibre as the production renderer; native offline regions are active on Android in the current release train. iOS remains deferred.
 - Provider-neutral POI catalog/package install path, local repository and filtering. Production source/licensing selection remains a STEP 16O release gate.
 - Open-Meteo weather/geocoding.
 - OpenRouteService routing abstraction with camper-aware HGV restrictions when a valid vehicle profile is available. Production credential architecture is still a release gate.

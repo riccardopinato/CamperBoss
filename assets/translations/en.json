@@ -520,7 +520,7 @@
   "backup_failed": "Backup operation failed: {reason}",
   "backup_cancel": "Cancel operation",
   "backup_cancelled": "Backup cancelled. No incomplete archive was kept.",
-  "common_directions": "Directions",
+  "common_directions": "External directions",
   "common_save": "Save",
   "common_not_available": "N/A",
   "notification_timezone_utc_fallback": "Your device timezone could not be read. Reminders are temporarily scheduled in UTC until the local timezone becomes available.",
@@ -812,5 +812,17 @@
   "privacy_provider_maps": "Maps: OpenFreeMap/OpenStreetMap for online rendering. Offline downloads require an approved separate source.",
   "privacy_provider_weather": "Weather/geocoding: Open-Meteo or a configured commercial endpoint.",
   "privacy_provider_routing": "Routing: approved proxy/provider only in production; route points and camper dimensions are sent when you calculate a route.",
-  "privacy_provider_mlkit": "Document scan/OCR: Google ML Kit on-device on supported Android devices."
+  "privacy_provider_mlkit": "Document scan/OCR: Google ML Kit on-device on supported Android devices.",
+  "journal_error_unavailable": "Journal unavailable",
+  "journal_error_save": "Journal save failed",
+  "journal_error_delete": "Journal delete failed",
+  "travel_history_gpx_import_failed": "GPX import failed",
+  "travel_history_photo_import_failed": "Photo import failed",
+  "map_error_poi_unavailable": "POI data unavailable",
+  "map_error_current_location": "Current location unavailable",
+  "map_error_offline_operation": "Offline map operation failed",
+  "map_external_directions_title": "Open external navigation?",
+  "map_external_directions_body": "The external navigation app does not receive CamperBoss vehicle dimensions, weight or camper/HGV restrictions. Use the Trip Planner when you need camper-aware routing.",
+  "map_external_directions_continue": "Open external navigation",
+  "backup_failed_safe": "Backup operation failed. Your existing local data was not changed. Try again or inspect the backup before restoring."
 }

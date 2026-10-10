@@ -1,6 +1,7 @@
 # STEP 16Q top-level Android runtime smoke.
-# Full data-heavy and no-network certification is orchestrated by AppLab using
-# the companion JSON policies and docs/release/step-16q-certification.md.
+# Clean installs intentionally show the real-data Home cockpit and Guided Setup.
+# Boss Readiness is not rendered until enough real local signals exist, so it
+# must never be used as the first-run reachability sentinel.
 appId: com.camperboss.camperboss
 ---
 - launchApp:
@@ -8,28 +9,33 @@ appId: com.camperboss.camperboss
 
 - extendedWaitUntil:
     visible:
-      text: ".*(Boss Readiness|Prontezza|Bereitschaft|Préparation|Preparación|Preparação).*"
+      text: "^(Camper cockpit|Cockpit camper|Camper-Cockpit|Cockpit du camping-car|Panel del camper|Painel do camper)$"
     timeout: 20000
 
 - takeScreenshot: "camperboss-16q-home"
 
 - tapOn:
-    text: "^(Map|Mappa|Karte|Carte|Mapa)$"
+    text: "(?s).*Tab 2 of 5.*"
 - takeScreenshot: "camperboss-16q-map"
 
 - tapOn:
-    text: "^(Trips|Viaggi|Reisen|Voyages|Viajes|Viagens)$"
+    text: "(?s).*Tab 3 of 5.*"
 - takeScreenshot: "camperboss-16q-trips"
 
 - tapOn:
-    text: "^(Camper|Mezzo|Fahrzeug|Véhicule|Vehículo|Veículo)$"
+    text: "(?s).*Tab 4 of 5.*"
 - takeScreenshot: "camperboss-16q-camper"
 
 - tapOn:
-    text: "^(More|Altro|Mehr|Plus|Más|Mais)$"
+    text: "(?s).*Tab 5 of 5.*"
 - takeScreenshot: "camperboss-16q-more"
 
 - stopApp
 - launchApp:
     clearState: false
+
+- extendedWaitUntil:
+    visible:
+      text: "^(Camper cockpit|Cockpit camper|Camper-Cockpit|Cockpit du camping-car|Panel del camper|Painel do camper)$"
+    timeout: 20000
 - takeScreenshot: "camperboss-16q-relaunch"

@@ -13,6 +13,7 @@ import '../../onboarding/presentation/guided_onboarding_screen.dart';
 import '../../search/presentation/local_search_screen.dart';
 import '../../settings/presentation/language_settings_screen.dart';
 import '../../settings/presentation/notification_settings_screen.dart';
+import '../../settings/presentation/privacy_data_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   MoreHubScreen({
@@ -82,6 +83,15 @@ class MoreHubScreen extends StatelessWidget {
                     coordinator: _reminderCoordinator,
                   ),
                 ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text('privacy_title'.tr()),
+                subtitle: Text('privacy_subtitle'.tr()),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _open(context, const PrivacyDataScreen()),
               ),
               const Divider(height: 1),
               ListTile(

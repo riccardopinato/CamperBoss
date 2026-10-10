@@ -99,11 +99,7 @@ class _RestoreRecoveryGateState extends State<RestoreRecoveryGate> {
                           const Icon(Icons.restore_page_outlined, size: 48),
                           const SizedBox(height: 16),
                           Text(
-                            'backup_failed'.tr(
-                              namedArgs: {
-                                'reason': snapshot.error.toString(),
-                              },
-                            ),
+                            'backup_failed_safe'.tr(),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 20),

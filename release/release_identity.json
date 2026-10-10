@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "packageName": "com.camperboss.camperboss",
-  "versionName": "0.2.1",
-  "versionCode": 17,
-  "previousVersionCode": 16,
+  "versionName": "0.2.2",
+  "versionCode": 18,
+  "previousVersionCode": 17,
   "channel": "internal",
   "sourceOfTruth": "pubspec.yaml"
 }

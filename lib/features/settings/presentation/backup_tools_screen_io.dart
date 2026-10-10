@@ -218,12 +218,10 @@ class _BackupToolsScreenState extends State<BackupToolsScreen> {
     } on BackupCancelledException {
       if (!mounted) return;
       setState(() => _status = 'backup_cancelled'.tr());
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _status = 'backup_failed'.tr(
-          namedArgs: {'reason': error.toString()},
-        );
+        _status = 'backup_failed_safe'.tr();
       });
     } finally {
       if (mounted) {

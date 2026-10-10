@@ -138,7 +138,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
         setState(() => _items = [..._items, saved]);
       } catch (_) {
         if (!mounted) return;
-        setState(() => _error = 'Checklist save failed');
+        setState(() => _error = 'checklist_error_save'.tr());
       }
     } else {
       await _saveAndReplace(result.copyWith(id: item.id));
