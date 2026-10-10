@@ -103,7 +103,8 @@ configuration gate, not evidence that fake POI should be inserted.
   - packaging contract regression test added.
 - Release retest on API 29 and API 35 no longer reproduces `invalid_icon`; both lanes reach the Home UI and Maestro.
 - The first retest then failed only because the smoke expected `Boss Readiness` on a clean install, while CamperBoss intentionally hides readiness until enough real data exists. The smoke contract was corrected to use the Home cockpit title instead.
-- Status: **RUNTIME STARTUP FIX VERIFIED; CORRECTED MAESTRO RERUN IN PROGRESS**.
+- Final AppLab r3 run `37928499130` PASS on trusted API 29 and API 35 verification, including Home → Map → Trips → Camper → More and relaunch.
+- Status: **FIXED + TRUSTED RUNTIME VERIFIED**.
 
 ### P1
 
@@ -111,38 +112,38 @@ configuration gate, not evidence that fake POI should be inserted.
 - Refresh duplicates existing POI rather than acquiring or representing an
   authoritative package/region.
 - Remediation branch removes the duplicate cache surface/repository entirely; Map uses the canonical POI repository only.
-- Status: **FIXED IN PR #24 / CI PENDING**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 **P1-02 — Map "Directions" bypasses camper-aware routing**
 - External Google Maps launch does not apply vehicle dimensions/HGV restrictions.
 - Remediation branch relabels this as external navigation and shows a disclosure before hand-off, explicitly directing camper-aware routing to Trip Planner.
-- Status: **PRODUCT-TRUTH FIX IN PR #24 / CI PENDING**.
+- Status: **PRODUCT-TRUTH FIX IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 **P1-03 — Declared multi-language coverage contained substantial English fallback copy**
 - The audit found large copied-English blocks in DE/FR/ES/PT despite green key/placeholder parity.
 - Remediation translated the affected long-form Documents/OCR, Notifications, Offline, Backup, Home and routing-safety copy without overwriting already-localized values.
 - Added `localization_translation_quality_test.dart`: IT/DE/FR/ES/PT may not ship long user-facing strings identical to EN.
 - Current static check: zero identical EN strings of 18+ characters in all five non-English catalogs.
-- Status: **FIXED IN PR #24 / FULL CI REVALIDATION REQUIRED**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 ### P2
 
 **P2-01 — Privacy/Data screen exists but is unreachable**
 - Disclosure content is implemented but no current More/navigation entry opens it.
 - Remediation branch adds a production More entry.
-- Status: **FIXED IN PR #24 / CI PENDING**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 **P2-02 — Hard-coded runtime failure copy**
 - Journal exposed hard-coded English error messages.
 - Checklist add failure exposed `Checklist save failed` directly despite an existing translation key.
 - Remediation branch replaces these with localized keys.
-- Status: **FIXED IN PR #24 / CI PENDING**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 **P2-03 — Raw technical exception strings could reach users**
 - Map/MapLibre, Travel History, backup recovery/tools and offline download rows exposed raw/internal errors.
 - Remediation replaces those user-facing paths with localized safe states while retaining technical details only in internal service/model evidence where useful for diagnosis.
 - Residual `error.toString()` occurrences are internal OCR/catalog/download diagnostics and are not rendered directly by the audited UI.
-- Status: **FIXED IN PR #24 / FULL CI REVALIDATION REQUIRED**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 ### P3
 
@@ -154,16 +155,16 @@ configuration gate, not evidence that fake POI should be inserted.
 **P3-02 — README offline-platform wording is broader than active implementation**
 - README said native offline regions on Android/iOS while iOS is explicitly deferred and the active offline manager supports Android in the current train.
 - Remediation branch now states Android-only active support and iOS deferred.
-- Status: **FIXED IN PR #24 / CI PENDING**.
+- Status: **FIXED IN PR #24 / FINAL CI REVALIDATION IN PROGRESS**.
 
 ## Evidence gaps — not product defects
 
 These are certification gates and must not be counted as code PASS/FAIL without
 execution:
 
-- release API 35 retest on 0.2.2+18;
-- release API 29 retest;
-- Maestro journey after successful launch;
+- release API 35 retest on 0.2.2+18: **PASS** in AppLab run `37928499130`;
+- release API 29 retest: **PASS** in AppLab run `37928499130`;
+- top-level Maestro Home/Map/Trips/Camper/More/relaunch: **PASS** in AppLab run `37928499130`;
 - notification permission + immediate test + scheduled reminder delivery;
 - network/offline transitions;
 - persistence + process death/recovery;
@@ -176,5 +177,4 @@ execution:
 
 ## No false closure
 
-Do not emit STEP 16Q CERTIFIED while P0-01 has not passed release runtime and
-the applicable external gates remain without evidence.
+P0-01 has passed trusted release runtime on API 29/API 35. Do not emit STEP 16Q CERTIFIED while the remaining applicable physical, Web and distribution gates lack evidence.
