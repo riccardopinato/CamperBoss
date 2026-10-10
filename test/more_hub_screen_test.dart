@@ -25,7 +25,7 @@ void main() {
     expect(find.byType(PrivacyDataScreen), findsOneWidget);
     expect(find.text('Privacy & data'), findsWidgets);
     expect(
-      find.textContaining('stays on the device'),
+      find.textContaining('stays on your device'),
       findsWidgets,
     );
   });
