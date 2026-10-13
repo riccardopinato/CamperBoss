@@ -125,7 +125,7 @@ Production monetization is deferred. The current release candidate does not expo
 
 ## Repository governance
 
-The latest Master Prompt / Golden Rules govern reuse, data safety, review, delivery and certification. See `AGENTS.md`, `ROADMAP.md`, `docs/governance/` and `docs/release/`.
+App Factory rules are resolved deterministically from `riccardopinato/App-Factory-Core/CURRENT.yaml`; chat memory does not select the Factory baseline. See `AGENTS.md`, `ROADMAP.md`, `docs/governance/` and `docs/release/`.
 
 
 ## Current platform scope
