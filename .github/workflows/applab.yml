@@ -1,0 +1,35 @@
+name: AppLab Production Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  applab:
+    uses: riccardopinato/AppLab/.github/workflows/external-project-runner.yml@931c124dbb1a36d43842db5b60bd5f04843e5330
+    with:
+      repository: riccardopinato/CamperBoss
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      source_ref: ${{ github.head_ref || github.ref_name }}
+      working_directory: "."
+      flutter_version: "3.47.6"
+      java_version: "21"
+      api_level: "35"
+      emulator_profile: pixel_7_pro
+      apk_path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+      package_id: com.camperboss.camperboss
+      build_command: flutter build apk --release --target-platform android-arm64 --split-per-abi
+      run_maestro: true
+      maestro_flow: .maestro/applab-release-core-final.yaml
+      history_key: camperboss
+      cache_verification: false
+      config_fingerprint: camperboss-golden-applab-v1
+      analysis_mode: full
+      publish_release_artifact: false
