@@ -4,6 +4,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('release evidence uses the checked-out commit, not the synthetic PR merge', () {
+    final release = File('.github/workflows/release-core-platforms.yml').readAsStringSync();
+    final quality = File('.github/workflows/flutter-ci.yml').readAsStringSync();
+    final guard = File('tool/ci/release_guard.py').readAsStringSync();
+    expect(release, contains(r'"$(git rev-parse HEAD)" "$APK"'));
+    expect(release, contains(r'"$(git rev-parse HEAD)" "$TOTAL"'));
+    expect(release, contains(r'name: camperboss-qa-arm64-release-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(release, contains(r'name: camperboss-web-release-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(quality, contains(r'name: camperboss-ci-evidence-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(guard, contains('def checked_out_source_sha() -> str:'));
+    expect(guard, isNot(contains('os.getenv("GITHUB_SHA"')));
+  });
+
   test('AppLab Golden integration stays immutable and fail-closed', () {
     final workflow = File('.github/workflows/applab.yml').readAsStringSync();
     final config = jsonDecode(
