@@ -17,6 +17,12 @@ void main() {
         '931c124dbb1a36d43842db5b60bd5f04843e5330',
       ),
     );
+    // Every PR must keep a source-only gate; APK runtime is explicit/manual.
+    expect(workflow, contains('  applab:\\n'));
+    expect(workflow, contains('python3 tool/ci/release_guard.py identity'));
+    expect(workflow, contains('python3 tool/ci/release_guard.py trust-boundaries'));
+    expect(workflow, contains('  applab-runtime:\\n'));
+    expect(workflow, contains(r"if: ${{ github.event_name == 'workflow_dispatch' }}"));
     expect(workflow, contains('analysis_mode: full'));
     expect(workflow, contains('flutter_version: "3.47.6"'));
     expect(workflow, contains('java_version: "21"'));
