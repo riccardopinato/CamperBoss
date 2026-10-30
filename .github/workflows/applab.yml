@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          # Validate the immutable PR source HEAD, not refs/pull/*/merge.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Verify source and release identity
         run: python3 tool/ci/release_guard.py identity
