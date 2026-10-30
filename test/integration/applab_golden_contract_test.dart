@@ -4,6 +4,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('release evidence uses the checked-out commit, not the synthetic PR merge', () {
+    final release = File('.github/workflows/release-core-platforms.yml').readAsStringSync();
+    final quality = File('.github/workflows/flutter-ci.yml').readAsStringSync();
+    final guard = File('tool/ci/release_guard.py').readAsStringSync();
+    expect(release, contains(r'"$(git rev-parse HEAD)" "$APK"'));
+    expect(release, contains(r'"$(git rev-parse HEAD)" "$TOTAL"'));
+    expect(release, contains(r'name: camperboss-qa-arm64-release-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(release, contains(r'name: camperboss-web-release-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(quality, contains(r'name: camperboss-ci-evidence-${{ github.event.pull_request.head.sha || github.sha }}'));
+    expect(guard, contains('def checked_out_source_sha() -> str:'));
+    expect(guard, isNot(contains('os.getenv("GITHUB_SHA"')));
+  });
+
   test('AppLab Golden integration stays immutable and fail-closed', () {
     final workflow = File('.github/workflows/applab.yml').readAsStringSync();
     final config = jsonDecode(
@@ -17,6 +30,12 @@ void main() {
         '931c124dbb1a36d43842db5b60bd5f04843e5330',
       ),
     );
+    // Every PR must keep a source-only gate; APK runtime is explicit/manual.
+    expect(workflow, contains('  applab:'));
+    expect(workflow, contains('python3 tool/ci/release_guard.py identity'));
+    expect(workflow, contains('python3 tool/ci/release_guard.py trust-boundaries'));
+    expect(workflow, contains('  applab-runtime:'));
+    expect(workflow, contains(r"if: ${{ github.event_name == 'workflow_dispatch' }}"));
     expect(workflow, contains('analysis_mode: full'));
     expect(workflow, contains('flutter_version: "3.47.6"'));
     expect(workflow, contains('java_version: "21"'));

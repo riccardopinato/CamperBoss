@@ -61,6 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup Flutter
@@ -110,7 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: camperboss-ci-evidence-${{ github.sha }}
+          name: camperboss-ci-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             build/evidence/
             coverage/lcov.info
@@ -126,6 +127,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Ruby and locked Fastlane
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8

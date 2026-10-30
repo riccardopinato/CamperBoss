@@ -1,4 +1,6 @@
 name: AppLab Production Gate
+# Preserve the existing named PR gate; source-only by default.
+# FULL trusted APK/runtime requires explicit workflow_dispatch.
 
 on:
   pull_request:
@@ -13,6 +15,22 @@ permissions:
 
 jobs:
   applab:
+    name: Source identity and trust contracts (no APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # Validate the immutable PR source HEAD, not refs/pull/*/merge.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify source and release identity
+        run: python3 tool/ci/release_guard.py identity
+      - name: Verify source trust boundaries
+        run: python3 tool/ci/release_guard.py trust-boundaries
+
+  applab-runtime:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: riccardopinato/AppLab/.github/workflows/external-project-runner.yml@931c124dbb1a36d43842db5b60bd5f04843e5330
     with:
       repository: riccardopinato/CamperBoss

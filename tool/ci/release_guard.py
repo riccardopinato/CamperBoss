@@ -31,6 +31,19 @@ def write_report(name: str, payload: dict) -> None:
     print(f"Wrote {path.relative_to(ROOT)}")
 
 
+def checked_out_source_sha() -> str:
+    """Bind source evidence to the commit actually checked out, not the PR merge ref."""
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as error:
+        fail(f"unable to resolve checked-out source commit: {error}")
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        fail("checked-out source commit is not a full SHA")
+    return sha
+
+
 def read_pubspec_version() -> tuple[str, int]:
     text = (ROOT / "pubspec.yaml").read_text(encoding="utf-8")
     match = re.search(r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$", text, re.MULTILINE)
@@ -71,7 +84,7 @@ def identity() -> None:
     write_report(
         "release-identity.json",
         {
-            "sourceSha": os.getenv("GITHUB_SHA", "local"),
+            "sourceSha": checked_out_source_sha(),
             "versionName": version_name,
             "versionCode": version_code,
             "previousVersionCode": previous,
@@ -160,7 +173,7 @@ def supply_chain() -> None:
     ruby_lock_ok = "fastlane (2.240.1)" in gem_lock and "  4.0.22" in gem_lock
 
     report = {
-        "sourceSha": os.getenv("GITHUB_SHA", "local"),
+        "sourceSha": checked_out_source_sha(),
         "packageCount": len(audited),
         "packages": audited,
         "disallowedSources": disallowed_sources,
@@ -340,7 +353,7 @@ def trust_boundaries() -> None:
         findings.append({"type": "unexpected_large_tracked_files", "files": large_public_files})
 
     report = {
-        "sourceSha": os.getenv("GITHUB_SHA", "local"),
+        "sourceSha": checked_out_source_sha(),
         "findings": findings,
         "status": "PASS" if not findings else "FAIL",
     }
