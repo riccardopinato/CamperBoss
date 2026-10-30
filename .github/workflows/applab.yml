@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
       - name: Verify source and release identity
         run: python3 tool/ci/release_guard.py identity
       - name: Verify source trust boundaries
