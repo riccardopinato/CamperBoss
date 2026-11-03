@@ -60,6 +60,24 @@ void main() {
     );
   });
 
+  test('rejects non-finite GPX coordinates in tracks and waypoints', () async {
+    const invalid = <String>['NaN', 'Infinity', '-Infinity'];
+    for (final coordinate in invalid) {
+      for (final element in <String>[
+        '<trk><trkseg><trkpt lat="$coordinate" lon="10"/></trkseg></trk>',
+        '<trk><trkseg><trkpt lat="45" lon="$coordinate"/></trkseg></trk>',
+        '<wpt lat="$coordinate" lon="10"/>',
+        '<wpt lat="45" lon="$coordinate"/>',
+      ]) {
+        await expectLater(
+          service.parse('<gpx version="1.1">$element</gpx>'),
+          throwsA(isA<GpxValidationException>()),
+          reason: 'Non-finite coordinate: $element',
+        );
+      }
+    }
+  });
+
   test('exports track and can reimport it', () async {
     const source = '''
 <gpx version="1.1" creator="test">
