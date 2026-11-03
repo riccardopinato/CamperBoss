@@ -214,6 +214,8 @@ GeoPoint _parsePoint(XmlElement element) {
   final longitude = double.tryParse(element.getAttribute('lon') ?? '');
   if (latitude == null ||
       longitude == null ||
+      !latitude.isFinite ||
+      !longitude.isFinite ||
       latitude < -90 ||
       latitude > 90 ||
       longitude < -180 ||
