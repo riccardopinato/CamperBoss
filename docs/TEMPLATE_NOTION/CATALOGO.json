@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "application": "CamperBoss",
+  "repository": "riccardopinato/CamperBoss",
+  "catalogue_type": "public_research_index",
+  "updated_at": "2026-11-09",
+  "master_reference": "riccardopinato/Idee-app-Archivi-riferimenti/17-RICERCA-TEMPLATE-UX",
+  "entries": [
+    {
+      "id": "TN-CAMPERBOSS-0001",
+      "master_ref": "TPLUX-REF-0011",
+      "title": "Trip Planner",
+      "evidence_level": "E2_EXPORT_STRUCTURE_VERIFIED",
+      "app_fit": "SECONDARY_ADAPTED",
+      "notes": "Solo camper/vanlife: tratte, tappe, budget e packing con compatibilità offline e owner attuali; niente clone del diario Wonderlog.",
+      "product_status": "RESEARCH_ONLY",
+      "implementation_status": "NOT_IMPLEMENTED_FROM_THIS_SOURCE",
+      "reuse_mode": "CLEAN_ROOM_APP_NATIVE",
+      "source_audit_url": "https://github.com/riccardopinato/Idee-app-Archivi-riferimenti/blob/main/17-RICERCA-TEMPLATE-UX/LOTTO_NOTION_2026_11_09_12_ZIP.md"
+    }
+  ]
+}

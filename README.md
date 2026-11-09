@@ -131,3 +131,8 @@ App Factory rules are resolved deterministically from `riccardopinato/App-Factor
 ## Current platform scope
 
 For the current release train, Android is the native production target and Web is the verification/companion target. iOS is explicitly deferred until a future product decision. iOS failures do not block STEP 16 or release certification, and Apple StoreKit / iOS IAP integration is out of scope. Android monetization, when introduced, will use the Google Play path only.
+
+
+## Template Notion (ricerca)
+
+[Catalogo per CamperBoss](docs/TEMPLATE_NOTION/README.md). Non sono template Notion installati né funzionalità di vendita attivate.
