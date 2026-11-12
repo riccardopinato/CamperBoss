@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:factory_profile_kit/factory_profile_kit.dart' as kit;
+import 'package:camperboss/factory_kits/profile/factory_profile_kit.dart' as kit;
 
 /// X10-026: only tests pure Dart source compatibility on CamperBoss's actual SDK.
 /// CamperBoss vehicle persistence and current blocked roadmap are unchanged.
